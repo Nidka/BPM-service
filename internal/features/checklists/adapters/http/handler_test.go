@@ -2,7 +2,9 @@ package checklisthttp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/Nidka/BPM-service/internal/features/checklists/domain"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -77,5 +79,12 @@ func TestProtectedChecklistRoutes(t *testing.T) {
 				t.Fatal("leaked infrastructure error")
 			}
 		})
+	}
+}
+
+func TestLegacyReceiptReturnsEvidenceCountsObject(t *testing.T) {
+	body, err := json.Marshal(run(domain.Run{}))
+	if err != nil || !strings.Contains(string(body), `"evidenceCounts":{}`) {
+		t.Fatal("reintento anterior a multimedia debe mantener objeto JSON", err, string(body))
 	}
 }

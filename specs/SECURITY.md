@@ -46,7 +46,7 @@ La política de 8 horas, inactividad, revocación y publicación está en
 - MIME, tamaño y SHA-256 se validan antes de firmar.
 - PUT/GET firmados duran entre 1 y 15 minutos; el valor recomendado es 5 minutos.
 - La aplicación móvil nunca recibe las credenciales S3/R2.
-- El backend hará `HEAD` antes de marcar `media_files.status=AVAILABLE`.
+- El backend realiza HEAD y lectura acotada con MIME real, decodificación y SHA-256 de los bytes antes de marcar `media_files.status=AVAILABLE`; no confía en la metadata aportada por el cliente. Ver [MEDIA.md](MEDIA.md).
 
 ## Secretos y registros
 

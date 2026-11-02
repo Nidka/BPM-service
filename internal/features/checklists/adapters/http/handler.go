@@ -89,27 +89,31 @@ func (v answerDTO) domain() domain.Answer {
 }
 
 type runDTO struct {
-	AssignmentID      string      `json:"assignmentId,omitempty"`
-	PerformedByName   string      `json:"performedByName"`
-	TemplateName      string      `json:"templateName"`
-	LocationName      string      `json:"locationName"`
-	CreatedAt         time.Time   `json:"createdAt"`
-	ID                string      `json:"id"`
-	OrganizationID    string      `json:"organizationId"`
-	LocationID        string      `json:"locationId"`
-	TemplateVersionID string      `json:"templateVersionId"`
-	PerformedBy       string      `json:"performedBy"`
-	ClientOperationID string      `json:"clientOperationId"`
-	ClientCreatedAt   time.Time   `json:"clientCreatedAt"`
-	Status            string      `json:"status"`
-	RowVersion        int         `json:"rowVersion"`
-	CompliancePercent *float64    `json:"compliancePercent,omitempty"`
-	SubmittedAt       *time.Time  `json:"submittedAt,omitempty"`
-	Items             []itemDTO   `json:"items"`
-	Answers           []answerDTO `json:"answers"`
+	AssignmentID      string         `json:"assignmentId,omitempty"`
+	PerformedByName   string         `json:"performedByName"`
+	TemplateName      string         `json:"templateName"`
+	LocationName      string         `json:"locationName"`
+	CreatedAt         time.Time      `json:"createdAt"`
+	ID                string         `json:"id"`
+	OrganizationID    string         `json:"organizationId"`
+	LocationID        string         `json:"locationId"`
+	TemplateVersionID string         `json:"templateVersionId"`
+	PerformedBy       string         `json:"performedBy"`
+	ClientOperationID string         `json:"clientOperationId"`
+	ClientCreatedAt   time.Time      `json:"clientCreatedAt"`
+	Status            string         `json:"status"`
+	RowVersion        int            `json:"rowVersion"`
+	CompliancePercent *float64       `json:"compliancePercent,omitempty"`
+	SubmittedAt       *time.Time     `json:"submittedAt,omitempty"`
+	Items             []itemDTO      `json:"items"`
+	Answers           []answerDTO    `json:"answers"`
+	EvidenceCounts    map[string]int `json:"evidenceCounts"`
 }
 
 func run(v domain.Run) runDTO {
+	if v.EvidenceCounts == nil {
+		v.EvidenceCounts = map[string]int{}
+	}
 	items := make([]itemDTO, 0, len(v.Items))
 	for _, i := range v.Items {
 		items = append(items, item(i))
@@ -119,7 +123,7 @@ func run(v domain.Run) runDTO {
 		answers = append(answers, answerDTO{a.ItemID, a.ComplianceResult, a.TextValue, a.Observation, a.NumericValue})
 	}
 	return runDTO{v.AssignmentID, v.PerformedByName, v.TemplateName, v.LocationName, v.CreatedAt, v.ID, v.OrganizationID, v.LocationID, v.TemplateVersionID, v.PerformedBy,
-		v.ClientOperationID, v.ClientCreatedAt, v.Status, v.RowVersion, v.CompliancePercent, v.SubmittedAt, items, answers}
+		v.ClientOperationID, v.ClientCreatedAt, v.Status, v.RowVersion, v.CompliancePercent, v.SubmittedAt, items, answers, v.EvidenceCounts}
 }
 
 func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {

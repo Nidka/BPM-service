@@ -163,3 +163,11 @@ Pruebas: límites y roles, período diario/semanal/mensual/ONCE, zona local y DS
 idéntica, conflicto de programación, fecha cliente manipulada, guardado después
 de desactivar y dos clientes concurrentes: un solo borrador por período.
 PostgreSQL aislado bpm_test, vet y race; sin datos de prueba en producción.
+
+## Fotos por pregunta
+
+El editor permite exigir una foto ante No cumple o medición fuera de límites.
+La finalización cuenta solo evidencias AVAILABLE de esa pregunta; guardar
+respuestas conserva sus IDs y las asociaciones multimedia. Lectura, carga,
+confirmación y retiro se describen en [MEDIA.md](MEDIA.md). `evidenceCounts`
+acompaña la lectura de la revisión; no es un campo de escritura.

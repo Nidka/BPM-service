@@ -69,7 +69,8 @@ El catálogo publicado ya tiene paginación y detalle autorizado independiente.
 - Endpoints: `POST /media/uploads`, `POST /media/{id}/confirm`,
   `POST /media/{id}/download`.
 - Flujo: validar tenant/sede/MIME/tamaño/hash, crear `PENDING_UPLOAD`, firmar PUT,
-  comprobar con HEAD y marcar `AVAILABLE`.
+  comprobar HEAD, bytes acotados, formato y SHA-256 real antes de marcar `AVAILABLE`.
+- Entrega por pregunta y reglas completas: [MEDIA.md](MEDIA.md).
 - Regla crítica: clave generada en servidor bajo
   `organizations/{org}/locations/{location}/media/...`; nunca URL pública.
 - Pruebas: objeto ajeno, MIME/tamaño incorrecto, checksum diferente, URL vencida

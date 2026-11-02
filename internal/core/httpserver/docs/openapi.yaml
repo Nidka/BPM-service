@@ -17,6 +17,8 @@ tags:
     description: Espacio de trabajo, sedes y equipo con permisos por organización.
   - name: Checklists
     description: Plantillas publicadas y ejecuciones sincronizables por sede.
+  - name: Multimedia
+    description: Fotos privadas por pregunta, autorizadas por organización y sede.
 paths:
   /health:
     get:
@@ -828,6 +830,156 @@ paths:
                 properties:
                   data: {$ref: "#/components/schemas/ChecklistRun"}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/checklist-runs/{runID}/items/{itemID}/evidence:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: runID
+        required: true
+        schema: {type: string, format: uuid}
+      - in: path
+        name: itemID
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      tags: [Multimedia]
+      operationId: listChecklistEvidence
+      summary: Consultar fotos y política de una pregunta
+      description: >-
+        Requiere usuario y correo verificados, membresía y sede activas.
+        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
+        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Resultado autorizado; no contiene claves de almacenamiento ni URLs públicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/EvidenceList"}
+        default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/organizations/{organizationID}/media/uploads:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    post:
+      tags: [Multimedia]
+      operationId: reserveChecklistPhoto
+      summary: Reservar una foto para carga directa privada
+      description: >-
+        Requiere usuario y correo verificados, membresía y sede activas.
+        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
+        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/EvidenceUpload"}
+      responses:
+        "200":
+          description: Resultado autorizado; no contiene claves de almacenamiento ni URLs públicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/EvidenceReservation"}
+        default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/organizations/{organizationID}/media/{mediaID}/confirm:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: mediaID
+        required: true
+        schema: {type: string, format: uuid}
+    post:
+      tags: [Multimedia]
+      operationId: confirmChecklistPhoto
+      summary: Comprobar bytes y confirmar la foto
+      description: >-
+        Requiere usuario y correo verificados, membresía y sede activas.
+        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
+        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/EmptyObject"}
+      responses:
+        "200":
+          description: Resultado autorizado; no contiene claves de almacenamiento ni URLs públicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/EvidenceFile"}
+        default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/organizations/{organizationID}/media/{mediaID}/download:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: mediaID
+        required: true
+        schema: {type: string, format: uuid}
+    post:
+      tags: [Multimedia]
+      operationId: downloadChecklistPhoto
+      summary: Autorizar lectura privada temporal
+      description: >-
+        Requiere usuario y correo verificados, membresía y sede activas.
+        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
+        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/EmptyObject"}
+      responses:
+        "200":
+          description: Resultado autorizado; no contiene claves de almacenamiento ni URLs públicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/EvidenceTicket"}
+        default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/organizations/{organizationID}/media/{mediaID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: mediaID
+        required: true
+        schema: {type: string, format: uuid}
+    delete:
+      tags: [Multimedia]
+      operationId: removeChecklistPhoto
+      summary: Retirar lógicamente una foto de un borrador propio
+      description: >-
+        Requiere usuario y correo verificados, membresía y sede activas.
+        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
+        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Resultado autorizado; no contiene claves de almacenamiento ni URLs públicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/EvidenceFile"}
+        default: {$ref: "#/components/responses/MediaError"}
 components:
   parameters:
     PageSize:
@@ -873,6 +1025,15 @@ components:
       bearerFormat: Firebase ID token
       description: ID token emitido por Firebase Authentication.
   responses:
+    MediaError:
+      description: >-
+        400 INVALID_REQUEST; 401 UNAUTHENTICATED; 403 ACCESS_DENIED o correo sin verificar;
+        404 NOT_FOUND; 409 RESOURCE_CONFLICT o UPLOAD_NOT_READY (aún no existe objeto);
+        422 VALIDATION_ERROR, MEDIA_CONTENT_INVALID (FAILED) o MEDIA_LIMIT_REACHED;
+        503 MEDIA_UNAVAILABLE; 500 INTERNAL_ERROR sanitizado.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorResponse"}
     InvalidPagination:
       description: 400 INVALID_PAGINATION; cursor mal formado, contexto distinto o parámetros inválidos/repetidos/desconocidos. Reiniciar la lista con cursor vacío.
       content:
@@ -1050,6 +1211,10 @@ components:
         answers:
           type: array
           items: {$ref: "#/components/schemas/ChecklistAnswer"}
+        evidenceCounts:
+          type: object
+          description: Recuento confirmado AVAILABLE por UUID de pregunta, calculado por servidor.
+          additionalProperties: {type: integer, minimum: 0, maximum: 3}
     WorkspaceOrganization:
       type: object
       additionalProperties: false
@@ -1240,3 +1405,71 @@ components:
           type: object
           additionalProperties:
             type: string
+
+    EmptyObject:
+      type: object
+      additionalProperties: false
+    EvidenceUpload:
+      type: object
+      additionalProperties: false
+      required: [id, runId, itemId, originalName, mimeType, sizeBytes, sha256]
+      properties:
+        id: {type: string, format: uuid, description: "Reutilizar UUID y metadatos en cada reintento."}
+        runId: {type: string, format: uuid}
+        itemId: {type: string, format: uuid}
+        originalName: {type: string, minLength: 1, maxLength: 200, description: "Sin rutas ni caracteres de control."}
+        mimeType: {type: string, enum: [image/jpeg, image/png]}
+        sizeBytes: {type: integer, format: int64, minimum: 1, maximum: 26214400}
+        sha256: {type: string, pattern: '^[0-9a-fA-F]{64}$'}
+    EvidenceFile:
+      type: object
+      additionalProperties: false
+      required: [id, runId, itemId, originalName, mimeType, sizeBytes, status, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        runId: {type: string, format: uuid}
+        itemId: {type: string, format: uuid}
+        originalName: {type: string, maxLength: 200}
+        mimeType: {type: string, enum: [image/jpeg, image/png]}
+        sizeBytes: {type: integer, format: int64}
+        status: {type: string, enum: [PENDING_UPLOAD, AVAILABLE, FAILED, DELETED]}
+        createdAt: {type: string, format: date-time}
+        uploadedAt: {type: string, format: date-time, nullable: true}
+    EvidenceTicket:
+      type: object
+      additionalProperties: false
+      required: [url, headers, expiresAt]
+      description: >-
+        Credencial temporal. No persistir, registrar, compartir ni enviar el Bearer a R2.
+        PUT debe usar headers devueltos, incluidos If-None-Match y Content-Type.
+        Un 412 exige confirmar la reserva antes de decidir otro envío. Descarga solo AVAILABLE.
+      properties:
+        url: {type: string, format: uri}
+        headers:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string}
+        expiresAt: {type: string, format: date-time}
+    EvidenceReservation:
+      type: object
+      required: [file, upload]
+      properties:
+        file: {$ref: "#/components/schemas/EvidenceFile"}
+        upload:
+          nullable: true
+          allOf: [{$ref: "#/components/schemas/EvidenceTicket"}]
+    EvidenceList:
+      type: object
+      required: [files, maxBytes, allowedMimeTypes, maxFiles, uploadAvailable]
+      properties:
+        files:
+          type: array
+          maxItems: 3
+          items: {$ref: "#/components/schemas/EvidenceFile"}
+        maxBytes: {type: integer, format: int64, minimum: 1048576, maximum: 26214400}
+        allowedMimeTypes:
+          type: array
+          items: {type: string, enum: [image/jpeg, image/png]}
+        maxFiles: {type: integer, enum: [3]}
+        uploadAvailable: {type: boolean}

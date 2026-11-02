@@ -33,6 +33,7 @@ type Item struct {
 }
 
 type Run struct {
+	EvidenceCounts                                                 map[string]int
 	AssignmentID                                                   string
 	TemplateName, LocationName, PerformedByName                    string
 	CreatedAt                                                      time.Time

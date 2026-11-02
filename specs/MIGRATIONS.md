@@ -45,3 +45,11 @@ sesiones. Debe aplicarse antes de desplegar el backend que la exige; consultar
 [SESSIONS.md](SESSIONS.md). Los volúmenes Docker ya existentes no ejecutan scripts
 de inicialización nuevos automáticamente: aplicar V2 una vez en la base local
 correspondiente. No borrar volúmenes con datos para forzar la inicialización.
+
+## Evidencias de controles (V4)
+
+`V4__checklist_evidence_items.sql` sustituye el vínculo de evidencia a respuesta
+por pregunta, preservando las asociaciones existentes. Aplicar una sola vez
+después de V2, antes del backend que la exige; consultar [MEDIA.md](MEDIA.md).
+V3 local de capacitación permanece fuera de esta entrega. No ejecutar el
+baseline de nuevo ni incluir borradores de migraciones en el despliegue.
