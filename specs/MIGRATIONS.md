@@ -53,3 +53,11 @@ por pregunta, preservando las asociaciones existentes. Aplicar una sola vez
 después de V2, antes del backend que la exige; consultar [MEDIA.md](MEDIA.md).
 V3 local de capacitación permanece fuera de esta entrega. No ejecutar el
 baseline de nuevo ni incluir borradores de migraciones en el despliegue.
+
+## Operación diaria (V5)
+
+`V5__daily_operations.sql` agrega criterio térmico, instantáneas de recepción,
+hashes e índices de operación diaria. Aplicar después de V4 y antes del backend
+que exige este esquema. Comprobar antes los lotes duplicados por ítem siguiendo
+[OPERATIONS.md](OPERATIONS.md); no se eliminan datos antiguos automáticamente.
+V3 local de capacitación sigue fuera de esta entrega.

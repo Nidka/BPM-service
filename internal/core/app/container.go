@@ -14,6 +14,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/identity"
 	"github.com/Nidka/BPM-service/internal/features/media"
+	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -54,6 +55,10 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := operations.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
 	if cfg.Firebase.Enabled {
 		container.TokenVerifier, err = firebaseauth.New(ctx, cfg.Firebase)
 		if err != nil {
@@ -88,6 +93,7 @@ func NewContainer(
 			organizations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			checklists.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
+			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

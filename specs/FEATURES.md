@@ -78,13 +78,19 @@ El catálogo publicado ya tiene paginación y detalle autorizado independiente.
 
 ## 4. Operación diaria
 
+Estado: recorrido estructurado implementado para catálogos, criterio térmico,
+recepciones, lectura PEPS y planes/ejecuciones de limpieza. Contrato, permisos,
+legado y activación V5 en [OPERATIONS.md](OPERATIONS.md). Fotos de limpieza,
+consumo/descarte, turnos y cola offline de nuevas operaciones siguen pendientes.
+
 - Tablas: `suppliers`, `products`, `supply_receipts`, `supply_receipt_items`,
   `storage_lots`, `cleaning_plans`, `cleaning_executions`, `cleaning_media`.
 - Subdominios internos: recepción de insumos, almacenamiento/PEPS y limpieza.
 - Casos de uso: mantener catálogos, recibir lote, decidir aceptación, consultar
   vencimientos, programar limpieza y registrar ejecución.
-- Permisos: `ADMIN` configura; `CHEF` supervisa; `WORKER` ejecuta tareas de sedes
-  asignadas.
+- Permisos: `ADMIN` configura y supervisa; `CHEF` recibe insumos, consulta PEPS y
+  realiza limpieza; `WORKER` ejecuta limpieza en sedes asignadas y solo consulta
+  sus propias ejecuciones.
 - Offline: recepciones y ejecuciones usan UUID, idempotencia y evidencias
   posteriores al dato estructurado.
 - Pruebas: temperatura/decisión, lote duplicado, vencimiento, sede ajena y

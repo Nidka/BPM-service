@@ -31,8 +31,8 @@ modular: mantiene bajo el costo operativo sin perder separación interna.
 - PostgreSQL está creado en Railway.
 - La API base compila, abre un pool, expone `/health` y `/ready` y termina de
   forma controlada.
-- Firebase verifica sesiones; R2 tiene adaptador configurable, todavía sin
-  endpoints de carga de evidencias.
+- Firebase verifica sesiones; multimedia privada tiene reserva de carga,
+  confirmación y descarga por pregunta de control. Activación R2 y alcance en MEDIA.md.
 - Existe middleware de seguridad, logs estructurados, Sentry opcional, Docker,
   Railway y CI.
 - Identidad/tenancy ya implementa el primer recorrido autenticado
@@ -41,6 +41,9 @@ modular: mantiene bajo el costo operativo sin perder separación interna.
   consultar un espacio de trabajo autorizado.
 - Checklists permite publicar una primera versión, descargar catálogo,
   sincronizar respuestas de borrador y enviar con puntaje calculado en servidor.
+- Operación diaria implementa catálogos, criterio térmico, recepción de insumos,
+  consulta PEPS y planes/ejecuciones de limpieza con permisos por rol/sede.
+  Requiere V5 antes de desplegar; límites y pendientes en OPERATIONS.md.
 
 ## Flujo de una solicitud
 

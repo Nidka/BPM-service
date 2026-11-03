@@ -19,6 +19,8 @@ tags:
     description: Plantillas publicadas y ejecuciones sincronizables por sede.
   - name: Multimedia
     description: Fotos privadas por pregunta, autorizadas por organización y sede.
+  - name: Operación diaria
+    description: Recepción, lotes PEPS y limpieza por sede autorizada.
 paths:
   /health:
     get:
@@ -980,6 +982,483 @@ paths:
                 properties:
                   data: {$ref: "#/components/schemas/EvidenceFile"}
         default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/organizations/{organizationID}/suppliers:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationSuppliers
+      summary: Consultar proveedores
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationSupplier"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createOperationSupplier
+      summary: Registrar proveedores
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationSupplier"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationSupplier"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/products:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationProducts
+      summary: Consultar productos
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationProduct"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createOperationProduct
+      summary: Registrar productos
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationProductInput"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationProduct"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/supply-receipts:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationReceipts
+      summary: Consultar recepciones
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - in: query
+          name: locationId
+          required: true
+          schema: {type: string, format: uuid}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationReceipt"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createOperationReceipt
+      summary: Registrar recepciones
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationReceiptInput"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationReceipt"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/storage-lots:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationLots
+      summary: Consultar lotes en orden PEPS de llegada
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - in: query
+          name: locationId
+          required: true
+          schema: {type: string, format: uuid}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationLot"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/cleaning-plans:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationPlans
+      summary: Consultar planes de limpieza
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - in: query
+          name: locationId
+          required: true
+          schema: {type: string, format: uuid}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationPlan"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createOperationPlan
+      summary: Registrar planes de limpieza
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationPlanInput"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationPlan"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/cleaning-executions:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listOperationExecutions
+      summary: Consultar ejecuciones de limpieza
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - in: query
+          name: locationId
+          required: true
+          schema: {type: string, format: uuid}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items: {$ref: "#/components/schemas/OperationExecution"}
+                  pagination:
+                    type: object
+                    required: [nextPageToken]
+                    properties:
+                      nextPageToken: {type: string}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createOperationExecution
+      summary: Registrar ejecuciones de limpieza
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationExecutionInput"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationExecution"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/products/{productID}/temperature-policy:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: productID
+        required: true
+        schema: {type: string, format: uuid}
+    put:
+      tags: [Operación diaria]
+      operationId: updateOperationTemperaturePolicy
+      summary: Configurar criterio de temperatura con control de versión
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/OperationTemperaturePolicy"}
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationProduct"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/supply-receipts/{receiptID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: receiptID
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      tags: [Operación diaria]
+      operationId: getOperationReceipt
+      summary: Consultar recepción y productos confirmados
+      security: [{FirebaseBearer: []}]
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationReceipt"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/cleaning-executions/{executionID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - in: path
+        name: executionID
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      tags: [Operación diaria]
+      operationId: getOperationCleaningExecution
+      summary: Consultar ejecución de limpieza confirmada
+      security: [{FirebaseBearer: []}]
+      description: >-
+        Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
+        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
+        la identidad del reintento. No admite parámetros ni campos desconocidos.
+      responses:
+        "200":
+          description: Registro o página autorizada; sin campos internos ni hash.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: "#/components/schemas/OperationExecution"}
+        default: {$ref: "#/components/responses/WorkspaceError"}
 components:
   parameters:
     PageSize:
@@ -1473,3 +1952,195 @@ components:
           items: {type: string, enum: [image/jpeg, image/png]}
         maxFiles: {type: integer, enum: [3]}
         uploadAvailable: {type: boolean}
+
+    OperationSupplier:
+      type: object
+      additionalProperties: false
+      required: ["id", "name"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        name: {"type": "string", "maxLength": 200, "minLength": 2}
+        taxId: {"type": "string", "maxLength": 20}
+        contactName: {"type": "string", "maxLength": 160}
+        contactPhone: {"type": "string", "maxLength": 30}
+        contactEmail: {"type": "string", "maxLength": 320}
+        address: {"type": "string", "maxLength": 300}
+    OperationProductInput:
+      type: object
+      additionalProperties: false
+      required: ["id", "name", "unit", "requiresTemperature"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        name: {"type": "string", "maxLength": 200, "minLength": 2}
+        category: {"type": "string", "maxLength": 100}
+        unit: {"type": "string", "maxLength": 24, "minLength": 1}
+        requiresTemperature: {"type": "boolean"}
+        minimumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        maximumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+    OperationTemperaturePolicy:
+      type: object
+      additionalProperties: false
+      required: ["rowVersion", "requiresTemperature"]
+      properties:
+        rowVersion: {"type": "integer", "minimum": 1}
+        requiresTemperature: {"type": "boolean"}
+        minimumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        maximumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+    OperationReceiptItemInput:
+      type: object
+      additionalProperties: false
+      required: ["id", "productId", "batchCode", "quantity", "decision", "packagingCondition"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        productId: {"type": "string", "format": "uuid"}
+        batchCode: {"type": "string", "maxLength": 100, "minLength": 1}
+        expirationDate: {"type": "string", "format": "date", "nullable": true}
+        quantity: {"type": "string", "maxLength": 13, "pattern": "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,3})?$", "description": "Decimal exacto con hasta tres decimales; mayor que cero en una recepción."}
+        temperatureCelsius: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        decision: {"type": "string", "enum": ["ACCEPTED", "REJECTED", "OBSERVED"]}
+        rejectionReason: {"type": "string", "maxLength": 2000}
+        packagingCondition: {"type": "string", "enum": ["INTACT", "DAMAGED"]}
+        storageLocation: {"type": "string", "maxLength": 120}
+        label: {"type": "string", "maxLength": 160}
+    OperationReceiptInput:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "supplierId", "receivedAt", "clientOperationId", "clientCreatedAt", "items"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        supplierId: {"type": "string", "format": "uuid"}
+        receivedAt: {"type": "string", "format": "date-time"}
+        documentReference: {"type": "string", "maxLength": 100}
+        notes: {"type": "string", "maxLength": 2000}
+        clientOperationId: {"type": "string", "format": "uuid"}
+        clientCreatedAt: {"type": "string", "format": "date-time"}
+        items: {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/OperationReceiptItemInput"}}
+    OperationLot:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "receiptItemId", "productId", "productName", "unit", "batchCode", "expirationDate", "receivedAt", "storageLocation", "label", "quantityAvailable", "status", "expired"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        receiptItemId: {"type": "string", "format": "uuid"}
+        productId: {"type": "string", "format": "uuid"}
+        productName: {"type": "string", "maxLength": 200}
+        unit: {"type": "string", "maxLength": 24}
+        batchCode: {"type": "string", "maxLength": 100}
+        expirationDate: {"type": "string", "format": "date", "nullable": true}
+        receivedAt: {"type": "string", "format": "date-time"}
+        storageLocation: {"type": "string", "maxLength": 120}
+        label: {"type": "string", "maxLength": 160}
+        quantityAvailable: {"type": "string", "maxLength": 13, "pattern": "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,3})?$", "description": "Decimal exacto con hasta tres decimales; mayor que cero en una recepción."}
+        status: {"type": "string", "enum": ["AVAILABLE", "CONSUMED", "DISCARDED"]}
+        expired: {"type": "boolean"}
+    OperationPlanInput:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "area", "task", "frequency"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        area: {"type": "string", "maxLength": 100, "minLength": 2}
+        task: {"type": "string", "maxLength": 240, "minLength": 2}
+        instructions: {"type": "string", "maxLength": 2000}
+        productName: {"type": "string", "maxLength": 160}
+        frequency: {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY"]}
+        dueTime: {"type": "string", "maxLength": 5, "description": "Vacío o HH:mm, hora local de la sede."}
+    OperationExecutionInput:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "cleaningPlanId", "executedAt", "result", "clientOperationId", "clientCreatedAt"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        cleaningPlanId: {"type": "string", "format": "uuid"}
+        executedAt: {"type": "string", "format": "date-time"}
+        result: {"type": "string", "enum": ["COMPLETED", "NOT_COMPLETED", "OBSERVED"]}
+        observation: {"type": "string", "maxLength": 2000}
+        clientOperationId: {"type": "string", "format": "uuid"}
+        clientCreatedAt: {"type": "string", "format": "date-time"}
+    OperationProduct:
+      type: object
+      additionalProperties: false
+      required: ["id", "name", "category", "unit", "requiresTemperature", "minimumTemperature", "maximumTemperature", "rowVersion"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        name: {"type": "string", "maxLength": 200, "minLength": 2}
+        category: {"type": "string", "maxLength": 100}
+        unit: {"type": "string", "maxLength": 24, "minLength": 1}
+        requiresTemperature: {"type": "boolean"}
+        minimumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        maximumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        rowVersion: {"type": "integer", "minimum": 1}
+    OperationReceiptItem:
+      type: object
+      additionalProperties: false
+      required: ["id", "productId", "batchCode", "expirationDate", "quantity", "temperatureCelsius", "decision", "rejectionReason", "packagingCondition", "storageLocation", "label", "productName", "unit", "minimumTemperature", "maximumTemperature"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        productId: {"type": "string", "format": "uuid"}
+        batchCode: {"type": "string", "maxLength": 100}
+        expirationDate: {"type": "string", "format": "date", "nullable": true}
+        quantity: {"type": "string", "maxLength": 13, "pattern": "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,3})?$", "description": "Decimal exacto con hasta tres decimales; mayor que cero en una recepción."}
+        temperatureCelsius: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        decision: {"type": "string", "enum": ["ACCEPTED", "REJECTED", "OBSERVED"]}
+        rejectionReason: {"type": "string", "maxLength": 2000}
+        packagingCondition: {"type": "string", "nullable": true, "enum": ["INTACT", "DAMAGED", null]}
+        storageLocation: {"type": "string", "maxLength": 120}
+        label: {"type": "string", "maxLength": 160}
+        productName: {"type": "string", "maxLength": 200}
+        unit: {"type": "string", "maxLength": 24}
+        minimumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+        maximumTemperature: {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01, "nullable": true}
+    OperationReceipt:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "supplierId", "receivedAt", "documentReference", "notes", "clientOperationId", "clientCreatedAt", "items", "supplierName", "receivedBy", "receivedByName", "createdAt"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        supplierId: {"type": "string", "format": "uuid"}
+        receivedAt: {"type": "string", "format": "date-time"}
+        documentReference: {"type": "string", "maxLength": 100}
+        notes: {"type": "string", "maxLength": 2000}
+        clientOperationId: {"type": "string", "format": "uuid"}
+        clientCreatedAt: {"type": "string", "format": "date-time"}
+        items: {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/OperationReceiptItem"}}
+        supplierName: {"type": "string", "maxLength": 200}
+        receivedBy: {"type": "string", "maxLength": 128}
+        receivedByName: {"type": "string", "maxLength": 200}
+        createdAt: {"type": "string", "format": "date-time"}
+    OperationPlan:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "area", "task", "instructions", "productName", "frequency", "dueTime", "active"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        area: {"type": "string", "maxLength": 100, "minLength": 2}
+        task: {"type": "string", "maxLength": 240, "minLength": 2}
+        instructions: {"type": "string", "maxLength": 2000}
+        productName: {"type": "string", "maxLength": 160}
+        frequency: {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY"]}
+        dueTime: {"type": "string", "maxLength": 5, "description": "Vacío o HH:mm, hora local de la sede."}
+        active: {"type": "boolean"}
+    OperationExecution:
+      type: object
+      additionalProperties: false
+      required: ["id", "locationId", "cleaningPlanId", "executedAt", "result", "observation", "clientOperationId", "clientCreatedAt", "area", "task", "responsibleUserId", "responsibleName", "createdAt"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        cleaningPlanId: {"type": "string", "format": "uuid"}
+        executedAt: {"type": "string", "format": "date-time"}
+        result: {"type": "string", "enum": ["COMPLETED", "NOT_COMPLETED", "OBSERVED"]}
+        observation: {"type": "string", "maxLength": 2000}
+        clientOperationId: {"type": "string", "format": "uuid"}
+        clientCreatedAt: {"type": "string", "format": "date-time"}
+        area: {"type": "string", "maxLength": 100}
+        task: {"type": "string", "maxLength": 240}
+        responsibleUserId: {"type": "string", "maxLength": 128}
+        responsibleName: {"type": "string", "maxLength": 200}
+        createdAt: {"type": "string", "format": "date-time"}
