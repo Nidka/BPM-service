@@ -98,6 +98,12 @@ consumo/descarte, turnos y cola offline de nuevas operaciones siguen pendientes.
 
 ## 5. Incidencias y acciones correctivas
 
+Estado: catálogo versionado, reporte por sede, asignación, atención, corrección,
+validación independiente e historial implementados. Fotos privadas antes/después
+reutilizan media; contrato, permisos, legado y activación V6 en
+[INCIDENTS.md](INCIDENTS.md). Constancia interna y notificaciones corresponden a
+los módulos posteriores; no se emiten certificados en esta entrega.
+
 - Tablas: `incident_catalog`, `incidents`, `corrective_actions`,
   `incident_media`.
 - Casos de uso: registrar incidencia, asignar responsable, iniciar/resolver,

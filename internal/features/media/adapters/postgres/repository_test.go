@@ -204,6 +204,99 @@ func TestPrivateEvidencePostgres(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='media.upload.reserved'`, org).Scan(&reservations); err != nil || reservations != 4 {
 		t.Fatal("auditoría duplicada", reservations, err)
 	}
+
+	t.Run("evidencia de incidencia separada por etapa y acción", func(t *testing.T) {
+		exec(`DELETE FROM membership_locations WHERE organization_id=$1 AND user_id='chef2' AND location_id=$2`, org, loc)
+		exec(`UPDATE organization_memberships SET status='ACTIVE' WHERE organization_id=$1 AND user_id='chef'`, org)
+		catalog := "91000000-0000-0000-0000-000000000001"
+		incident := "92000000-0000-0000-0000-000000000001"
+		action := "93000000-0000-0000-0000-000000000001"
+		exec(`INSERT INTO incident_catalog(id,organization_id,code,name,area,normative_criterion,risk_level) VALUES($1,$2,'TEST','Criterio de prueba','Cocina','Referencia ficticia','HIGH')`, catalog, org)
+		exec(`INSERT INTO incidents(id,organization_id,location_id,catalog_id,reported_by,description,client_operation_id,client_created_at) VALUES($1,$2,$3,$4,'worker','Descripción ficticia',$1,NOW())`, incident, org, loc, catalog)
+		before := domain.UploadInput{ID: "94000000-0000-0000-0000-000000000001", IncidentID: incident, Stage: "BEFORE", OriginalName: "antes.png", MIMEType: "image/png", SizeBytes: 20, SHA256: strings.Repeat("a", 64)}
+		if _, e := files.Reserve(ctx, "worker", org, before); e != nil {
+			t.Fatal("foto inicial", e)
+		}
+		if _, e := files.Confirm(ctx, "worker", org, before.ID); e != nil {
+			t.Fatal("confirmar inicial", e)
+		}
+		for n := 2; n <= 4; n++ {
+			id := fmt.Sprintf("95000000-0000-0000-0000-%012d", n)
+			exec(`INSERT INTO media_files(id,organization_id,location_id,object_key,storage_url,original_name,mime_type,size_bytes,sha256,status,uploaded_at) VALUES($1,$2,$3,$4,$5,'legado.png','image/png',20,$6,'AVAILABLE',NOW())`, id, org, loc, "legacy/"+id, "r2://legacy/"+id, strings.Repeat("a", 64))
+			exec(`INSERT INTO incident_media(organization_id,incident_id,media_file_id,stage) VALUES($1,$2,$3,'BEFORE')`, org, incident, id)
+		}
+		legacy, e := files.ListIncident(ctx, "worker", org, incident, "", "BEFORE")
+		if e != nil || len(legacy.Files) != 4 || legacy.Policy.MaxFiles != 3 {
+			t.Fatal("ocultó fotos legadas", legacy, e)
+		}
+		extra := before
+		extra.ID = "94000000-0000-0000-0000-000000000099"
+		if _, e := files.Reserve(ctx, "worker", org, extra); !errors.Is(e, domain.ErrLimit) {
+			t.Fatal("relajó límite de alta", e)
+		}
+
+		if _, e := files.ListIncident(ctx, "chef2", org, incident, "", "BEFORE"); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("sede ajena", e)
+		}
+		if _, e := files.ListIncident(ctx, "outside", org, incident, "", "BEFORE"); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("tenant ajeno", e)
+		}
+		exec(`INSERT INTO corrective_actions(id,organization_id,incident_id,responsible_user_id,description,due_at,status) VALUES($1,$2,$3,'worker','Corregir',NOW()+INTERVAL '1 day','IN_PROGRESS')`, action, org, incident)
+		exec(`UPDATE incidents SET status='IN_PROGRESS' WHERE organization_id=$1 AND id=$2`, org, incident)
+		after := before
+		after.ID = "94000000-0000-0000-0000-000000000002"
+		after.Stage = "AFTER"
+		after.ActionID = action
+		after.OriginalName = "después.png"
+		if _, e := files.Reserve(ctx, "admin", org, after); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("supervisor fabricó corrección", e)
+		}
+		if _, e := files.Reserve(ctx, "worker", org, after); e != nil {
+			t.Fatal("foto de corrección", e)
+		}
+		if _, e := files.Confirm(ctx, "worker", org, after.ID); e != nil {
+			t.Fatal(e)
+		}
+		list, e := files.ListIncident(ctx, "admin", org, incident, action, "AFTER")
+		if e != nil || len(list.Files) != 1 || list.Files[0].ActionID != action || list.Files[0].IncidentID != incident || list.Files[0].RunID != "" {
+			t.Fatal("mezcló destinos", list, e)
+		}
+		bad := after
+		bad.ID = before.ID
+		if _, e := files.Reserve(ctx, "worker", org, bad); !errors.Is(e, domain.ErrConflict) {
+			t.Fatal("reutilizó foto inicial como posterior", e)
+		}
+		exec(`UPDATE incidents SET status='CLOSED',closed_at=NOW() WHERE organization_id=$1 AND id=$2`, org, incident)
+		if _, e := files.Remove(ctx, "worker", org, after.ID); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("retiró evidencia de cierre", e)
+		}
+		if _, e := files.Download(ctx, "admin", org, after.ID); e != nil {
+			t.Fatal("historial de fotos inaccesible", e)
+		}
+		exec(`UPDATE checklist_runs SET status='DRAFT' WHERE organization_id=$1 AND id=$2`, org, run)
+		exec(`INSERT INTO checklist_media(organization_id,checklist_run_id,checklist_item_id,media_file_id) VALUES($1,$2,$3,$4)`, org, run, item, after.ID)
+		if _, e := files.Remove(ctx, "chef", org, after.ID); !errors.Is(e, domain.ErrNotFound) {
+			t.Fatal("retiró evidencia cerrada mediante otro destino", e)
+		}
+		exec(`DELETE FROM checklist_media WHERE organization_id=$1 AND media_file_id=$2`, org, after.ID)
+
+		exec(`UPDATE incidents SET reported_by='chef' WHERE organization_id=$1 AND id=$2`, org, incident)
+		exec(`UPDATE corrective_actions SET status='CANCELLED' WHERE organization_id=$1 AND id=$2`, org, action)
+		historical, e := files.ListIncident(ctx, "worker", org, incident, "", "BEFORE")
+		if e != nil || len(historical.Files) != 4 {
+			t.Fatal("responsable histórico perdió acceso", historical, e)
+		}
+		exec(`UPDATE media_files SET location_id=$3 WHERE organization_id=$1 AND id=$2`, org, after.ID, otherLoc)
+		wrong, e := files.ListIncident(ctx, "worker", org, incident, action, "AFTER")
+		if e != nil || len(wrong.Files) != 0 {
+			t.Fatal("listó foto física de otra sede", wrong, e)
+		}
+		if _, e := files.Download(ctx, "worker", org, after.ID); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("descargó foto ajena", e)
+		}
+
+	})
+
 }
 
 type testObjects struct{}

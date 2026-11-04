@@ -61,3 +61,11 @@ hashes e índices de operación diaria. Aplicar después de V4 y antes del backe
 que exige este esquema. Comprobar antes los lotes duplicados por ítem siguiendo
 [OPERATIONS.md](OPERATIONS.md); no se eliminan datos antiguos automáticamente.
 V3 local de capacitación sigue fuera de esta entrega.
+
+## Incidencias (V6)
+
+`V6__incidents.sql` añade catálogo versionado e historial inmutable, versión
+optimista y recibos privados de comandos. Aplicar después de V5, antes de la API
+que exige este esquema. Revisar el preflight de [INCIDENTS.md](INCIDENTS.md); no
+borrar ni fusionar acciones o asociaciones históricas automáticamente. V3 local
+de capacitación continúa fuera del despliegue.

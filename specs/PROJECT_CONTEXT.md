@@ -45,6 +45,10 @@ modular: mantiene bajo el costo operativo sin perder separación interna.
   consulta PEPS y planes/ejecuciones de limpieza con permisos por rol/sede.
   Requiere V5 antes de desplegar; límites y pendientes en OPERATIONS.md.
 
+- Incidencias permite reportar, asignar una corrección y validar su cierre por
+  otra persona con fotos privadas antes/después e historial. Requiere V6; leer
+  INCIDENTS.md.
+
 ## Flujo de una solicitud
 
 ```text

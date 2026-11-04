@@ -17,8 +17,10 @@ tags:
     description: Espacio de trabajo, sedes y equipo con permisos por organización.
   - name: Checklists
     description: Plantillas publicadas y ejecuciones sincronizables por sede.
+  - name: Incidencias
+    description: Criterios versionados, atención, evidencia privada y verificación por sede.
   - name: Multimedia
-    description: Fotos privadas por pregunta, autorizadas por organización y sede.
+    description: Fotos privadas por pregunta o incidencia, autorizadas por organización y sede.
   - name: Operación diaria
     description: Recepción, lotes PEPS y limpieza por sede autorizada.
 paths:
@@ -562,35 +564,395 @@ paths:
                   pagination: {$ref: "#/components/schemas/Pagination"}
         "400": {$ref: "#/components/responses/InvalidPagination"}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/incident-catalog:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    get:
+      tags:
+      - Incidencias
+      operationId: listIncidentCatalog
+      summary: Listar últimas versiones del catálogo
+      description: Todos los roles con membresía activa. Última versión por código; página
+        de 25 por defecto y máximo 100. No contiene normativa de ejemplo.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/PageSize"
+      - "$ref": "#/components/parameters/PageToken"
+      - "$ref": "#/components/parameters/SearchQuery"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentCatalogPage"
+        '400':
+          "$ref": "#/components/responses/InvalidPagination"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+    post:
+      tags:
+      - Incidencias
+      operationId: createIncidentCatalog
+      summary: Crear criterio de empresa
+      description: Solo ADMIN/SUPER_ADMIN. Crea versión 1 inmutable; evidenceRequired
+        es boolean obligatorio.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/IncidentCatalogInput"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentCatalogEnvelope"
+        '400':
+          "$ref": "#/components/responses/IncidentError"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incident-catalog/{catalogID}/versions:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: catalogID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Incidencias
+      operationId: versionIncidentCatalog
+      summary: Crear nueva versión de un criterio
+      description: Solo ADMIN/SUPER_ADMIN. Conserva código, incrementa versión desde expectedVersion
+        y mantiene criterios referenciados por incidencias anteriores.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/IncidentCatalogVersionInput"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentCatalogEnvelope"
+        '400':
+          "$ref": "#/components/responses/IncidentError"
+        default:
+          "$ref": "#/components/responses/IncidentError"
   /api/v1/organizations/{organizationID}/incidents:
     parameters:
-      - {$ref: "#/components/parameters/OrganizationID"}
+    - "$ref": "#/components/parameters/OrganizationID"
     get:
-      parameters:
-        - {$ref: "#/components/parameters/PageSize"}
-        - {$ref: "#/components/parameters/PageToken"}
-        - {$ref: "#/components/parameters/SearchQuery"}
-      tags: [Organizaciones]
-      summary: Listar incidencias visibles
+      tags:
+      - Incidencias
       operationId: listIncidents
-      description: Sedes activas autorizadas mediante consulta directa. WORKER solo sus reportes. Búsqueda por nombre de catálogo o descripción.
-      security: [{FirebaseBearer: []}]
+      summary: Listar incidencias visibles por sede
+      description: Reautoriza organización y sede activas. WORKER solo ve reportes propios
+        o incidencias asignadas. Búsqueda literal por criterio/descripción; status opcional.
+        Orden createdAt DESC, id; 25 por defecto, máximo 100. Cursor vinculado a usuario,
+        tenant, sede, búsqueda y estado.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/PageSize"
+      - "$ref": "#/components/parameters/PageToken"
+      - "$ref": "#/components/parameters/SearchQuery"
+      - in: query
+        name: locationId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - OPEN
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - VERIFIED
       responses:
-        "200":
-          description: Página autorizada. Cursor vacío significa fin; no se devuelve un total de páginas.
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentSummaryPage"
+        '400':
+          "$ref": "#/components/responses/InvalidPagination"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+    post:
+      tags:
+      - Incidencias
+      operationId: createIncident
+      summary: Reportar incidencia
+      description: CHEF/WORKER reportan en sus sedes; supervisores autorizados según contexto.
+        Estado OPEN, rowVersion 1 y criterio inmutable catalogId. Conserva operación/clave/cuerpo
+        en reintentos; reautoriza antes de replay.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/IncidentInput"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentDetailEnvelope"
+        '400':
+          "$ref": "#/components/responses/IncidentError"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Incidencias
+      operationId: getIncident
+      summary: Consultar incidencia y acciones permitidas
+      description: Sin parámetros adicionales. Conserva acciones legadas. allowedActions
+        se calcula por actor y no sustituye autorización.
+      security:
+      - FirebaseBearer: []
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentDetailEnvelope"
+        '400':
+          "$ref": "#/components/responses/InvalidPagination"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}/assignees:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Incidencias
+      operationId: listIncidentAssignees
+      summary: Buscar responsables elegibles
+      description: Solo CHEF/ADMIN/SUPER_ADMIN supervisores. Usuarios CHEF/WORKER activos
+        en misma sede y organización; búsqueda por nombre/email sin exponer email. 25
+        por defecto y máximo 100.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/PageSize"
+      - "$ref": "#/components/parameters/PageToken"
+      - "$ref": "#/components/parameters/SearchQuery"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentAssigneePage"
+        '400':
+          "$ref": "#/components/responses/InvalidPagination"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}/actions:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Incidencias
+      operationId: commandIncident
+      summary: Asignar, atender o verificar una incidencia
+      description: 'ASSIGN: supervisor, responsable elegible y plazo futuro; START/RESOLVE:
+        solo responsable; VERIFY/RETURN: supervisor distinto del ejecutor. RETURN exige
+        motivo. VERIFY exige evidencia AVAILABLE BEFORE y AFTER de la acción si el criterio
+        lo exige. Incidencias con múltiples acciones legadas rechazan comandos que requieren
+        acción única. Transición, evento, auditoría e idempotencia son atómicos; conflicto
+        de rowVersion devuelve 409.'
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/IncidentCommandInput"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentDetailEnvelope"
+        '400':
+          "$ref": "#/components/responses/IncidentError"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}/history:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Incidencias
+      operationId: listIncidentHistory
+      summary: Consultar historial inmutable
+      description: Misma visibilidad que el detalle. Orden createdAt DESC, id; solo pageSize/pageToken,
+        25 por defecto y máximo 100. Sin hashes ni respuestas internas.
+      security:
+      - FirebaseBearer: []
+      parameters:
+      - "$ref": "#/components/parameters/PageSize"
+      - "$ref": "#/components/parameters/PageToken"
+      responses:
+        '200':
+          description: Página o registro público autorizado; sin hashes, cuerpos internos
+            ni credenciales.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/IncidentEventPage"
+        '400':
+          "$ref": "#/components/responses/InvalidPagination"
+        default:
+          "$ref": "#/components/responses/IncidentError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}/evidence/BEFORE:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Multimedia
+      operationId: listIncidentBeforeEvidence
+      summary: Consultar evidencia anterior
+      description: Sin query. Autoriza tenant y sede; supervisores, reportero o responsable
+        autorizado. Hasta tres fotos por etapa/acción; sin URL pública. Cargas BEFORE
+        solo reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo responsable
+        con incidencia y acción IN_PROGRESS. Resolver/cerrar impide cargar y retirar.
+      security:
+      - FirebaseBearer: []
+      responses:
+        '200':
+          description: Listado privado y política autorizados.
           content:
             application/json:
               schema:
                 type: object
-                required: [data, pagination]
+                additionalProperties: false
+                required:
+                - data
                 properties:
                   data:
-                    type: array
-                    maxItems: 100
-                    items: {$ref: "#/components/schemas/WorkspaceEntry"}
-                  pagination: {$ref: "#/components/schemas/Pagination"}
-        "400": {$ref: "#/components/responses/InvalidPagination"}
-        default: {$ref: "#/components/responses/WorkspaceError"}
+                    "$ref": "#/components/schemas/EvidenceList"
+        default:
+          "$ref": "#/components/responses/MediaError"
+  /api/v1/organizations/{organizationID}/incidents/{incidentID}/actions/{actionID}/evidence/AFTER:
+    parameters:
+    - "$ref": "#/components/parameters/OrganizationID"
+    - name: incidentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: actionID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Multimedia
+      operationId: listIncidentAfterEvidence
+      summary: Consultar evidencia posterior de una acción
+      description: Sin query. Autoriza tenant y sede; supervisores, reportero o responsable
+        autorizado. Hasta tres fotos por etapa/acción; sin URL pública. Cargas BEFORE
+        solo reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo responsable
+        con incidencia y acción IN_PROGRESS. Resolver/cerrar impide cargar y retirar.
+      security:
+      - FirebaseBearer: []
+      responses:
+        '200':
+          description: Listado privado y política autorizados.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    "$ref": "#/components/schemas/EvidenceList"
+        default:
+          "$ref": "#/components/responses/MediaError"
+
   /api/v1/organizations/{organizationID}/checklists/{templateID}:
     parameters:
       - {$ref: "#/components/parameters/OrganizationID"}
@@ -872,8 +1234,11 @@ paths:
       summary: Reservar una foto para carga directa privada
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
-        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
+        responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
+        y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
+        No admite query adicional ni destinos combinados.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -904,8 +1269,11 @@ paths:
       summary: Comprobar bytes y confirmar la foto
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
-        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
+        responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
+        y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
+        No admite query adicional ni destinos combinados.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -936,8 +1304,11 @@ paths:
       summary: Autorizar lectura privada temporal
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
-        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
+        responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
+        y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
+        No admite query adicional ni destinos combinados.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -968,8 +1339,11 @@ paths:
       summary: Retirar lógicamente una foto de un borrador propio
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
-        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
+        responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
+        y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
+        No admite query adicional ni destinos combinados.
       security: [{FirebaseBearer: []}]
       responses:
         "200":
@@ -1504,9 +1878,19 @@ components:
       bearerFormat: Firebase ID token
       description: ID token emitido por Firebase Authentication.
   responses:
+    IncidentError:
+      description: 400 INVALID_REQUEST/INVALID_PAGINATION; 401 UNAUTHENTICATED/SESSION_EXPIRED;
+        403 ACCESS_DENIED; 404 NOT_FOUND; 409 RESOURCE_CONFLICT; 415 JSON requerido; 422
+        VALIDATION_ERROR con fields; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado; 503
+        dependencia no disponible. Entradas JSON estrictas UTF8 hasta 512 KiB, proxy con
+        respuesta máxima 4 MiB. Rechaza campos, métodos y filtros desconocidos.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
     MediaError:
       description: >-
-        400 INVALID_REQUEST; 401 UNAUTHENTICATED; 403 ACCESS_DENIED o correo sin verificar;
+        400 INVALID_REQUEST; 401 UNAUTHENTICATED/SESSION_EXPIRED; 403 ACCESS_DENIED o correo sin verificar;
         404 NOT_FOUND; 409 RESOURCE_CONFLICT o UPLOAD_NOT_READY (aún no existe objeto);
         422 VALIDATION_ERROR, MEDIA_CONTENT_INVALID (FAILED) o MEDIA_LIMIT_REACHED;
         503 MEDIA_UNAVAILABLE; 500 INTERNAL_ERROR sanitizado.
@@ -1889,31 +2273,19 @@ components:
       type: object
       additionalProperties: false
     EvidenceUpload:
-      type: object
-      additionalProperties: false
-      required: [id, runId, itemId, originalName, mimeType, sizeBytes, sha256]
-      properties:
-        id: {type: string, format: uuid, description: "Reutilizar UUID y metadatos en cada reintento."}
-        runId: {type: string, format: uuid}
-        itemId: {type: string, format: uuid}
-        originalName: {type: string, minLength: 1, maxLength: 200, description: "Sin rutas ni caracteres de control."}
-        mimeType: {type: string, enum: [image/jpeg, image/png]}
-        sizeBytes: {type: integer, format: int64, minimum: 1, maximum: 26214400}
-        sha256: {type: string, pattern: '^[0-9a-fA-F]{64}$'}
+      oneOf:
+      - "$ref": "#/components/schemas/EvidenceChecklistUpload"
+      - "$ref": "#/components/schemas/EvidenceIncidentBeforeUpload"
+      - "$ref": "#/components/schemas/EvidenceIncidentAfterUpload"
+      description: 'Exactamente un destino: pregunta de control, BEFORE sin actionId o AFTER
+        con actionId. runId/itemId se conservan vacíos para archivos de incidencia.'
     EvidenceFile:
-      type: object
-      additionalProperties: false
-      required: [id, runId, itemId, originalName, mimeType, sizeBytes, status, createdAt]
-      properties:
-        id: {type: string, format: uuid}
-        runId: {type: string, format: uuid}
-        itemId: {type: string, format: uuid}
-        originalName: {type: string, maxLength: 200}
-        mimeType: {type: string, enum: [image/jpeg, image/png]}
-        sizeBytes: {type: integer, format: int64}
-        status: {type: string, enum: [PENDING_UPLOAD, AVAILABLE, FAILED, DELETED]}
-        createdAt: {type: string, format: date-time}
-        uploadedAt: {type: string, format: date-time, nullable: true}
+      oneOf:
+      - "$ref": "#/components/schemas/EvidenceChecklistFile"
+      - "$ref": "#/components/schemas/EvidenceIncidentBeforeFile"
+      - "$ref": "#/components/schemas/EvidenceIncidentAfterFile"
+      description: 'Exactamente un destino: pregunta de control, BEFORE sin actionId o AFTER
+        con actionId. runId/itemId se conservan vacíos para archivos de incidencia.'
     EvidenceTicket:
       type: object
       additionalProperties: false
@@ -1944,7 +2316,6 @@ components:
       properties:
         files:
           type: array
-          maxItems: 3
           items: {$ref: "#/components/schemas/EvidenceFile"}
         maxBytes: {type: integer, format: int64, minimum: 1048576, maximum: 26214400}
         allowedMimeTypes:
@@ -2144,3 +2515,958 @@ components:
         responsibleUserId: {"type": "string", "maxLength": 128}
         responsibleName: {"type": "string", "maxLength": 200}
         createdAt: {"type": "string", "format": "date-time"}
+
+    IncidentCatalogInput:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - area
+      - normativeCriterion
+      - riskLevel
+      - evidenceRequired
+      - code
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 2
+        area:
+          type: string
+          maxLength: 100
+          minLength: 2
+        normativeCriterion:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        riskLevel:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        evidenceRequired:
+          type: boolean
+        code:
+          type: string
+          pattern: "^[A-Z0-9_-]{1,40}$"
+    IncidentCatalogVersionInput:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - area
+      - normativeCriterion
+      - riskLevel
+      - evidenceRequired
+      - expectedVersion
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 2
+        area:
+          type: string
+          maxLength: 100
+          minLength: 2
+        normativeCriterion:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        riskLevel:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        evidenceRequired:
+          type: boolean
+        expectedVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+    IncidentCatalog:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - area
+      - normativeCriterion
+      - riskLevel
+      - evidenceRequired
+      - code
+      - versionNumber
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 2
+        area:
+          type: string
+          maxLength: 100
+          minLength: 2
+        normativeCriterion:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        riskLevel:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        evidenceRequired:
+          type: boolean
+        code:
+          type: string
+          pattern: "^[A-Z0-9_-]{1,40}$"
+        versionNumber:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+    IncidentSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - locationId
+      - catalogId
+      - name
+      - area
+      - riskLevel
+      - status
+      - description
+      - reportedByName
+      - createdAt
+      - rowVersion
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        catalogId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 2
+        area:
+          type: string
+          maxLength: 100
+          minLength: 2
+        riskLevel:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        status:
+          type: string
+          enum:
+          - OPEN
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - VERIFIED
+        description:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        reportedByName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        createdAt:
+          type: string
+          format: date-time
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+    IncidentAction:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - responsibleUserId
+      - responsibleName
+      - description
+      - dueAt
+      - status
+      - resolutionNote
+      properties:
+        id:
+          type: string
+          format: uuid
+        responsibleUserId:
+          type: string
+          maxLength: 128
+          minLength: 1
+        responsibleName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        description:
+          type: string
+          maxLength: 2000
+          minLength: 1
+        dueAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - RESOLVED
+          - VERIFIED
+          - CANCELLED
+        resolutionNote:
+          type: string
+          maxLength: 2000
+        resolvedAt:
+          type: string
+          format: date-time
+        verifiedAt:
+          type: string
+          format: date-time
+        verifiedBy:
+          type: string
+          maxLength: 128
+          minLength: 1
+    IncidentDetail:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - locationId
+      - catalogId
+      - name
+      - area
+      - riskLevel
+      - status
+      - description
+      - reportedByName
+      - createdAt
+      - rowVersion
+      - reportedBy
+      - catalogVersion
+      - normativeCriterion
+      - evidenceRequired
+      - actions
+      - allowedActions
+      - beforeCount
+      - afterCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        catalogId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 2
+        area:
+          type: string
+          maxLength: 100
+          minLength: 2
+        riskLevel:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        status:
+          type: string
+          enum:
+          - OPEN
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - VERIFIED
+        description:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        reportedByName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        createdAt:
+          type: string
+          format: date-time
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        reportedBy:
+          type: string
+          maxLength: 128
+          minLength: 1
+        catalogVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        normativeCriterion:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        evidenceRequired:
+          type: boolean
+        closedAt:
+          type: string
+          format: date-time
+        actions:
+          type: array
+          items:
+            "$ref": "#/components/schemas/IncidentAction"
+        allowedActions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - ASSIGN
+            - START
+            - RESOLVE
+            - VERIFY
+            - RETURN
+        beforeCount:
+          type: integer
+          minimum: 0
+        afterCount:
+          type: integer
+          minimum: 0
+    IncidentInput:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - locationId
+      - catalogId
+      - description
+      - clientOperationId
+      - clientCreatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        catalogId:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 4000
+          minLength: 1
+        clientOperationId:
+          type: string
+          format: uuid
+        clientCreatedAt:
+          type: string
+          format: date-time
+          description: No posterior al momento del servidor más cinco minutos.
+    IncidentAssignInput:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - rowVersion
+      - actionType
+      - actionId
+      - responsibleUserId
+      - description
+      - dueAt
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        actionType:
+          type: string
+          enum:
+          - ASSIGN
+        actionId:
+          type: string
+          format: uuid
+        responsibleUserId:
+          type: string
+          maxLength: 128
+          minLength: 1
+        description:
+          type: string
+          maxLength: 2000
+          minLength: 1
+        dueAt:
+          type: string
+          format: date-time
+          description: Plazo futuro validado por el servidor.
+    IncidentStartInput:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - rowVersion
+      - actionType
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        actionType:
+          type: string
+          enum:
+          - START
+    IncidentResolveInput:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - rowVersion
+      - actionType
+      - note
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        actionType:
+          type: string
+          enum:
+          - RESOLVE
+        note:
+          type: string
+          maxLength: 2000
+          minLength: 1
+    IncidentVerifyInput:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - rowVersion
+      - actionType
+      - note
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        actionType:
+          type: string
+          enum:
+          - VERIFY
+        note:
+          type: string
+          maxLength: 2000
+          minLength: 1
+    IncidentReturnInput:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - rowVersion
+      - actionType
+      - note
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        rowVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        actionType:
+          type: string
+          enum:
+          - RETURN
+        note:
+          type: string
+          maxLength: 2000
+          minLength: 1
+    IncidentCommandInput:
+      oneOf:
+      - "$ref": "#/components/schemas/IncidentAssignInput"
+      - "$ref": "#/components/schemas/IncidentStartInput"
+      - "$ref": "#/components/schemas/IncidentResolveInput"
+      - "$ref": "#/components/schemas/IncidentVerifyInput"
+      - "$ref": "#/components/schemas/IncidentReturnInput"
+      description: 'Comandos cerrados: rechaza campos ajenos a la acción. rowVersion evita
+        confirmar cambios concurrentes. UUID, clave idempotente y cuerpo se conservan antes
+        del envío y en cada reintento.'
+    IncidentAssignee:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - displayName
+      - role
+      properties:
+        id:
+          type: string
+          maxLength: 128
+          minLength: 1
+        displayName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        role:
+          type: string
+          enum:
+          - CHEF
+          - WORKER
+    IncidentEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - operationId
+      - fromStatus
+      - toStatus
+      - actorName
+      - note
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        operationId:
+          type: string
+          format: uuid
+        fromStatus:
+          type: string
+          enum:
+          - ''
+          - OPEN
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - VERIFIED
+        toStatus:
+          type: string
+          enum:
+          - OPEN
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - VERIFIED
+        actorName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        note:
+          type: string
+          maxLength: 2000
+        createdAt:
+          type: string
+          format: date-time
+    IncidentCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          "$ref": "#/components/schemas/IncidentCatalog"
+    IncidentDetailEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          "$ref": "#/components/schemas/IncidentDetail"
+    IncidentCatalogPage:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            "$ref": "#/components/schemas/IncidentCatalog"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+    IncidentSummaryPage:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            "$ref": "#/components/schemas/IncidentSummary"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+    IncidentAssigneePage:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            "$ref": "#/components/schemas/IncidentAssignee"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+    IncidentEventPage:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            "$ref": "#/components/schemas/IncidentEvent"
+        pagination:
+          "$ref": "#/components/schemas/Pagination"
+    EvidenceChecklistUpload:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - sha256
+      - runId
+      - itemId
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        runId:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+    EvidenceChecklistFile:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - status
+      - createdAt
+      - runId
+      - itemId
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        status:
+          type: string
+          enum:
+          - PENDING_UPLOAD
+          - AVAILABLE
+          - FAILED
+          - DELETED
+        createdAt:
+          type: string
+          format: date-time
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+        runId:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+    EvidenceIncidentBeforeUpload:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - sha256
+      - incidentId
+      - stage
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        incidentId:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+          - BEFORE
+    EvidenceIncidentBeforeFile:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - status
+      - createdAt
+      - incidentId
+      - stage
+      - runId
+      - itemId
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        status:
+          type: string
+          enum:
+          - PENDING_UPLOAD
+          - AVAILABLE
+          - FAILED
+          - DELETED
+        createdAt:
+          type: string
+          format: date-time
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+        incidentId:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+          - BEFORE
+        runId:
+          type: string
+          enum:
+          - ''
+        itemId:
+          type: string
+          enum:
+          - ''
+    EvidenceIncidentAfterUpload:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - sha256
+      - incidentId
+      - actionId
+      - stage
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        incidentId:
+          type: string
+          format: uuid
+        actionId:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+          - AFTER
+    EvidenceIncidentAfterFile:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - originalName
+      - mimeType
+      - sizeBytes
+      - status
+      - createdAt
+      - incidentId
+      - actionId
+      - stage
+      - runId
+      - itemId
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+          maxLength: 200
+          minLength: 1
+        mimeType:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 26214400
+        status:
+          type: string
+          enum:
+          - PENDING_UPLOAD
+          - AVAILABLE
+          - FAILED
+          - DELETED
+        createdAt:
+          type: string
+          format: date-time
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+        incidentId:
+          type: string
+          format: uuid
+        actionId:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum:
+          - AFTER
+        runId:
+          type: string
+          enum:
+          - ''
+        itemId:
+          type: string
+          enum:
+          - ''

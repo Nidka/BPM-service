@@ -123,7 +123,7 @@ func (f *fakeStore) List(context.Context, domain.Target) ([]domain.File, error) 
 }
 func (f *fakeStore) Reserve(ctx context.Context, target domain.Target, file domain.File, max int) (domain.File, error) {
 	if f.file.ID != "" {
-		if e := f.file.Match(domain.UploadInput{ID: file.ID, RunID: file.RunID, ItemID: file.ItemID, OriginalName: file.OriginalName, MIMEType: file.MIMEType, SizeBytes: file.SizeBytes, SHA256: file.SHA256}); e != nil {
+		if e := f.file.Match(domain.UploadInput{ID: file.ID, RunID: file.RunID, ItemID: file.ItemID, IncidentID: file.IncidentID, ActionID: file.ActionID, Stage: file.Stage, OriginalName: file.OriginalName, MIMEType: file.MIMEType, SizeBytes: file.SizeBytes, SHA256: file.SHA256}); e != nil {
 			return domain.File{}, e
 		}
 		return f.file, nil
@@ -165,4 +165,42 @@ func (f *fakeStorage) Inspect(context.Context, string) (contracts.ObjectMetadata
 		return contracts.ObjectMetadata{}, contracts.ErrObjectNotFound
 	}
 	return f.metadata, nil
+}
+
+func TestIncidentUploadUsesExplicitTargetAndReauthorizesConfirmation(t *testing.T) {
+	s, db, storage := newFixture()
+	in := validInput
+	in.RunID = ""
+	in.ItemID = ""
+	in.IncidentID = validInput.RunID
+	in.Stage = "BEFORE"
+	reserved, err := s.Reserve(context.Background(), "chef", "org", in)
+	if err != nil || reserved.File.IncidentID != in.IncidentID || reserved.File.RunID != "" {
+		t.Fatal("destino incidente perdido", reserved, err)
+	}
+	if _, err = s.ListIncident(context.Background(), "chef", "org", in.IncidentID, "", "BEFORE"); err != nil {
+		t.Fatal(err)
+	}
+	storage.afterInspect = func() { db.denied = true }
+	if _, err = s.Confirm(context.Background(), "chef", "org", in.ID); !errors.Is(err, domain.ErrDenied) || db.file.Status != "PENDING_UPLOAD" {
+		t.Fatal("confirmó luego de revocación", err)
+	}
+}
+func (f *fakeStore) IncidentTarget(ctx context.Context, user, org, incident, action, stage string, write bool) (domain.Target, error) {
+	if f.denied {
+		return domain.Target{}, domain.ErrDenied
+	}
+	return domain.Target{OrganizationID: org, LocationID: "site", IncidentID: incident, ActionID: action, Stage: stage, UserID: user, Role: "CHEF", Reporter: user, IncidentStatus: "OPEN"}, nil
+}
+
+func TestPhysicalLocationMustMatchAuthorizedEvidenceTarget(t *testing.T) {
+	s, db, _ := newFixture()
+	if _, e := s.Reserve(context.Background(), "chef", "org", validInput); e != nil {
+		t.Fatal(e)
+	}
+	db.file.LocationID = "another-site"
+	db.file.Status = "AVAILABLE"
+	if _, e := s.Download(context.Background(), "chef", "org", db.file.ID); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("descargó foto física de otra sede", e)
+	}
 }

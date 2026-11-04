@@ -76,7 +76,6 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Get("/organizations/{organizationID}/members", h.membersPage)
 		r.Get("/organizations/{organizationID}/courses", h.entriesPage("courses"))
 		r.Get("/organizations/{organizationID}/checklist-summaries", h.entriesPage("checklist-summaries"))
-		r.Get("/organizations/{organizationID}/incidents", h.entriesPage("incidents"))
 		r.Get("/organizations/{organizationID}/workspace", h.workspace)
 		r.Post("/organizations/{organizationID}/locations", h.createLocation)
 		r.Post("/organizations/{organizationID}/members", h.addMember)

@@ -52,6 +52,7 @@ jobs:
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migraciones/V2__authentication_sessions.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migraciones/V4__checklist_evidence_items.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migraciones/V5__daily_operations.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migraciones/V6__incidents.sql
 
       - name: Test with race detector
         run: go test -race -count=1 ./...

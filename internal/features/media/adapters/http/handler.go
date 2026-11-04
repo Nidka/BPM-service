@@ -27,6 +27,9 @@ func New(service *application.Service, logger *slog.Logger) *Handler {
 
 type fileDTO struct {
 	ID           string     `json:"id"`
+	IncidentID   string     `json:"incidentId,omitempty"`
+	ActionID     string     `json:"actionId,omitempty"`
+	Stage        string     `json:"stage,omitempty"`
 	RunID        string     `json:"runId"`
 	ItemID       string     `json:"itemId"`
 	OriginalName string     `json:"originalName"`
@@ -38,7 +41,7 @@ type fileDTO struct {
 }
 
 func file(f domain.File) fileDTO {
-	return fileDTO{f.ID, f.RunID, f.ItemID, f.OriginalName, f.MIMEType, f.SizeBytes, f.Status, f.CreatedAt, f.UploadedAt}
+	return fileDTO{ID: f.ID, RunID: f.RunID, ItemID: f.ItemID, IncidentID: f.IncidentID, ActionID: f.ActionID, Stage: f.Stage, OriginalName: f.OriginalName, MIMEType: f.MIMEType, SizeBytes: f.SizeBytes, Status: f.Status, CreatedAt: f.CreatedAt, UploadedAt: f.UploadedAt}
 }
 
 type ticketDTO struct {
@@ -62,6 +65,8 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 	r.Group(func(r chi.Router) {
 		r.Use(auth)
 		r.Get("/organizations/{organizationID}/checklist-runs/{runID}/items/{itemID}/evidence", h.list)
+		r.Get("/organizations/{organizationID}/incidents/{incidentID}/evidence/BEFORE", h.listIncident)
+		r.Get("/organizations/{organizationID}/incidents/{incidentID}/actions/{actionID}/evidence/AFTER", h.listIncident)
 		r.Post("/organizations/{organizationID}/media/uploads", h.reserve)
 		r.Post("/organizations/{organizationID}/media/{mediaID}/confirm", h.confirm)
 		r.Post("/organizations/{organizationID}/media/{mediaID}/download", h.download)
@@ -110,11 +115,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	files := make([]fileDTO, 0, len(data.Files))
-	for _, v := range data.Files {
-		files = append(files, file(v))
-	}
-	response.JSON(w, 200, map[string]any{"data": map[string]any{"files": files, "maxBytes": data.Policy.MaxBytes, "allowedMimeTypes": data.Policy.AllowedMIMEs, "maxFiles": data.Policy.MaxFiles, "uploadAvailable": data.UploadAvailable}})
+	respondCollection(w, data)
 }
 func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.uid(w, r)
@@ -124,6 +125,9 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		ID           string `json:"id"`
 		RunID        string `json:"runId"`
+		IncidentID   string `json:"incidentId"`
+		ActionID     string `json:"actionId"`
+		Stage        string `json:"stage"`
 		ItemID       string `json:"itemId"`
 		OriginalName string `json:"originalName"`
 		MIMEType     string `json:"mimeType"`
@@ -133,7 +137,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 	if !request.DecodeJSON(w, r, &in, 4096) {
 		return
 	}
-	value, err := h.service.Reserve(r.Context(), user, chi.URLParam(r, "organizationID"), domain.UploadInput{ID: in.ID, RunID: in.RunID, ItemID: in.ItemID, OriginalName: in.OriginalName, MIMEType: in.MIMEType, SizeBytes: in.SizeBytes, SHA256: in.SHA256})
+	value, err := h.service.Reserve(r.Context(), user, chi.URLParam(r, "organizationID"), domain.UploadInput{ID: in.ID, RunID: in.RunID, ItemID: in.ItemID, IncidentID: in.IncidentID, ActionID: in.ActionID, Stage: in.Stage, OriginalName: in.OriginalName, MIMEType: in.MIMEType, SizeBytes: in.SizeBytes, SHA256: in.SHA256})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -189,4 +193,30 @@ func (h *Handler) remove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, 200, map[string]any{"data": file(f)})
+}
+
+func (h *Handler) listIncident(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.uid(w, r)
+	if !ok {
+		return
+	}
+	action := chi.URLParam(r, "actionID")
+	stage := "BEFORE"
+	if action != "" {
+		stage = "AFTER"
+	}
+	data, err := h.service.ListIncident(r.Context(), user, chi.URLParam(r, "organizationID"), chi.URLParam(r, "incidentID"), action, stage)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	respondCollection(w, data)
+}
+
+func respondCollection(w http.ResponseWriter, data application.Collection) {
+	files := make([]fileDTO, 0, len(data.Files))
+	for _, v := range data.Files {
+		files = append(files, file(v))
+	}
+	response.JSON(w, 200, map[string]any{"data": map[string]any{"files": files, "maxBytes": data.Policy.MaxBytes, "allowedMimeTypes": data.Policy.AllowedMIMEs, "maxFiles": data.Policy.MaxFiles, "uploadAvailable": data.UploadAvailable}})
 }

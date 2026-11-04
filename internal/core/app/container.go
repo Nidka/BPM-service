@@ -13,6 +13,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/integrations/r2"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/identity"
+	"github.com/Nidka/BPM-service/internal/features/incidents"
 	"github.com/Nidka/BPM-service/internal/features/media"
 	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
@@ -59,6 +60,10 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := incidents.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
 	if cfg.Firebase.Enabled {
 		container.TokenVerifier, err = firebaseauth.New(ctx, cfg.Firebase)
 		if err != nil {
@@ -94,6 +99,7 @@ func NewContainer(
 			checklists.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
 			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			incidents.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

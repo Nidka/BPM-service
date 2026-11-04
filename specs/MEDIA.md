@@ -100,3 +100,24 @@ Referencias técnicas: [R2 S3](https://developers.cloudflare.com/r2/api/s3/api/)
 [PUT condicional](https://developers.cloudflare.com/r2/api/s3/extensions/),
 [firmas](https://developers.cloudflare.com/r2/api/s3/presigned-urls/) y
 [CORS](https://developers.cloudflare.com/r2/buckets/cors/).
+
+## Evidencia de incidencias
+
+La carga admite un único destino explícito: revisión/pregunta o incidencia con
+etapa BEFORE/AFTER. AFTER exige la acción de esa incidencia. Se reutilizan el
+mismo servicio, adaptador R2, confirmación de bytes, descarga privada y límites
+de nuevas reservas; el detalle del recorrido está en INCIDENTS.md.
+
+Los archivos deben pertenecer a la misma sede física que el agregado autorizado
+y tener exactamente una asociación entre controles, incidencias y limpieza. Un
+archivo heredado con varios destinos queda bloqueado para listar, descargar o
+mutar, y tampoco habilita un cierre. No se elimina ni reasigna automáticamente.
+BEFORE lo agrega el reportero o supervisor antes de resolver. AFTER lo agrega
+solo el responsable CHEF/WORKER durante la atención. Resolver/cerrar impide
+retirar o modificar esa evidencia. Se toma el mismo bloqueo de incidencia que
+la validación de cierre.
+
+Las nuevas reservas siguen limitadas a tres fotos por etapa y acción. La lectura
+de incidencias conserva galerías históricas con más fotos; el límite de altas
+no se usa para ocultar información anterior. Las acciones canceladas conservan
+lectura histórica para sus responsables que aún tienen acceso a la sede.

@@ -11,6 +11,7 @@ import (
 
 type Store interface {
 	Target(context.Context, string, string, string, string, bool) (domain.Target, error)
+	IncidentTarget(context.Context, string, string, string, string, string, bool) (domain.Target, error)
 	File(context.Context, string, string, bool) (domain.File, error)
 	List(context.Context, domain.Target) ([]domain.File, error)
 	Reserve(context.Context, domain.Target, domain.File, int) (domain.File, error)
@@ -60,7 +61,7 @@ func (s *Service) Reserve(ctx context.Context, user, org string, input domain.Up
 		return out, err
 	}
 	err = s.work.Within(ctx, func(db Store) error {
-		target, e := targetAccess(ctx, db, user, org, input.RunID, input.ItemID, true)
+		target, e := evidenceAccess(ctx, db, user, org, input, true)
 		if e != nil {
 			return e
 		}
@@ -72,7 +73,7 @@ func (s *Service) Reserve(ctx context.Context, user, org string, input domain.Up
 			ext = ".png"
 		}
 		file := domain.File{ID: input.ID, OrganizationID: target.OrganizationID, LocationID: target.LocationID,
-			RunID: target.RunID, ItemID: target.ItemID, OriginalName: input.OriginalName, MIMEType: input.MIMEType,
+			RunID: target.RunID, ItemID: target.ItemID, IncidentID: target.IncidentID, ActionID: target.ActionID, Stage: target.Stage, OriginalName: input.OriginalName, MIMEType: input.MIMEType,
 			SizeBytes: input.SizeBytes, SHA256: input.SHA256, CreatedBy: user,
 			ObjectKey: "organizations/" + target.OrganizationID + "/locations/" + target.LocationID + "/media/" + input.ID + ext}
 		out.File, e = db.Reserve(ctx, target, file, s.policy.MaxFiles)
@@ -211,9 +212,47 @@ func fileAccess(ctx context.Context, db Store, user, org, id string, write bool)
 	if err != nil {
 		return file, err
 	}
-	if _, err = targetAccess(ctx, db, user, org, file.RunID, file.ItemID, write); err != nil {
+	target, err := evidenceAccess(ctx, db, user, org, domain.UploadInput{RunID: file.RunID, ItemID: file.ItemID, IncidentID: file.IncidentID, ActionID: file.ActionID, Stage: file.Stage}, write)
+	if err != nil {
 		return domain.File{}, err
 	}
-	// La lectura posterior al bloqueo de la revisión observa el estado vigente.
-	return db.File(ctx, org, id, write)
+	// La lectura posterior al bloqueo del agregado observa el estado vigente.
+	current, err := db.File(ctx, org, id, write)
+	if err != nil {
+		return domain.File{}, err
+	}
+	if current.LocationID != target.LocationID {
+		return domain.File{}, domain.ErrDenied
+	}
+	return current, nil
+}
+
+// ListIncident usa las mismas reglas de contenido y almacenamiento que los controles.
+func (s *Service) ListIncident(ctx context.Context, user, org, incident, action, stage string) (out Collection, err error) {
+	if !domain.ValidIncidentTarget(incident, action, stage) {
+		return out, domain.ErrNotFound
+	}
+	err = s.work.Within(ctx, func(db Store) error {
+		target, e := evidenceAccess(ctx, db, user, org, domain.UploadInput{IncidentID: strings.ToLower(incident), ActionID: strings.ToLower(action), Stage: stage}, false)
+		if e != nil {
+			return e
+		}
+		out.Files, e = db.List(ctx, target)
+		out.Policy, out.UploadAvailable = s.policy, s.objects != nil
+		return e
+	})
+	return
+}
+func evidenceAccess(ctx context.Context, db Store, user, org string, in domain.UploadInput, write bool) (domain.Target, error) {
+	if in.IncidentID == "" {
+		return targetAccess(ctx, db, user, org, in.RunID, in.ItemID, write)
+	}
+	target, e := db.IncidentTarget(ctx, user, org, in.IncidentID, in.ActionID, in.Stage, write)
+	if e != nil {
+		return target, e
+	}
+	if !target.CanRead() || (write && !target.CanWrite()) {
+		return domain.Target{}, domain.ErrDenied
+	}
+	return target, nil
 }
