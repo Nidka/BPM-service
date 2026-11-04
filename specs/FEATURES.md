@@ -131,6 +131,11 @@ los módulos posteriores; no se emiten certificados en esta entrega.
 - Pruebas: reintentos, proveedor caído, worker concurrente, token FCM inválido y
   evento agotado.
 
+Estado: reglas configurables, bandeja privada y entrega transaccional implementadas.
+Contrato en [ALERTS.md](ALERTS.md), proveedores/activación en
+[NOTIFICATIONS.md](NOTIFICATIONS.md). Requiere V7 y servicio worker separado;
+la compilación no implica envíos ni despliegue real.
+
 ## 7. Academia BPM
 
 - Tablas: `training_courses`, `training_course_versions`, `training_lessons`,

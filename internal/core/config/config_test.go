@@ -114,3 +114,18 @@ func TestProductionRejectsWildcardCORS(t *testing.T) {
 		t.Fatalf("expected wildcard CORS error, got %v", err)
 	}
 }
+
+func TestWorkerConfigurationKeepsProvidersExplicit(t *testing.T) {
+	values := map[string]string{"DATABASE_URL": "postgres://localhost/bpm_test"}
+	cfg, e := loadFrom(func(k string) string { return values[k] })
+	if e != nil || cfg.Worker.Interval != time.Minute || cfg.Worker.FCMEnabled {
+		t.Fatal("worker defaults", cfg.Worker, e)
+	}
+	for _, pair := range []struct{ k, v string }{{"ALERT_WORKER_INTERVAL", "0s"}, {"ALERT_WORKER_INTERVAL", "3h"}, {"FCM_ENABLED", "true"}, {"RESEND_FROM_EMAIL", "bad\naddress"}} {
+		values[pair.k] = pair.v
+		if _, e = loadFrom(func(k string) string { return values[k] }); e == nil {
+			t.Fatal("accepted invalid worker configuration", pair.k)
+		}
+		delete(values, pair.k)
+	}
+}

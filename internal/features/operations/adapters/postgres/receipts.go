@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"github.com/Nidka/BPM-service/internal/core/outbox"
 	"github.com/Nidka/BPM-service/internal/features/operations/domain"
 	"github.com/Nidka/BPM-service/internal/shared/application/pagination"
 	"github.com/jackc/pgx/v5"
@@ -96,6 +97,9 @@ func (s *store) CreateReceipt(ctx context.Context, a domain.Actor, org string, v
 		}
 	}
 	if e = s.Audit(ctx, a, org, "receipt.created", v.ID); e != nil {
+		return v, e
+	}
+	if e = outbox.Enqueue(ctx, s.tx, outbox.Event{OrganizationID: org, Type: "operations.receipt.recorded.v1", AggregateType: "supply_receipt", AggregateID: v.ID, DedupKey: "receipt:" + v.ID, ActorID: a.ID}); e != nil {
 		return v, e
 	}
 	return s.Receipt(ctx, org, v.ID)

@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"github.com/Nidka/BPM-service/internal/core/contracts"
+	"github.com/Nidka/BPM-service/internal/features/alerts"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
+	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
 	"github.com/go-chi/chi/v5"
 	"io"
@@ -30,7 +32,13 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	r := chi.NewRouter()
 	organizations.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	checklists.Routes(nil, validToken{}, logger, expiredSession{})(r)
+	alerts.Routes(nil, validToken{}, logger, expiredSession{})(r)
+	notifications.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
+		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
+		{"GET", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/view"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/attend"},
+		{"GET", "/organizations/org/alert-rules"}, {"POST", "/organizations/org/alert-rules"}, {"PUT", "/organizations/org/alert-rules/00000000-0000-0000-0000-000000000001"},
+		{"POST", "/organizations/org/notifications/devices"}, {"DELETE", "/organizations/org/notifications/devices/00000000-0000-0000-0000-000000000001"},
 		{"GET", "/organizations"}, {"POST", "/organizations/org/members"},
 		{"GET", "/organizations/org/checklists"}, {"POST", "/organizations/org/checklist-runs"},
 		{"PUT", "/organizations/org/checklist-runs/run/answers"}, {"POST", "/organizations/org/checklist-runs/run/submit"},

@@ -23,6 +23,10 @@ tags:
     description: Fotos privadas por pregunta o incidencia, autorizadas por organización y sede.
   - name: Operación diaria
     description: Recepción, lotes PEPS y limpieza por sede autorizada.
+  - name: Alertas
+    description: Reglas configurables y bandeja privada con lectura y atención monotónicas.
+  - name: Notificaciones
+    description: Dispositivos propios; entrega externa desacoplada mediante outbox transaccional.
 paths:
   /health:
     get:
@@ -1833,6 +1837,34 @@ paths:
                 properties:
                   data: {$ref: "#/components/schemas/OperationExecution"}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/alert-rules:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}]
+    get: {"tags": ["Alertas"], "summary": "Listar reglas autorizadas", "description": "Solo ADMIN/SUPER_ADMIN. Páginas por contexto de usuario, organización, recurso, sede y búsqueda. Cambiar el contexto exige reiniciar el cursor.", "operationId": "listAlertRules", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertRulePage"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "parameters": [{"$ref": "#/components/parameters/PageSize"}, {"$ref": "#/components/parameters/PageToken"}, {"$ref": "#/components/parameters/SearchQuery"}, {"in": "query", "name": "locationId", "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "description": "Filtro de ámbito exacto: solo reglas de esta sede; no incluye reglas de empresa. Omitido lista empresa y sedes autorizadas."}]}
+    post: {"tags": ["Alertas"], "summary": "Crear regla de avisos", "description": "Sin regla activa no se genera este tipo de aviso. Nueva regla rowVersion 1. Idempotency-Key ASCII visible de 8 a 100 caracteres. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "createAlertRule", "security": [{"FirebaseBearer": []}], "responses": {"201": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertRuleResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateAlertRule"}}}}}
+  /api/v1/organizations/{organizationID}/alert-rules/{ruleID}:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "ruleID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
+    put: {"tags": ["Alertas"], "summary": "Actualizar regla y canales", "description": "No cambia type/locationId. Versión obsoleta o replay con otro cuerpo produce 409; replay válido devuelve el resultado confirmado. Los avisos preservan su snapshot. Idempotency-Key ASCII visible de 8 a 100 caracteres. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "updateAlertRule", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertRuleResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateAlertRule"}}}}}
+  /api/v1/organizations/{organizationID}/alerts:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}]
+    get: {"tags": ["Alertas"], "summary": "Listar la bandeja propia", "description": "Cada usuario solo ve sus avisos vigentes y autorizados. Orden created_at DESC, ID ASC. Cursor ligado a usuario/organización/recurso/búsqueda/estado; no permite acceder a avisos ajenos.", "operationId": "listPersonalAlerts", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertPage"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "parameters": [{"$ref": "#/components/parameters/PageSize"}, {"$ref": "#/components/parameters/PageToken"}, {"$ref": "#/components/parameters/SearchQuery"}, {"in": "query", "name": "state", "schema": {"type": "string", "enum": ["ALL", "UNREAD", "VIEWED", "ATTENDED"], "default": "ALL"}}]}
+  /api/v1/organizations/{organizationID}/alerts/unread-count:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}]
+    get: {"tags": ["Alertas"], "summary": "Contar avisos propios sin leer", "description": "Devuelve {count} sin envoltorio data. No interpreta un error como cero.", "operationId": "getUnreadAlertCount", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UnreadAlertCount"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}}
+  /api/v1/organizations/{organizationID}/alerts/{alertID}:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "alertID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
+    get: {"tags": ["Alertas"], "summary": "Consultar un aviso propio", "description": "Revalida destinatario, rol/sede y alcance de la fuente; la desactivación de una regla no oculta historia propia aún autorizada.", "operationId": "getPersonalAlert", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}}
+  /api/v1/organizations/{organizationID}/notifications/devices:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}]
+    post: {"tags": ["Notificaciones"], "summary": "Registrar o rotar un dispositivo propio", "description": "Upsert privado del usuario autenticado. No devuelve pushToken ni installationId. La plataforma debe ofrecer integración y permiso efectivos; no simula disponibilidad. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "upsertNotificationDevice", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationDeviceResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationDeviceInput"}}}}}
+  /api/v1/organizations/{organizationID}/notifications/devices/{deviceID}:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "deviceID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
+    delete: {"tags": ["Notificaciones"], "summary": "Desvincular un dispositivo propio", "description": "Idempotente, sin cuerpo ni Idempotency-Key. Solo el usuario propietario; retirar el token no elimina permisos de la bandeja.", "operationId": "deactivateNotificationDevice", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InactiveNotificationDeviceResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}}
+  /api/v1/organizations/{organizationID}/alerts/{alertID}/view:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "alertID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
+    post: {"tags": ["Alertas"], "summary": "Marcar un aviso propio como visto", "description": "Intrínsecamente idempotente y monotónico, sin Idempotency-Key. ATTEND también fija viewedAt si faltaba. Una auditoría por cambio real; no resuelve el recurso de negocio. Confirmar respuesta antes de actualizar la UI. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "viewPersonalAlert", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmptyAlertCommand"}}}}}
+  /api/v1/organizations/{organizationID}/alerts/{alertID}/attend:
+    parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "alertID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
+    post: {"tags": ["Alertas"], "summary": "Marcar un aviso propio como atendido", "description": "Intrínsecamente idempotente y monotónico, sin Idempotency-Key. ATTEND también fija viewedAt si faltaba. Una auditoría por cambio real; no resuelve el recurso de negocio. Confirmar respuesta antes de actualizar la UI. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "attendPersonalAlert", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmptyAlertCommand"}}}}}
 components:
   parameters:
     PageSize:
@@ -1878,6 +1910,10 @@ components:
       bearerFormat: Firebase ID token
       description: ID token emitido por Firebase Authentication.
   responses:
+    AlertError:
+      description: "400 INVALID_REQUEST/INVALID_PAGINATION; 401 UNAUTHENTICATED/SESSION_EXPIRED; 403 ACCESS_DENIED; 404 NOT_FOUND; 409 RESOURCE_CONFLICT; 415 JSON requerido; 422 VALIDATION_ERROR; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado; 503 dependencia no disponible. JSON UTF8 estricto máximo 512 KiB, respuesta del proxy máximo 4 MiB; nunca expone correos, tokens, cuerpos internos ni configuración del proveedor."
+      headers: {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}
+      content: {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
     IncidentError:
       description: 400 INVALID_REQUEST/INVALID_PAGINATION; 401 UNAUTHENTICATED/SESSION_EXPIRED;
         403 ACCESS_DENIED; 404 NOT_FOUND; 409 RESOURCE_CONFLICT; 415 JSON requerido; 422
@@ -3470,3 +3506,109 @@ components:
           type: string
           enum:
           - ''
+
+    ChecklistMissingAlertConfiguration:
+      type: "object"
+      additionalProperties: false
+      required: ["afterLocalTime"]
+      properties: {"afterLocalTime": {"type": "string", "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$", "description": "Hora de la sede; solo asignaciones DAILY activas de plantilla PUBLISHED sin ejecución SUBMITTED para el día local."}}
+    TemperatureDangerAlertConfiguration:
+      type: "object"
+      additionalProperties: false
+      required: ["minimumTemperatureCelsius", "maximumTemperatureCelsius"]
+      properties: {"minimumTemperatureCelsius": {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01}, "maximumTemperatureCelsius": {"type": "number", "minimum": -9999.99, "maximum": 9999.99, "multipleOf": 0.01}}
+      description: "Intervalo inclusivo, mínimo menor que máximo. Configuración explícita del operador; no se publica un rango sanitario predeterminado."
+    OrganizationInactiveAlertConfiguration:
+      type: "object"
+      additionalProperties: false
+      required: ["inactivityDays"]
+      properties: {"inactivityDays": {"type": "integer", "minimum": 1, "maximum": 365}}
+      description: "Sin sede: un aviso por episodio a ADMIN activo; actividad de negocio del servidor, nunca login ni fecha futura del cliente."
+    TrainingAssignedAlertConfiguration:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties: {}
+      description: "Solo asignaciones ACTIVE de cursos PUBLISHED creadas desde la regla, a usuario/rol/sede vigentes. No genera contenidos ni asignaciones."
+    CreateAlertRule:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "name", "type", "configuration", "active", "emailEnabled", "pushEnabled"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "name": {"type": "string", "minLength": 2, "maxLength": 160, "description": "Nombre sin controles Unicode; se recortan espacios externos."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED"]}, "configuration": {"oneOf": [{"$ref": "#/components/schemas/ChecklistMissingAlertConfiguration"}, {"$ref": "#/components/schemas/TemperatureDangerAlertConfiguration"}, {"$ref": "#/components/schemas/OrganizationInactiveAlertConfiguration"}, {"$ref": "#/components/schemas/TrainingAssignedAlertConfiguration"}], "description": "La forma coincide exclusivamente con type. No se aceptan claves desconocidas o repetidas."}, "active": {"type": "boolean"}, "emailEnabled": {"type": "boolean"}, "pushEnabled": {"type": "boolean"}}
+      description: "ADMIN/SUPER_ADMIN de la organización. Todos los booleanos son obligatorios, incluido false; locationId omitido o null significa empresa. ORGANIZATION_INACTIVE siempre tiene locationId null. ID estable y replay con la misma Idempotency-Key."
+    UpdateAlertRule:
+      type: "object"
+      additionalProperties: false
+      required: ["name", "type", "configuration", "active", "emailEnabled", "pushEnabled", "rowVersion"]
+      properties: {"locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "name": {"type": "string", "minLength": 2, "maxLength": 160, "description": "Nombre sin controles Unicode; se recortan espacios externos."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED"]}, "configuration": {"oneOf": [{"$ref": "#/components/schemas/ChecklistMissingAlertConfiguration"}, {"$ref": "#/components/schemas/TemperatureDangerAlertConfiguration"}, {"$ref": "#/components/schemas/OrganizationInactiveAlertConfiguration"}, {"$ref": "#/components/schemas/TrainingAssignedAlertConfiguration"}], "description": "La forma coincide exclusivamente con type. No se aceptan claves desconocidas o repetidas."}, "active": {"type": "boolean"}, "emailEnabled": {"type": "boolean"}, "pushEnabled": {"type": "boolean"}, "rowVersion": {"type": "integer", "minimum": 1, "maximum": 9007199254740991}}
+      description: "Control optimista: rowVersion de la versión consultada. Type y locationId deben coincidir con la regla existente; crear otra regla para cambiar ámbito o tipo. Los avisos existentes conservan su snapshot."
+    AlertRule:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "locationId", "locationName", "name", "type", "configuration", "active", "emailEnabled", "pushEnabled", "rowVersion"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "locationName": {"type": "string", "maxLength": 160}, "name": {"type": "string", "minLength": 2, "maxLength": 160, "description": "Nombre sin controles Unicode; se recortan espacios externos."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED"]}, "configuration": {"oneOf": [{"$ref": "#/components/schemas/ChecklistMissingAlertConfiguration"}, {"$ref": "#/components/schemas/TemperatureDangerAlertConfiguration"}, {"$ref": "#/components/schemas/OrganizationInactiveAlertConfiguration"}, {"$ref": "#/components/schemas/TrainingAssignedAlertConfiguration"}], "description": "La forma coincide exclusivamente con type. No se aceptan claves desconocidas o repetidas."}, "active": {"type": "boolean"}, "emailEnabled": {"type": "boolean"}, "pushEnabled": {"type": "boolean"}, "rowVersion": {"type": "integer", "minimum": 1, "maximum": 9007199254740991}}
+    Alert:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "type", "title", "message", "status", "createdAt", "locationName", "sourceType", "sourceId", "sourceAvailable"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED"]}, "title": {"type": "string", "maxLength": 160}, "message": {"type": "string", "description": "Mensaje público del aviso. El proxy limita la respuesta completa a 4 MiB."}, "status": {"type": "string", "enum": ["PENDING", "SENT", "VIEWED", "ATTENDED", "CANCELLED"]}, "createdAt": {"type": "string", "format": "date-time"}, "viewedAt": {"type": "string", "format": "date-time", "nullable": true}, "attendedAt": {"type": "string", "format": "date-time", "nullable": true}, "locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "locationName": {"type": "string", "maxLength": 160}, "timezone": {"type": "string", "nullable": true, "maxLength": 100, "description": "Zona IANA de la sede si está disponible."}, "sourceType": {"type": "string", "enum": ["CHECKLIST_ASSIGNMENT", "RECEIPT_ITEM", "TRAINING_ASSIGNMENT", "ORGANIZATION"]}, "sourceId": {"type": "string", "maxLength": 64, "description": "UUID para asignación o ítem; ID textual de empresa para ORGANIZATION."}, "sourceParentId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "sourceAvailable": {"type": "boolean"}}
+      description: "Bandeja privada del destinatario; ADMIN no ve avisos ajenos. Revalida membresía/rol/sede/fuente en cada lectura y acuse. sourceParentId es receiptID para un ítem cuando se entrega. SENT legado es no visto si viewedAt es null. Enviar a un proveedor no altera status ni las fechas de lectura/atención."
+    NotificationDeviceInput:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "installationId", "platform", "pushToken"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "installationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "platform": {"type": "string", "enum": ["ANDROID", "IOS", "WEB"]}, "pushToken": {"type": "string", "minLength": 1, "maxLength": 4096, "description": "Dato privado de escritura. Nunca se devuelve ni registra en logs/auditoría."}}
+      description: "Usuario derivado de la sesión y miembro activo. ID o token de otro usuario produce 409 sin revelar al dueño. Rotación propia con el mismo ID actualiza el token; no implica consentimiento para otro usuario."
+    NotificationDevice:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "platform", "status"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "platform": {"type": "string", "enum": ["ANDROID", "IOS", "WEB"]}, "status": {"type": "string", "enum": ["ACTIVE"]}, "lastSeenAt": {"type": "string", "format": "date-time", "nullable": true}}
+      description: "No incluye pushToken, installationId ni identificadores privados del usuario."
+    InactiveNotificationDevice:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "status"]
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "status": {"type": "string", "enum": ["INACTIVE"]}}
+    EmptyAlertCommand:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties: {}
+      description: "Acuse intrínsecamente idempotente; no requiere Idempotency-Key y nunca resuelve el recurso de negocio."
+    AlertResponse:
+      type: "object"
+      additionalProperties: false
+      required: ["data"]
+      properties: {"data": {"$ref": "#/components/schemas/Alert"}}
+    AlertRuleResponse:
+      type: "object"
+      additionalProperties: false
+      required: ["data"]
+      properties: {"data": {"$ref": "#/components/schemas/AlertRule"}}
+    NotificationDeviceResponse:
+      type: "object"
+      additionalProperties: false
+      required: ["data"]
+      properties: {"data": {"$ref": "#/components/schemas/NotificationDevice"}}
+    InactiveNotificationDeviceResponse:
+      type: "object"
+      additionalProperties: false
+      required: ["data"]
+      properties: {"data": {"$ref": "#/components/schemas/InactiveNotificationDevice"}}
+    AlertPage:
+      type: "object"
+      additionalProperties: false
+      required: ["data", "pagination"]
+      properties: {"data": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/Alert"}}, "pagination": {"$ref": "#/components/schemas/Pagination"}}
+    AlertRulePage:
+      type: "object"
+      additionalProperties: false
+      required: ["data", "pagination"]
+      properties: {"data": {"type": "array", "maxItems": 100, "items": {"$ref": "#/components/schemas/AlertRule"}}, "pagination": {"$ref": "#/components/schemas/Pagination"}}
+    UnreadAlertCount:
+      type: "object"
+      additionalProperties: false
+      required: ["count"]
+      properties: {"count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
+      description: "Conteo personal autorizado; un error nunca se convierte en cero."

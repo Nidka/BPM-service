@@ -69,3 +69,13 @@ optimista y recibos privados de comandos. Aplicar después de V5, antes de la AP
 que exige este esquema. Revisar el preflight de [INCIDENTS.md](INCIDENTS.md); no
 borrar ni fusionar acciones o asociaciones históricas automáticamente. V3 local
 de capacitación continúa fuera del despliegue.
+
+## Alertas y notificaciones (V7)
+
+`V7__alerts_notifications.sql` añade versiones, snapshots, deduplicación, leases
+y destinos privados. Aplicar después de V6 y antes de la API/worker de esta
+entrega. El preflight rechaza entregas legadas duplicadas por organización,
+aviso y canal; revisar su historial manualmente, sin borrar ni fusionar registros.
+La migración no crea reglas, cuentas, contenidos ni asignaciones de prueba.
+V3 local sigue fuera de esta entrega. Ver [ALERTS.md](ALERTS.md) y
+[NOTIFICATIONS.md](NOTIFICATIONS.md); el worker se despliega aparte.

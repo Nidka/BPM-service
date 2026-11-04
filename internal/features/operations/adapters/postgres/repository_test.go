@@ -60,7 +60,7 @@ func database(t *testing.T, beforeV5 ...func(context.Context, *pgxpool.Pool)) (c
 		t.Fatal(e)
 	}
 	t.Cleanup(pool.Close)
-	for _, name := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql"} {
+	for _, name := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql"} {
 		if name == "V5__daily_operations.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("operaciones arrancan sin V5")
 		}
@@ -606,5 +606,34 @@ func TestDailyOperationsActiveScopeAndShareLocks(t *testing.T) {
 	}
 	if _, e = s.Plans(ctx, "worker", org, site, pagination.Request{}); !errors.Is(e, domain.ErrDenied) {
 		t.Fatal(e)
+	}
+}
+
+func TestReceiptOutboxAtomicAndReplay(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	s := application.New(New(pool))
+	catalog(t, ctx, s)
+	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
+	v := receipt(985, now)
+	for range 2 {
+		if _, e := s.Receive(ctx, "chef", org, "receipt-outbox", v); e != nil {
+			t.Fatal(e)
+		}
+	}
+	var count int
+	if e := pool.QueryRow(ctx, `SELECT count(*) FROM outbox_events WHERE organization_id=$1 AND event_type='operations.receipt.recorded.v1' AND aggregate_id=$2 AND dedup_key=$3`, org, v.ID, "receipt:"+v.ID).Scan(&count); e != nil || count != 1 {
+		t.Fatal("evento debe ser único y atómico", count, e)
+	}
+	_, e := pool.Exec(ctx, `CREATE FUNCTION reject_receipt_outbox() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'fixture failure'; END$$; CREATE TRIGGER reject_outbox BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION reject_receipt_outbox()`)
+	if e != nil {
+		t.Fatal(e)
+	}
+	bad := receipt(986, now)
+	if _, e = s.Receive(ctx, "chef", org, "receipt-outbox-rollback", bad); e == nil {
+		t.Fatal("confirmó recepción sin evento")
+	}
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM supply_receipts WHERE id=$1`, bad.ID).Scan(&count); e != nil || count != 0 {
+		t.Fatal("no revirtió recepción", count, e)
 	}
 }
