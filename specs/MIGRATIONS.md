@@ -45,3 +45,37 @@ sesiones. Debe aplicarse antes de desplegar el backend que la exige; consultar
 [SESSIONS.md](SESSIONS.md). Los volúmenes Docker ya existentes no ejecutan scripts
 de inicialización nuevos automáticamente: aplicar V2 una vez en la base local
 correspondiente. No borrar volúmenes con datos para forzar la inicialización.
+
+## Evidencias de controles (V4)
+
+`V4__checklist_evidence_items.sql` sustituye el vínculo de evidencia a respuesta
+por pregunta, preservando las asociaciones existentes. Aplicar una sola vez
+después de V2, antes del backend que la exige; consultar [MEDIA.md](MEDIA.md).
+V3 local de capacitación permanece fuera de esta entrega. No ejecutar el
+baseline de nuevo ni incluir borradores de migraciones en el despliegue.
+
+## Operación diaria (V5)
+
+`V5__daily_operations.sql` agrega criterio térmico, instantáneas de recepción,
+hashes e índices de operación diaria. Aplicar después de V4 y antes del backend
+que exige este esquema. Comprobar antes los lotes duplicados por ítem siguiendo
+[OPERATIONS.md](OPERATIONS.md); no se eliminan datos antiguos automáticamente.
+V3 local de capacitación sigue fuera de esta entrega.
+
+## Incidencias (V6)
+
+`V6__incidents.sql` añade catálogo versionado e historial inmutable, versión
+optimista y recibos privados de comandos. Aplicar después de V5, antes de la API
+que exige este esquema. Revisar el preflight de [INCIDENTS.md](INCIDENTS.md); no
+borrar ni fusionar acciones o asociaciones históricas automáticamente. V3 local
+de capacitación continúa fuera del despliegue.
+
+## Alertas y notificaciones (V7)
+
+`V7__alerts_notifications.sql` añade versiones, snapshots, deduplicación, leases
+y destinos privados. Aplicar después de V6 y antes de la API/worker de esta
+entrega. El preflight rechaza entregas legadas duplicadas por organización,
+aviso y canal; revisar su historial manualmente, sin borrar ni fusionar registros.
+La migración no crea reglas, cuentas, contenidos ni asignaciones de prueba.
+V3 local sigue fuera de esta entrega. Ver [ALERTS.md](ALERTS.md) y
+[NOTIFICATIONS.md](NOTIFICATIONS.md); el worker se despliega aparte.

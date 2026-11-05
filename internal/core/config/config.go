@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -31,6 +32,12 @@ type Config struct {
 	R2            R2Config
 	Email         EmailConfig
 	Observability ObservabilityConfig
+	Worker        WorkerConfig
+}
+
+type WorkerConfig struct {
+	Interval   time.Duration
+	FCMEnabled bool
 }
 
 type SessionConfig struct{ AbsoluteTimeout, IdleTimeout time.Duration }
@@ -213,6 +220,7 @@ func loadFrom(getenv func(string) string) (Config, error) {
 			HSTSMaxAgeSeconds: integer("HTTP_HSTS_MAX_AGE_SECONDS", 31536000),
 			HSTSEnabled:       boolean("HTTP_HSTS_ENABLED", getenv("APP_ENV") == Production || getenv("APP_ENV") == Staging || getenv("RAILWAY_ENVIRONMENT_NAME") != ""),
 		},
+		Worker:  WorkerConfig{Interval: duration("ALERT_WORKER_INTERVAL", time.Minute), FCMEnabled: boolean("FCM_ENABLED", false)},
 		Session: SessionConfig{AbsoluteTimeout: duration("AUTH_SESSION_ABSOLUTE_TIMEOUT", 8*time.Hour), IdleTimeout: duration("AUTH_SESSION_IDLE_TIMEOUT", 15*time.Minute)},
 		Database: DatabaseConfig{
 			URL:               strings.TrimSpace(getenv("DATABASE_URL")),
@@ -260,6 +268,20 @@ func loadFrom(getenv func(string) string) (Config, error) {
 
 func (c Config) Validate() error {
 	var errs []error
+	if c.Worker.Interval < time.Second || c.Worker.Interval > time.Hour {
+		errs = append(errs, errors.New("ALERT_WORKER_INTERVAL must be between 1s and 1h"))
+	}
+	if c.Worker.FCMEnabled && !c.Firebase.Enabled {
+		errs = append(errs, errors.New("FCM_ENABLED requires FIREBASE_ENABLED"))
+	}
+	if c.Email.ResendAPIKey != "" && c.Email.From == "" {
+		errs = append(errs, errors.New("RESEND_FROM_EMAIL is required for Resend"))
+	}
+	if c.Email.From != "" {
+		if _, e := mail.ParseAddress(c.Email.From); e != nil || strings.ContainsAny(c.Email.From, "\r\n") {
+			errs = append(errs, errors.New("RESEND_FROM_EMAIL is invalid"))
+		}
+	}
 
 	switch c.App.Environment {
 	case Development, Test, Staging, Production:

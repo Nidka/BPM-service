@@ -168,8 +168,8 @@ func (s *store) CreateTemplate(ctx context.Context, a domain.Actor, org string, 
 		return pgConflict(err)
 	}
 	for _, i := range t.Items {
-		_, err = s.tx.Exec(ctx, `INSERT INTO checklist_items(id,organization_id,template_version_id,section_name,label,response_type,display_order,required,minimum_value,maximum_value,unit,created_by,updated_by)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),$12,$12)`, i.ID, org, t.VersionID, i.SectionName, i.Label, i.ResponseType, i.DisplayOrder, i.Required, i.MinimumValue, i.MaximumValue, i.Unit, a.ID)
+		_, err = s.tx.Exec(ctx, `INSERT INTO checklist_items(id,organization_id,template_version_id,section_name,label,response_type,display_order,required,minimum_value,maximum_value,unit,evidence_required_on_failure,created_by,updated_by)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),$12,$13,$13)`, i.ID, org, t.VersionID, i.SectionName, i.Label, i.ResponseType, i.DisplayOrder, i.Required, i.MinimumValue, i.MaximumValue, i.Unit, i.EvidenceRequiredOnFailure, a.ID)
 		if err != nil {
 			return pgConflict(err)
 		}
@@ -288,7 +288,27 @@ func (s *store) Run(ctx context.Context, a domain.Actor, org, runID string, lock
 		err = rows.Err()
 	}
 	rows.Close()
-	return v, err
+	if err != nil {
+		return v, err
+	}
+	v.EvidenceCounts = map[string]int{}
+	evidence, err := s.tx.Query(ctx, `SELECT cm.checklist_item_id::text,count(*) FROM checklist_media cm
+        JOIN media_files m ON m.organization_id=cm.organization_id AND m.id=cm.media_file_id AND m.status='AVAILABLE' AND m.location_id=$4
+        JOIN checklist_items i ON i.organization_id=cm.organization_id AND i.id=cm.checklist_item_id AND i.template_version_id=$3
+        WHERE cm.organization_id=$1 AND cm.checklist_run_id=$2 GROUP BY cm.checklist_item_id`, org, runID, v.TemplateVersionID, v.LocationID)
+	if err != nil {
+		return v, err
+	}
+	defer evidence.Close()
+	for evidence.Next() {
+		var id string
+		var count int
+		if err = evidence.Scan(&id, &count); err != nil {
+			return v, err
+		}
+		v.EvidenceCounts[id] = count
+	}
+	return v, evidence.Err()
 }
 
 func (s *store) Replay(ctx context.Context, org, key, hash string) (domain.Run, bool, error) {
@@ -322,13 +342,18 @@ func (s *store) saveReceipt(ctx context.Context, actor domain.Actor, org, key, h
 }
 
 func (s *store) SaveAnswers(ctx context.Context, a domain.Actor, v domain.Run, answers []domain.Answer, key, hash string) (domain.Run, error) {
-	_, err := s.tx.Exec(ctx, `DELETE FROM checklist_answers WHERE organization_id=$1 AND checklist_run_id=$2`, v.OrganizationID, v.ID)
+	ids := make([]string, 0, len(answers))
+	for _, answer := range answers {
+		ids = append(ids, answer.ItemID)
+	}
+	_, err := s.tx.Exec(ctx, `DELETE FROM checklist_answers WHERE organization_id=$1 AND checklist_run_id=$2 AND NOT (checklist_item_id=ANY($3::uuid[]))`, v.OrganizationID, v.ID, ids)
 	if err != nil {
 		return v, err
 	}
 	for _, answer := range answers {
 		_, err = s.tx.Exec(ctx, `INSERT INTO checklist_answers(organization_id,checklist_run_id,checklist_item_id,compliance_result,numeric_value,text_value,observation,created_by,updated_by)
-			VALUES($1,$2,$3,NULLIF($4,''),$5,NULLIF($6,''),NULLIF($7,''),$8,$8)`, v.OrganizationID, v.ID, answer.ItemID,
+			VALUES($1,$2,$3,NULLIF($4,''),$5,NULLIF($6,''),NULLIF($7,''),$8,$8)
+            ON CONFLICT(checklist_run_id,checklist_item_id) DO UPDATE SET compliance_result=EXCLUDED.compliance_result,numeric_value=EXCLUDED.numeric_value,text_value=EXCLUDED.text_value,observation=EXCLUDED.observation,updated_by=EXCLUDED.updated_by`, v.OrganizationID, v.ID, answer.ItemID,
 			answer.ComplianceResult, answer.NumericValue, answer.TextValue, answer.Observation, a.ID)
 		if err != nil {
 			return v, pgConflict(err)

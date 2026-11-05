@@ -111,8 +111,8 @@ func (s *Service) CreateTemplate(ctx context.Context, uid, org string, v domain.
 		default:
 			fields["items"] = "Tipo de respuesta no permitido."
 		}
-		if item.EvidenceRequiredOnFailure {
-			fields["items"] = "La evidencia obligatoria estará disponible cuando se habilite el módulo multimedia."
+		if item.EvidenceRequiredOnFailure && item.ResponseType == "TEXT" {
+			fields["items"] = "La foto por incumplimiento se aplica a respuestas de cumplimiento o mediciones."
 		}
 	}
 	if len(fields) != 0 {
@@ -372,8 +372,8 @@ func (s *Service) Submit(ctx context.Context, uid, org, runID string, version in
 			}
 			if item.EvidenceRequiredOnFailure && (a.ComplianceResult == "NON_COMPLIANT" ||
 				(a.NumericValue != nil && item.MinimumValue != nil && item.MaximumValue != nil &&
-					(*a.NumericValue < *item.MinimumValue || *a.NumericValue > *item.MaximumValue))) {
-				return &domain.ValidationError{Fields: map[string]string{"answers": "Esta pregunta requiere evidencia. La carga de archivos aún no está habilitada para este flujo."}}
+					(*a.NumericValue < *item.MinimumValue || *a.NumericValue > *item.MaximumValue))) && v.EvidenceCounts[item.ID] < 1 {
+				return &domain.ValidationError{Fields: map[string]string{"answers": "Adjunta y confirma al menos una foto en cada pregunta que no cumple y solicita evidencia."}}
 			}
 			switch item.ResponseType {
 			case "COMPLIANCE":

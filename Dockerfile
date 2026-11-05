@@ -8,14 +8,17 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -trimpath -ldflags="-s -w" -o /out/bpm-api ./cmd/api
+    -trimpath -ldflags="-s -w" -o /out/bpm-api ./cmd/api && \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/bpm-worker ./cmd/worker
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 COPY --from=build --chown=nonroot:nonroot /out/bpm-api /app/bpm-api
 
+COPY --from=build --chown=nonroot:nonroot /out/bpm-worker /app/bpm-worker
+
 USER nonroot:nonroot
 EXPOSE 8080
-ENTRYPOINT ["/app/bpm-api"]
+CMD ["/app/bpm-api"]
 

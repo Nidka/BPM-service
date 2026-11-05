@@ -82,9 +82,14 @@ func TestTemplateRoleAndValidation(t *testing.T) {
 	}
 	v.Items[0].EvidenceRequiredOnFailure = true
 	_, err = s.CreateTemplate(context.Background(), "admin", "org", v)
+	if err != nil {
+		t.Fatal("no permitió configurar evidencia", err)
+	}
+	v.Items[0].ResponseType = "TEXT"
+	_, err = s.CreateTemplate(context.Background(), "admin", "org", v)
 	var validation *domain.ValidationError
 	if !errors.As(err, &validation) || validation.Fields["items"] == "" {
-		t.Fatal("evidence requirement silently accepted", err)
+		t.Fatal("evidencia sin criterio de incumplimiento", err)
 	}
 }
 

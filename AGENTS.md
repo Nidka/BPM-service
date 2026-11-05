@@ -43,6 +43,13 @@ Reglas obligatorias:
 Estado actual: identidad y organizaciones ya permiten perfiles, tenant activo,
 altas de organización/sede y adición de miembros; leer `specs/ORGANIZATIONS.md`.
 `features/checklists` implementa catálogo, borrador, respuestas, envío y
-programación por sede/frecuencia; leer `specs/CHECKLISTS.md`. Turnos,
-evidencias, capacitación e incidencias siguen pendientes.
+programación por sede/frecuencia; leer `specs/CHECKLISTS.md`.
+`features/media` implementa fotos privadas para controles e incidencias; leer
+`specs/MEDIA.md`. Operación diaria estructurada está en `specs/OPERATIONS.md` y
+el recorrido de incidencias/correcciones en `specs/INCIDENTS.md`.
+Las entregas requieren V4/V5/V6 antes de activar sus APIs; no implican que esas
+migraciones ya estén aplicadas en producción. Turnos, movimientos de stock,
+fotos de limpieza, capacitación y reportes siguen pendientes.
+Alertas y notificaciones están implementadas localmente; leer ALERTS.md y
+NOTIFICATIONS.md. Requieren V7 y un worker separado antes de activarlas.
 

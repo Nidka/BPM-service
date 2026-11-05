@@ -69,7 +69,8 @@ El catálogo publicado ya tiene paginación y detalle autorizado independiente.
 - Endpoints: `POST /media/uploads`, `POST /media/{id}/confirm`,
   `POST /media/{id}/download`.
 - Flujo: validar tenant/sede/MIME/tamaño/hash, crear `PENDING_UPLOAD`, firmar PUT,
-  comprobar con HEAD y marcar `AVAILABLE`.
+  comprobar HEAD, bytes acotados, formato y SHA-256 real antes de marcar `AVAILABLE`.
+- Entrega por pregunta y reglas completas: [MEDIA.md](MEDIA.md).
 - Regla crítica: clave generada en servidor bajo
   `organizations/{org}/locations/{location}/media/...`; nunca URL pública.
 - Pruebas: objeto ajeno, MIME/tamaño incorrecto, checksum diferente, URL vencida
@@ -77,19 +78,31 @@ El catálogo publicado ya tiene paginación y detalle autorizado independiente.
 
 ## 4. Operación diaria
 
+Estado: recorrido estructurado implementado para catálogos, criterio térmico,
+recepciones, lectura PEPS y planes/ejecuciones de limpieza. Contrato, permisos,
+legado y activación V5 en [OPERATIONS.md](OPERATIONS.md). Fotos de limpieza,
+consumo/descarte, turnos y cola offline de nuevas operaciones siguen pendientes.
+
 - Tablas: `suppliers`, `products`, `supply_receipts`, `supply_receipt_items`,
   `storage_lots`, `cleaning_plans`, `cleaning_executions`, `cleaning_media`.
 - Subdominios internos: recepción de insumos, almacenamiento/PEPS y limpieza.
 - Casos de uso: mantener catálogos, recibir lote, decidir aceptación, consultar
   vencimientos, programar limpieza y registrar ejecución.
-- Permisos: `ADMIN` configura; `CHEF` supervisa; `WORKER` ejecuta tareas de sedes
-  asignadas.
+- Permisos: `ADMIN` configura y supervisa; `CHEF` recibe insumos, consulta PEPS y
+  realiza limpieza; `WORKER` ejecuta limpieza en sedes asignadas y solo consulta
+  sus propias ejecuciones.
 - Offline: recepciones y ejecuciones usan UUID, idempotencia y evidencias
   posteriores al dato estructurado.
 - Pruebas: temperatura/decisión, lote duplicado, vencimiento, sede ajena y
   evidencia asociada a otra organización.
 
 ## 5. Incidencias y acciones correctivas
+
+Estado: catálogo versionado, reporte por sede, asignación, atención, corrección,
+validación independiente e historial implementados. Fotos privadas antes/después
+reutilizan media; contrato, permisos, legado y activación V6 en
+[INCIDENTS.md](INCIDENTS.md). Constancia interna y notificaciones corresponden a
+los módulos posteriores; no se emiten certificados en esta entrega.
 
 - Tablas: `incident_catalog`, `incidents`, `corrective_actions`,
   `incident_media`.
@@ -117,6 +130,11 @@ El catálogo publicado ya tiene paginación y detalle autorizado independiente.
   mensajes visibles.
 - Pruebas: reintentos, proveedor caído, worker concurrente, token FCM inválido y
   evento agotado.
+
+Estado: reglas configurables, bandeja privada y entrega transaccional implementadas.
+Contrato en [ALERTS.md](ALERTS.md), proveedores/activación en
+[NOTIFICATIONS.md](NOTIFICATIONS.md). Requiere V7 y servicio worker separado;
+la compilación no implica envíos ni despliegue real.
 
 ## 7. Academia BPM
 

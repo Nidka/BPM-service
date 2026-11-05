@@ -11,8 +11,13 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/httpserver"
 	firebaseauth "github.com/Nidka/BPM-service/internal/core/integrations/firebase"
 	"github.com/Nidka/BPM-service/internal/core/integrations/r2"
+	"github.com/Nidka/BPM-service/internal/features/alerts"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/identity"
+	"github.com/Nidka/BPM-service/internal/features/incidents"
+	"github.com/Nidka/BPM-service/internal/features/media"
+	"github.com/Nidka/BPM-service/internal/features/notifications"
+	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -49,6 +54,24 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := media.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
+	if err := operations.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
+	if err := incidents.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
+	if err := alerts.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+	if err := notifications.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
 	if cfg.Firebase.Enabled {
 		container.TokenVerifier, err = firebaseauth.New(ctx, cfg.Firebase)
 		if err != nil {
@@ -80,8 +103,13 @@ func NewContainer(
 		Database: container.Database,
 		APIRoutes: []httpserver.APIRouteRegistrar{
 			identityModule.RegisterRoutes,
+			alerts.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			notifications.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			organizations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			checklists.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
+			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			incidents.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

@@ -132,7 +132,7 @@ func testPagination(t *testing.T, ctx context.Context, pool *pgxpool.Pool, servi
 	}
 	router := chi.NewRouter()
 	organizationhttp.New(service, slog.New(slog.NewTextHandler(io.Discard, nil))).Register(router, middleware.Authenticate(tenantTestVerifier{}))
-	for _, resource := range []string{"locations", "members", "courses", "checklist-summaries", "incidents"} {
+	for _, resource := range []string{"locations", "members", "courses", "checklist-summaries"} {
 		request := httptest.NewRequest("GET", "/organizations/"+org+"/"+resource+"?pageSize=3", nil)
 		request.Header.Set("Authorization", "Bearer admin")
 		recorder := httptest.NewRecorder()
