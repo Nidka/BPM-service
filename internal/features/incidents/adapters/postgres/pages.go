@@ -72,6 +72,7 @@ func (s *store) History(ctx context.Context, org, id string, w pagination.Window
 		if e = rows.Scan(&v.ID, &v.OperationID, &v.FromStatus, &v.ToStatus, &v.ActorName, &v.Note, &v.CreatedAt); e != nil {
 			return nil, e
 		}
+		v.CreatedAt = v.CreatedAt.UTC()
 		out = append(out, v)
 	}
 	return out, rows.Err()

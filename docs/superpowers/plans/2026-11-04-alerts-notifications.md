@@ -83,3 +83,4 @@ Resendkey estable por deliveryID, endpoint fijoHTTPSapi.resend.com/emails, Idemp
 - Web real: fallo de color Android-only en vector reproducido → color hexadecimal multiplataforma, login/bandeja/detalle/atender y4anchos verificados sin excepciones.
 - Verificación backend: go test -race -count=1 ./... (45 paquetes con tests), go vet y diffcheck sin fallos. Pruebas HTTP adicionales confirman sesión vencida en todas las rutas nuevas.
 - Se documenta el orden de activación: migracionesV4/V5/V6/V7, API+worker y después UI. La petición actual autoriza subir cambios; el despliegue requiere operador con acceso a Railway.
+- CI publicó un fallo reproducible únicamente con TZ=UTC en incidencias: la fecha original y la recuperada por JSON tenían referencias de zona distintas. RED con la suite de incidencias en UTC → normalización canónica UTC en incidentes/acciones/historial → GREEN suite completa race en UTC, sin cambiar instantes ni reglas de autorización.

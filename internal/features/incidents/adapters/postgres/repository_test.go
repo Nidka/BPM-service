@@ -103,6 +103,9 @@ func TestIncidentPostgresLifecyclePrivacyAndRecovery(t *testing.T) {
 		t.Fatal(v)
 	}
 	original := v
+	if original.CreatedAt.Location() != time.UTC {
+		t.Fatal("la fecha de dominio no es UTC canónica")
+	}
 	for _, u := range []string{"worker2", "chef2", "outside"} {
 		if _, e = s.Detail(ctx, u, org, v.ID); !errors.Is(e, domain.ErrDenied) {
 			t.Fatal("leyó ajeno", u, e)

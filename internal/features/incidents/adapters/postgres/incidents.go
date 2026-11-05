@@ -11,6 +11,11 @@ const incidentJoins = ` FROM incidents i JOIN incident_catalog c ON c.organizati
 
 func scanIncident(row pgx.Row) (v domain.Incident, e error) {
 	e = row.Scan(&v.ID, &v.LocationID, &v.CatalogID, &v.Name, &v.Area, &v.RiskLevel, &v.Status, &v.Description, &v.ReportedBy, &v.ReportedByName, &v.CreatedAt, &v.RowVersion, &v.CatalogVersion, &v.NormativeCriterion, &v.EvidenceRequired, &v.ClosedAt)
+	v.CreatedAt = v.CreatedAt.UTC()
+	if v.ClosedAt != nil {
+		at := v.ClosedAt.UTC()
+		v.ClosedAt = &at
+	}
 	return v, missing(e)
 }
 func (s *store) Incident(ctx context.Context, org, id string, lock bool) (domain.Incident, error) {
@@ -32,6 +37,15 @@ func (s *store) Incident(ctx context.Context, org, id string, lock bool) (domain
 		if e = rows.Scan(&x.ID, &x.ResponsibleUserID, &x.ResponsibleName, &x.Description, &x.DueAt, &x.Status, &x.ResolutionNote, &x.ResolvedAt, &x.VerifiedAt, &x.VerifiedBy); e != nil {
 			rows.Close()
 			return v, e
+		}
+		x.DueAt = x.DueAt.UTC()
+		if x.ResolvedAt != nil {
+			at := x.ResolvedAt.UTC()
+			x.ResolvedAt = &at
+		}
+		if x.VerifiedAt != nil {
+			at := x.VerifiedAt.UTC()
+			x.VerifiedAt = &at
 		}
 		v.Actions = append(v.Actions, x)
 	}
