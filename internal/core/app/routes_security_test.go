@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"github.com/Nidka/BPM-service/internal/core/config"
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/features/alerts"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
+	"github.com/Nidka/BPM-service/internal/features/training"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"log/slog"
@@ -34,6 +36,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	checklists.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	alerts.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	notifications.Routes(nil, validToken{}, logger, expiredSession{})(r)
+	training.Routes(nil, validToken{}, nil, config.R2Config{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
 		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
 		{"GET", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/view"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/attend"},
@@ -42,6 +45,8 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 		{"GET", "/organizations"}, {"POST", "/organizations/org/members"},
 		{"GET", "/organizations/org/checklists"}, {"POST", "/organizations/org/checklist-runs"},
 		{"PUT", "/organizations/org/checklist-runs/run/answers"}, {"POST", "/organizations/org/checklist-runs/run/submit"},
+		{"GET", "/organizations/org/training/courses"}, {"POST", "/organizations/org/training/courses/00000000-0000-0000-0000-000000000001/attempts"},
+		{"PUT", "/organizations/org/training/courses/00000000-0000-0000-0000-000000000001/draft"}, {"POST", "/organizations/org/training/videos/uploads"},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, nil)

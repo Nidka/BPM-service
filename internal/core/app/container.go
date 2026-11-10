@@ -19,6 +19,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
+	"github.com/Nidka/BPM-service/internal/features/training"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,6 +29,7 @@ type Container struct {
 	Database      *pgxpool.Pool
 	TokenVerifier contracts.TokenVerifier
 	ObjectStorage contracts.ObjectStorage
+	VideoStorage  contracts.VideoStorage
 	Server        *httpserver.Server
 
 	closeOnce sync.Once
@@ -66,6 +68,10 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := training.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
 	if err := alerts.RequireSchema(ctx, pool); err != nil {
 		return fail(err)
 	}
@@ -81,10 +87,12 @@ func NewContainer(
 	}
 
 	if cfg.R2.Enabled {
-		container.ObjectStorage, err = r2.New(ctx, cfg.R2)
+		storage, err := r2.New(ctx, cfg.R2)
 		if err != nil {
 			return fail(err)
 		}
+		container.ObjectStorage = storage
+		container.VideoStorage = storage
 		logger.Info("private R2 storage ready")
 	}
 
@@ -110,6 +118,7 @@ func NewContainer(
 			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
 			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			incidents.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			training.Routes(container.Database, container.TokenVerifier, container.VideoStorage, cfg.R2, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

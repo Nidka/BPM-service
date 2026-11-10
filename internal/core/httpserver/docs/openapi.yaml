@@ -27,6 +27,8 @@ tags:
     description: Reglas configurables y bandeja privada con lectura y atención monotónicas.
   - name: Notificaciones
     description: Dispositivos propios; entrega externa desacoplada mediante outbox transaccional.
+  - name: Academia
+    description: Cursos BPM versionados con video, modo estudio sin calificación y evaluación calificada en servidor.
 paths:
   /health:
     get:
@@ -1865,6 +1867,206 @@ paths:
   /api/v1/organizations/{organizationID}/alerts/{alertID}/attend:
     parameters: [{"$ref": "#/components/parameters/OrganizationID"}, {"in": "path", "name": "alertID", "required": true, "schema": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}}]
     post: {"tags": ["Alertas"], "summary": "Marcar un aviso propio como atendido", "description": "Intrínsecamente idempotente y monotónico, sin Idempotency-Key. ATTEND también fija viewedAt si faltaba. Una auditoría por cambio real; no resuelve el recurso de negocio. Confirmar respuesta antes de actualizar la UI. JSON UTF8 estricto hasta 512 KiB; rechaza claves repetidas, campos y filtros desconocidos. Sesión y permisos se revalidan en cada solicitud.", "operationId": "attendPersonalAlert", "security": [{"FirebaseBearer": []}], "responses": {"200": {"description": "Operación confirmada.", "headers": {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AlertResponse"}}}}, "default": {"$ref": "#/components/responses/AlertError"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmptyAlertCommand"}}}}}
+  /api/v1/organizations/{organizationID}/training/courses:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Academia]
+      operationId: listTrainingCourses
+      summary: Listar cursos para administrar
+      description: ADMIN y SUPER_ADMIN. Máximo 100 cursos ordenados por título; el filtro status es opcional y no admite otros parámetros.
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: status, required: false, schema: {type: string, enum: [DRAFT, PUBLISHED, ARCHIVED]}}
+      responses:
+        "200":
+          description: Cursos de la organización autorizada.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingCourseListResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+    post:
+      tags: [Academia]
+      operationId: createTrainingCourse
+      summary: Crear un curso en borrador
+      description: ADMIN y SUPER_ADMIN. El código se normaliza a mayúsculas y es único por organización (409 TRAINING_COURSE_CODE_TAKEN).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingCourseRequest"}}}
+      responses:
+        "201":
+          description: Curso creado en estado DRAFT.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingCourseCreatedResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Academia]
+      operationId: getTrainingCourse
+      summary: Consultar la versión publicada para aprender
+      description: Cualquier membresía activa (ADMIN, CHEF, WORKER) y SUPER_ADMIN. Solo la última versión PUBLISHED de un curso PUBLISHED. Las preguntas nunca incluyen correctOption ni explanation; video es null si no existe o no está AVAILABLE. 404 TRAINING_COURSE_NOT_FOUND si no hay versión publicada o el curso es de otra organización.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Curso, lecciones, preguntas sin respuesta, progreso y constancia propios.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingCourseViewResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/lessons/{lessonID}/video:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    - {in: path, name: lessonID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: getTrainingLessonVideoUrl
+      summary: Obtener una URL firmada para reproducir el video de una lección
+      description: Sin cuerpo ni query. GET firmado de R2 válido 15 minutos; la respuesta usa Cache-Control no-store y la URL nunca se registra. 404 si la lección no pertenece a la versión publicada o no tiene video AVAILABLE.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: URL temporal de reproducción.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoAccessResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/progress:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    put:
+      tags: [Academia]
+      operationId: saveTrainingProgress
+      summary: Guardar la última lección vista
+      description: Idempotente por naturaleza. NOT_STARTED pasa a IN_PROGRESS y COMPLETED nunca retrocede. Requiere membresía (SUPER_ADMIN recibe 403). La lección debe ser de la versión publicada.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingProgressRequest"}}}
+      responses:
+        "200":
+          description: Progreso actualizado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingProgressResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/study/answers:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: answerTrainingStudyQuestion
+      summary: Practicar una pregunta en modo estudio
+      description: Retroalimentación inmediata. No califica, no crea intentos, no otorga XP ni constancia y no persiste nada. 422 si selectedOption está fuera de rango; 404 si la pregunta no es de la versión publicada.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingStudyRequest"}}}
+      responses:
+        "200":
+          description: Resultado de la respuesta con la opción correcta y su explicación.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingStudyResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/attempts:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: submitTrainingAttempt
+      summary: Enviar un intento calificado (DIAGNOSTIC o FINAL)
+      description: |
+        Puntaje, aprobación y XP los calcula el servidor; deben responderse todas las preguntas exactamente una vez
+        (422 TRAINING_ANSWERS_INVALID con fields). versionId distinto de la publicada vigente responde 409
+        TRAINING_VERSION_OUTDATED. Idempotente por id y clientOperationId: repetición idéntica devuelve 200 con el
+        mismo resultado; contenido distinto responde 409 IDEMPOTENCY_CONFLICT. Un FINAL aprobado completa el curso,
+        otorga XP (10 por correcta, conservando el máximo) y emite una constancia única por usuario y versión.
+        Requiere membresía (SUPER_ADMIN recibe 403).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAttemptRequest"}}}
+      responses:
+        "200":
+          description: Repetición idéntica de un intento ya registrado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAttemptResponse"}}}
+        "201":
+          description: Intento calificado y registrado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAttemptResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/draft:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Academia]
+      operationId: getTrainingDraft
+      summary: Obtener el borrador editable
+      description: ADMIN y SUPER_ADMIN. Si no existe, crea uno copiando la versión publicada con identificadores nuevos (o vacío). Incluye correctOption y explanation; nunca usar para aprender.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Borrador con rowVersion para control de concurrencia.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingDraftResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+    put:
+      tags: [Academia]
+      operationId: saveTrainingDraft
+      summary: Reemplazar el borrador
+      description: ADMIN y SUPER_ADMIN. Control optimista con version.rowVersion (409 TRAINING_DRAFT_CONFLICT). Límites - título 200, contenido 20000, 50 lecciones, 100 preguntas, 2 a 6 opciones de 300. El cuerpo está acotado por HTTP_MAX_JSON_BODY_BYTES (1 MiB por defecto).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingDraftRequest"}}}
+      responses:
+        "200":
+          description: Borrador guardado con la nueva rowVersion.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingDraftResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/publish:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: publishTrainingCourse
+      summary: Publicar el borrador
+      description: Sin cuerpo. El borrador pasa a PUBLISHED y la versión anterior a ARCHIVED; intentos y constancias previos no cambian. Requiere al menos una lección, una pregunta y todos los videos AVAILABLE (422 TRAINING_DRAFT_INCOMPLETE). Sin borrador responde 404 TRAINING_DRAFT_NOT_FOUND.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Versión publicada.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPublishResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/videos/uploads:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Academia]
+      operationId: reserveTrainingVideoUpload
+      summary: Reservar la carga de un video de capacitación
+      description: ADMIN y SUPER_ADMIN. Solo video/mp4 y video/webm hasta TRAINING_VIDEO_MAX_BYTES. La clave privada es organizations/{org}/training/videos/{id}.{mp4|webm}. Repetir los mismos metadatos devuelve la misma reserva con una firma nueva; metadatos distintos responden 409 TRAINING_VIDEO_CONFLICT. El cliente envía el PUT directo a R2 con los encabezados indicados.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoUploadRequest"}}}
+      responses:
+        "201":
+          description: Reserva y PUT firmado de 15 minutos (Cache-Control no-store).
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoReservationResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/videos/{mediaID}/confirm:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: mediaID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: confirmTrainingVideo
+      summary: Confirmar un video cargado
+      description: Sin cuerpo. Verifica tamaño y tipo (HEAD), la firma real del formato (MP4 con ftyp en el desplazamiento 4; WebM con 1A 45 DF A3) y el SHA-256 de todo el objeto leído en streaming con tiempo acotado. Coincide - AVAILABLE; no coincide - FAILED con 422 TRAINING_VIDEO_INVALID. Si el objeto aún no existe responde 409 TRAINING_VIDEO_NOT_READY y se puede reintentar. Repetible.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Video AVAILABLE.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoConfirmResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
 components:
   parameters:
     PageSize:
@@ -1910,6 +2112,20 @@ components:
       bearerFormat: Firebase ID token
       description: ID token emitido por Firebase Authentication.
   responses:
+    TrainingError:
+      description: >-
+        400 INVALID_REQUEST (JSON estricto, query o cuerpo no admitidos); 401 UNAUTHENTICATED/SESSION_EXPIRED;
+        403 ACCESS_DENIED (rol insuficiente, sin membresía o SUPER_ADMIN sin membresía en operaciones que
+        persisten progreso o intentos); 404 TRAINING_COURSE_NOT_FOUND, TRAINING_LESSON_NOT_FOUND,
+        TRAINING_QUESTION_NOT_FOUND, TRAINING_VIDEO_NOT_FOUND o TRAINING_DRAFT_NOT_FOUND (también para
+        recursos de otra organización); 409 TRAINING_DRAFT_CONFLICT, TRAINING_COURSE_CODE_TAKEN,
+        TRAINING_VERSION_OUTDATED, IDEMPOTENCY_CONFLICT, TRAINING_VIDEO_CONFLICT o TRAINING_VIDEO_NOT_READY;
+        422 VALIDATION_ERROR, TRAINING_ANSWERS_INVALID, TRAINING_DRAFT_INCOMPLETE (con fields) o
+        TRAINING_VIDEO_INVALID; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado; 503 STORAGE_UNAVAILABLE.
+        Nunca expone URL firmadas, respuestas correctas ni detalles internos.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorResponse"}
     AlertError:
       description: "400 INVALID_REQUEST/INVALID_PAGINATION; 401 UNAUTHENTICATED/SESSION_EXPIRED; 403 ACCESS_DENIED; 404 NOT_FOUND; 409 RESOURCE_CONFLICT; 415 JSON requerido; 422 VALIDATION_ERROR; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado; 503 dependencia no disponible. JSON UTF8 estricto máximo 512 KiB, respuesta del proxy máximo 4 MiB; nunca expone correos, tokens, cuerpos internos ni configuración del proveedor."
       headers: {"X-BPM-Session-Expires-At": {"description": "Límite absoluto de sesión en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}, "X-BPM-Session-Idle-Expires-At": {"description": "Límite de inactividad en segundos Unix.", "schema": {"type": "integer", "format": "int64"}}}
@@ -1962,6 +2178,341 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    TrainingCourse:
+      type: object
+      required: [id, code, title, description, estimatedDurationMinutes]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string, maxLength: 50, example: M-01}
+        title: {type: string, maxLength: 200}
+        description: {type: string}
+        estimatedDurationMinutes: {type: integer, nullable: true, minimum: 1}
+        status: {type: string, enum: [DRAFT, PUBLISHED, ARCHIVED], description: "Solo en respuestas de autoría."}
+    TrainingProgress:
+      type: object
+      required: [status, lastLessonId, bestScore, experiencePoints, completedAt]
+      properties:
+        status: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]}
+        lastLessonId: {type: string, format: uuid, nullable: true}
+        bestScore: {type: integer, nullable: true, minimum: 0, maximum: 100, description: "Mejor puntaje de un intento FINAL."}
+        experiencePoints: {type: integer, minimum: 0, description: "10 por cada respuesta correcta del mejor FINAL aprobado; calculado por el servidor."}
+        completedAt: {type: string, format: date-time, nullable: true}
+    TrainingCertificate:
+      type: object
+      nullable: true
+      required: [id, verificationCode, issuedAt]
+      properties:
+        id: {type: string, format: uuid}
+        verificationCode: {type: string, minLength: 16, description: "Código aleatorio criptográfico en base32."}
+        issuedAt: {type: string, format: date-time}
+    TrainingLearnVideo:
+      type: object
+      nullable: true
+      required: [mediaId, mimeType, sizeBytes]
+      properties:
+        mediaId: {type: string, format: uuid}
+        mimeType: {type: string, enum: [video/mp4, video/webm]}
+        sizeBytes: {type: integer, format: int64}
+    TrainingLearnLesson:
+      type: object
+      required: [id, title, content, displayOrder, video]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        content: {type: string, description: Texto plano con saltos de línea.}
+        displayOrder: {type: integer, minimum: 1}
+        video: {$ref: "#/components/schemas/TrainingLearnVideo"}
+    TrainingLearnQuestion:
+      type: object
+      description: Nunca incluye correctOption ni explanation; la respuesta solo se revela tras responder.
+      required: [id, lessonId, questionText, options, displayOrder]
+      properties:
+        id: {type: string, format: uuid}
+        lessonId: {type: string, format: uuid, nullable: true}
+        questionText: {type: string}
+        options: {type: array, minItems: 2, maxItems: 6, items: {type: string, maxLength: 300}}
+        displayOrder: {type: integer, minimum: 1}
+    TrainingCourseView:
+      type: object
+      required: [course, version, lessons, questions, progress, certificate]
+      properties:
+        course: {$ref: "#/components/schemas/TrainingCourse"}
+        version:
+          type: object
+          required: [id, versionNumber, passingScore]
+          properties:
+            id: {type: string, format: uuid}
+            versionNumber: {type: integer}
+            passingScore: {type: integer, minimum: 1, maximum: 100}
+        lessons: {type: array, items: {$ref: "#/components/schemas/TrainingLearnLesson"}}
+        questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
+        progress: {$ref: "#/components/schemas/TrainingProgress"}
+        certificate: {$ref: "#/components/schemas/TrainingCertificate"}
+    TrainingCourseViewResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: "#/components/schemas/TrainingCourseView"}
+    TrainingVideoAccessResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [url, mimeType, expiresAt]
+          properties:
+            url: {type: string, format: uri, description: "GET firmado de R2 válido 15 minutos. Es una credencial: no se registra ni se persiste."}
+            mimeType: {type: string, enum: [video/mp4, video/webm]}
+            expiresAt: {type: string, format: date-time}
+    TrainingProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [lastLessonId]
+      properties:
+        lastLessonId: {type: string, format: uuid}
+    TrainingProgressResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [progress]
+          properties:
+            progress: {$ref: "#/components/schemas/TrainingProgress"}
+    TrainingStudyRequest:
+      type: object
+      additionalProperties: false
+      required: [questionId, selectedOption]
+      properties:
+        questionId: {type: string, format: uuid}
+        selectedOption: {type: integer, minimum: 0, description: "Índice 0-based; fuera de rango responde 422."}
+    TrainingStudyResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [correct, correctOption, explanation]
+          properties:
+            correct: {type: boolean}
+            correctOption: {type: integer}
+            explanation: {type: string}
+    TrainingAttemptRequest:
+      type: object
+      additionalProperties: false
+      description: El cliente nunca envía puntaje, aprobación ni XP; cualquier campo adicional se rechaza.
+      required: [id, clientOperationId, versionId, attemptType, startedAt, clientCreatedAt, answers]
+      properties:
+        id: {type: string, format: uuid}
+        clientOperationId: {type: string, format: uuid}
+        versionId: {type: string, format: uuid}
+        attemptType: {type: string, enum: [DIAGNOSTIC, FINAL]}
+        startedAt: {type: string, format: date-time}
+        clientCreatedAt: {type: string, format: date-time}
+        answers:
+          type: array
+          description: Exactamente una respuesta por cada pregunta de la versión.
+          items:
+            type: object
+            additionalProperties: false
+            required: [questionId, selectedOption]
+            properties:
+              questionId: {type: string, format: uuid}
+              selectedOption: {type: integer, minimum: 0}
+    TrainingAttemptResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [attempt, results, progress, certificate]
+          properties:
+            attempt:
+              type: object
+              required: [id, attemptType, score, passed, completedAt]
+              properties:
+                id: {type: string, format: uuid}
+                attemptType: {type: string, enum: [DIAGNOSTIC, FINAL]}
+                score: {type: integer, minimum: 0, maximum: 100, description: "round(correctas*100/total), calculado por el servidor."}
+                passed: {type: boolean, description: "score >= passingScore de la versión."}
+                completedAt: {type: string, format: date-time}
+            results:
+              type: array
+              items:
+                type: object
+                required: [questionId, selectedOption, correct, correctOption, explanation]
+                properties:
+                  questionId: {type: string, format: uuid}
+                  selectedOption: {type: integer}
+                  correct: {type: boolean}
+                  correctOption: {type: integer}
+                  explanation: {type: string}
+            progress: {$ref: "#/components/schemas/TrainingProgress"}
+            certificate: {$ref: "#/components/schemas/TrainingCertificate"}
+    TrainingCourseRequest:
+      type: object
+      additionalProperties: false
+      required: [code, title]
+      properties:
+        code: {type: string, maxLength: 50, description: "Letras, números, guiones y guiones bajos; se normaliza a mayúsculas.", example: M-01}
+        title: {type: string, minLength: 2, maxLength: 200}
+        description: {type: string, maxLength: 2000}
+        estimatedDurationMinutes: {type: integer, minimum: 1, maximum: 1440}
+    TrainingCourseCreatedResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [course]
+          properties:
+            course: {$ref: "#/components/schemas/TrainingCourse"}
+    TrainingCourseListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                type: object
+                required: [id, code, title, status, publishedVersionNumber, hasDraft]
+                properties:
+                  id: {type: string, format: uuid}
+                  code: {type: string}
+                  title: {type: string}
+                  status: {type: string, enum: [DRAFT, PUBLISHED, ARCHIVED]}
+                  publishedVersionNumber: {type: integer, nullable: true}
+                  hasDraft: {type: boolean}
+    TrainingDraftLesson:
+      type: object
+      additionalProperties: false
+      required: [id, title, content, displayOrder]
+      properties:
+        id: {type: string, format: uuid, description: Generado por el cliente.}
+        title: {type: string, minLength: 1, maxLength: 200}
+        content: {type: string, maxLength: 20000}
+        displayOrder: {type: integer, minimum: 1}
+        videoMediaId: {type: string, format: uuid, nullable: true, description: "Video de capacitación AVAILABLE o PENDING_UPLOAD de la organización."}
+    TrainingDraftQuestion:
+      type: object
+      additionalProperties: false
+      required: [id, questionText, options, correctOption, displayOrder]
+      properties:
+        id: {type: string, format: uuid, description: Generado por el cliente.}
+        lessonId: {type: string, format: uuid, nullable: true, description: Debe existir en el mismo cuerpo.}
+        questionText: {type: string, minLength: 1, maxLength: 1000}
+        options: {type: array, minItems: 2, maxItems: 6, items: {type: string, minLength: 1, maxLength: 300}}
+        correctOption: {type: integer, minimum: 0}
+        explanation: {type: string, maxLength: 2000}
+        displayOrder: {type: integer, minimum: 1}
+    TrainingDraftRequest:
+      type: object
+      additionalProperties: false
+      description: Reemplaza por completo lecciones y preguntas del borrador; ambas listas son obligatorias (pueden estar vacías).
+      required: [version, lessons, questions]
+      properties:
+        version:
+          type: object
+          additionalProperties: false
+          required: [passingScore, rowVersion]
+          properties:
+            id: {type: string, format: uuid}
+            versionNumber: {type: integer}
+            passingScore: {type: integer, minimum: 1, maximum: 100}
+            rowVersion: {type: string, description: "Valor devuelto por la última lectura; también se acepta como número."}
+        lessons: {type: array, maxItems: 50, items: {$ref: "#/components/schemas/TrainingDraftLesson"}}
+        questions: {type: array, maxItems: 100, items: {$ref: "#/components/schemas/TrainingDraftQuestion"}}
+    TrainingDraftResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [course, version, lessons, questions]
+          properties:
+            course: {$ref: "#/components/schemas/TrainingCourse"}
+            version:
+              type: object
+              required: [id, versionNumber, passingScore, rowVersion]
+              properties:
+                id: {type: string, format: uuid}
+                versionNumber: {type: integer}
+                passingScore: {type: integer}
+                rowVersion: {type: string}
+            lessons: {type: array, items: {$ref: "#/components/schemas/TrainingDraftLesson"}}
+            questions: {type: array, items: {$ref: "#/components/schemas/TrainingDraftQuestion"}}
+    TrainingPublishResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [course, version]
+          properties:
+            course: {$ref: "#/components/schemas/TrainingCourse"}
+            version:
+              type: object
+              required: [id, versionNumber, passingScore, publishedAt]
+              properties:
+                id: {type: string, format: uuid}
+                versionNumber: {type: integer}
+                passingScore: {type: integer}
+                publishedAt: {type: string, format: date-time, nullable: true}
+    TrainingVideoUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [id, originalName, mimeType, sizeBytes, sha256]
+      properties:
+        id: {type: string, format: uuid}
+        originalName: {type: string, minLength: 1, maxLength: 200}
+        mimeType: {type: string, enum: [video/mp4, video/webm]}
+        sizeBytes: {type: integer, format: int64, minimum: 1, description: "Máximo TRAINING_VIDEO_MAX_BYTES (300 MiB por defecto, hasta 1 GiB)."}
+        sha256: {type: string, pattern: '^[0-9a-fA-F]{64}$'}
+    TrainingVideoFile:
+      type: object
+      required: [id, originalName, mimeType, sizeBytes, sha256, status, createdAt, uploadedAt]
+      properties:
+        id: {type: string, format: uuid}
+        originalName: {type: string}
+        mimeType: {type: string, enum: [video/mp4, video/webm]}
+        sizeBytes: {type: integer, format: int64}
+        sha256: {type: string}
+        status: {type: string, enum: [PENDING_UPLOAD, AVAILABLE, FAILED, DELETED]}
+        createdAt: {type: string, format: date-time}
+        uploadedAt: {type: string, format: date-time, nullable: true}
+    TrainingVideoReservationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [file, upload]
+          properties:
+            file: {$ref: "#/components/schemas/TrainingVideoFile"}
+            upload:
+              type: object
+              nullable: true
+              description: "null si el video ya está AVAILABLE. El PUT firmado no puede sobrescribir objetos existentes y dura 15 minutos."
+              required: [method, url, headers, expiresAt]
+              properties:
+                method: {type: string, enum: [PUT]}
+                url: {type: string, format: uri, description: "Credencial temporal: no registrar ni persistir."}
+                headers: {type: object, additionalProperties: {type: array, items: {type: string}}}
+                expiresAt: {type: string, format: date-time}
+    TrainingVideoConfirmResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [file]
+          properties:
+            file: {$ref: "#/components/schemas/TrainingVideoFile"}
     Pagination:
       type: object
       required: [nextPageToken]

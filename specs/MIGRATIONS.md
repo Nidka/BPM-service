@@ -79,3 +79,14 @@ aviso y canal; revisar su historial manualmente, sin borrar ni fusionar registro
 La migración no crea reglas, cuentas, contenidos ni asignaciones de prueba.
 V3 local sigue fuera de esta entrega. Ver [ALERTS.md](ALERTS.md) y
 [NOTIFICATIONS.md](NOTIFICATIONS.md); el worker se despliega aparte.
+
+## Academia BPM (V8)
+
+`V8__training_academy.sql` añade `row_version` del borrador, `request_hash` de
+intentos, unicidad de una sola versión DRAFT y una sola PUBLISHED por curso,
+constancia única por (organización, usuario, versión), índices y restricciones de
+contenido (`NOT VALID`). Aplicar después de V7 (o de V2 si V4–V7 ya están) y antes
+de la API que exige este esquema; el arranque falla de forma explícita si falta.
+El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
+revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
+V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).

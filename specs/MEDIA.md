@@ -121,3 +121,11 @@ Las nuevas reservas siguen limitadas a tres fotos por etapa y acción. La lectur
 de incidencias conserva galerías históricas con más fotos; el límite de altas
 no se usa para ocultar información anterior. Las acciones canceladas conservan
 lectura histórica para sus responsables que aún tienen acceso a la sede.
+
+## Videos de capacitación
+
+La Academia BPM reserva videos MP4/WebM sin sede en `media_files` con claves bajo
+`organizations/{org}/training/videos/`. Este servicio de evidencias no los lee ni
+los muta (no tienen asociación de control, incidencia o limpieza); los gestiona la
+feature `training` con el puerto `contracts.VideoStorage`. Ver
+[TRAINING.md](TRAINING.md).

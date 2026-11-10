@@ -151,6 +151,14 @@ la compilación no implica envíos ni despliegue real.
 - Pruebas: intento repetido, respuestas manipuladas, versión antigua,
   calificación límite y constancia sin aprobación.
 
+Estado: implementados los cursos versionados (borrador y publicación), lecciones
+con video privado en R2 (MP4/WebM), modo estudio sin calificación, progreso y
+"última lección vista", intentos DIAGNOSTIC/FINAL idempotentes calificados por el
+servidor, XP y constancia única por usuario y versión. Contrato, decisiones y
+desviaciones en [TRAINING.md](TRAINING.md); requiere la migración V8. Pendientes:
+asignaciones (`training_assignments`), insignias (`training_achievements`),
+catálogo descargable offline y verificación pública de constancias.
+
 ## 8. Investigación CAP
 
 - Tablas: `research_participants`, `consent_records`, `survey_instruments`,
