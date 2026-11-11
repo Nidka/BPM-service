@@ -20,7 +20,9 @@ type AttemptOutcome struct {
 	Results         []domain.Result
 	Progress        domain.Progress
 	Certificate     *domain.Certificate
-	Replayed        bool
+	// Achievements son las insignias otorgadas por este intento (también en la repetición idéntica).
+	Achievements []domain.Achievement
+	Replayed     bool
 }
 
 // attemptHash identifica el contenido del intento (sin depender del orden de las
@@ -81,12 +83,22 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 		if e != nil {
 			return e
 		}
+		if in.AttemptType == domain.AttemptModule {
+			// Una lección ajena (de otra versión, curso u organización) responde 404 y
+			// el módulo solo evalúa las preguntas de esa lección.
+			if e = db.LessonInVersion(ctx, org, version.ID, in.LessonID); e != nil {
+				return e
+			}
+			if questions = domain.LessonQuestions(questions, in.LessonID); len(questions) == 0 {
+				return &domain.ValidationError{Fields: map[string]string{"lessonId": "La lección no tiene preguntas para evaluar."}}
+			}
+		}
 		grade, e := domain.GradeAttempt(questions, in.Answers, version.PassingScore)
 		if e != nil {
 			return e
 		}
 		record := AttemptRecord{ID: in.ID, ClientOperationID: in.ClientOperationID, CourseID: courseID, VersionID: version.ID, UserID: user,
-			AttemptType: in.AttemptType, RequestHash: hash, Score: grade.Score, Passed: grade.Passed,
+			AttemptType: in.AttemptType, LessonID: in.LessonID, RequestHash: hash, Score: grade.Score, Passed: grade.Passed,
 			StartedAt: in.StartedAt, ClientCreatedAt: in.ClientCreatedAt, CompletedAt: now.Truncate(time.Microsecond)}
 		if e = db.InsertAttempt(ctx, org, record, grade.Results); e != nil {
 			return e
@@ -98,6 +110,16 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 		updated := current.AfterAttempt(in.AttemptType, grade, now)
 		if e = db.SaveProgress(ctx, org, user, courseID, updated); e != nil {
 			return e
+		}
+		if in.AttemptType == domain.AttemptModule {
+			// MODULE no completa el curso ni emite constancia; solo da XP por módulo (mejor resultado).
+			xp := 0
+			if grade.Passed {
+				xp = grade.CorrectCount * domain.XPPerCorrectModule
+			}
+			if e = db.SaveModuleResult(ctx, org, user, courseID, in.LessonID, grade.Score, grade.Passed, xp); e != nil {
+				return e
+			}
 		}
 		if in.AttemptType == domain.AttemptFinal && grade.Passed {
 			code, e := domain.NewVerificationCode(s.random)
@@ -112,8 +134,12 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 		if e != nil {
 			return e
 		}
+		awarded, e := s.awardAchievements(ctx, db, org, user, in.ID)
+		if e != nil {
+			return e
+		}
 		out = AttemptOutcome{ID: in.ID, AttemptType: in.AttemptType, Score: grade.Score, Passed: grade.Passed,
-			CompletedAt: record.CompletedAt, Results: grade.Results, Progress: updated, Certificate: certificate}
+			CompletedAt: record.CompletedAt, Results: grade.Results, Progress: updated, Certificate: certificate, Achievements: awarded}
 		return db.Audit(ctx, org, user, "training.attempt."+in.AttemptType, "training_attempt", in.ID)
 	})
 	return out, err
@@ -139,7 +165,11 @@ func (s *Service) replay(ctx context.Context, db Store, org, user, courseID, has
 	if err != nil {
 		return err
 	}
+	awarded, err := db.AttemptAchievements(ctx, org, record.ID)
+	if err != nil {
+		return err
+	}
 	*out = AttemptOutcome{ID: record.ID, AttemptType: record.AttemptType, Score: record.Score, Passed: record.Passed,
-		CompletedAt: record.CompletedAt, Results: results, Progress: progress, Certificate: certificate, Replayed: true}
+		CompletedAt: record.CompletedAt, Results: results, Progress: progress, Certificate: certificate, Achievements: awarded, Replayed: true}
 	return nil
 }

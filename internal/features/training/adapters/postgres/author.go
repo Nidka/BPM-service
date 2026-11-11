@@ -65,7 +65,7 @@ func (s *store) Draft(ctx context.Context, org string, course domain.Course) (do
 
 // content lee lecciones y preguntas (con respuestas) de una versión de autoría.
 func (s *store) content(ctx context.Context, org, versionID string) ([]domain.Lesson, []domain.Question, error) {
-	rows, err := s.tx.Query(ctx, `SELECT id::text,title,content,display_order,COALESCE(media_file_id::text,'') FROM training_lessons WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, versionID)
+	rows, err := s.tx.Query(ctx, `SELECT id::text,title,content,display_order,COALESCE(media_file_id::text,''),external_video_provider,external_video_id FROM training_lessons WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, versionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,8 +73,12 @@ func (s *store) content(ctx context.Context, org, versionID string) ([]domain.Le
 	lessons := []domain.Lesson{}
 	for rows.Next() {
 		var l domain.Lesson
-		if err = rows.Scan(&l.ID, &l.Title, &l.Content, &l.DisplayOrder, &l.VideoMediaID); err != nil {
+		var provider, externalID *string
+		if err = rows.Scan(&l.ID, &l.Title, &l.Content, &l.DisplayOrder, &l.VideoMediaID, &provider, &externalID); err != nil {
 			return nil, nil, err
+		}
+		if provider != nil && externalID != nil {
+			l.ExternalVideo = &domain.ExternalVideo{Provider: *provider, VideoID: *externalID}
 		}
 		lessons = append(lessons, l)
 	}
@@ -154,8 +158,8 @@ func cloneContent(lessons []domain.Lesson, questions []domain.Question) ([]domai
 func (s *store) insertContent(ctx context.Context, org, user, versionID string, lessons []domain.Lesson, questions []domain.Question) error {
 	batch := &pgx.Batch{}
 	for _, l := range lessons {
-		batch.Queue(`INSERT INTO training_lessons(id,organization_id,course_version_id,title,content,display_order,media_file_id,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$8)`,
-			l.ID, org, versionID, l.Title, l.Content, l.DisplayOrder, l.VideoMediaID, user)
+		batch.Queue(`INSERT INTO training_lessons(id,organization_id,course_version_id,title,content,display_order,media_file_id,external_video_provider,external_video_id,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10,$10)`,
+			l.ID, org, versionID, l.Title, l.Content, l.DisplayOrder, l.VideoMediaID, externalProvider(l), externalID(l), user)
 	}
 	for _, q := range questions {
 		options, err := json.Marshal(q.Options)

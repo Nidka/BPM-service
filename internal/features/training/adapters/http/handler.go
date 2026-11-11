@@ -49,6 +49,7 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Post(base+"/courses/{courseID}/publish", h.publish)
 		r.Post(base+"/videos/uploads", h.reserveVideo)
 		r.Post(base+"/videos/{mediaID}/confirm", h.confirmVideo)
+		h.registerPlus(r, base)
 	})
 }
 
@@ -71,6 +72,7 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		response.Error(w, 422, id, response.APIError{Code: "TRAINING_ANSWERS_INVALID", Message: "Responde cada pregunta exactamente una vez con una opción válida.", Fields: answers.Fields})
 	case errors.As(err, &incomplete):
 		response.Error(w, 422, id, response.APIError{Code: "TRAINING_DRAFT_INCOMPLETE", Message: "El borrador no está listo para publicarse.", Fields: incomplete.Fields})
+	case h.failPlus(w, id, err):
 	case errors.Is(err, domain.ErrVideoInvalid):
 		response.Error(w, 422, id, response.APIError{Code: "TRAINING_VIDEO_INVALID", Message: "El archivo cargado no coincide con el video reservado."})
 	case errors.Is(err, domain.ErrDenied):

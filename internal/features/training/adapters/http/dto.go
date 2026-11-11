@@ -2,6 +2,7 @@ package traininghttp
 
 import (
 	"bytes"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -41,6 +42,7 @@ type attemptBody struct {
 	ClientOperationID string       `json:"clientOperationId"`
 	VersionID         string       `json:"versionId"`
 	AttemptType       string       `json:"attemptType"`
+	LessonID          *string      `json:"lessonId"`
 	StartedAt         time.Time    `json:"startedAt"`
 	ClientCreatedAt   time.Time    `json:"clientCreatedAt"`
 	Answers           []answerBody `json:"answers"`
@@ -72,6 +74,8 @@ type draftLessonBody struct {
 	Content      string  `json:"content"`
 	DisplayOrder int     `json:"displayOrder"`
 	VideoMediaID *string `json:"videoMediaId"`
+	// ExternalVideo acepta una URL de YouTube (texto) o un objeto {provider, videoId | url}.
+	ExternalVideo json.RawMessage `json:"externalVideo"`
 }
 
 type draftQuestionBody struct {
@@ -182,6 +186,8 @@ type learnLessonDTO struct {
 	Content      string    `json:"content"`
 	DisplayOrder int       `json:"displayOrder"`
 	Video        *videoDTO `json:"video"`
+	// ExternalVideo: el cliente arma https://www.youtube-nocookie.com/embed/{videoId}.
+	ExternalVideo *externalVideoDTO `json:"externalVideo"`
 }
 
 // learnQuestionDTO no tiene campos para la respuesta correcta ni la explicación,
@@ -212,6 +218,7 @@ func courseView(v domain.CourseView) courseViewDTO {
 		if l.Video != nil {
 			item.Video = &videoDTO{MediaID: l.Video.MediaID, MIMEType: l.Video.MIMEType, SizeBytes: l.Video.SizeBytes}
 		}
+		item.ExternalVideo = externalVideo(l.ExternalVideo)
 		out.Lessons = append(out.Lessons, item)
 	}
 	for _, q := range v.Questions {
@@ -257,11 +264,13 @@ type outcomeDTO struct {
 	Results     []resultDTO     `json:"results"`
 	Progress    progressDTO     `json:"progress"`
 	Certificate *certificateDTO `json:"certificate"`
+	// Achievements son las insignias otorgadas por este intento.
+	Achievements []achievementDTO `json:"achievements"`
 }
 
 func outcome(o application.AttemptOutcome) outcomeDTO {
 	out := outcomeDTO{Attempt: attemptDTO{ID: o.ID, AttemptType: o.AttemptType, Score: o.Score, Passed: o.Passed, CompletedAt: stamp(o.CompletedAt)},
-		Results: make([]resultDTO, 0, len(o.Results)), Progress: progress(o.Progress), Certificate: certificate(o.Certificate)}
+		Results: make([]resultDTO, 0, len(o.Results)), Progress: progress(o.Progress), Certificate: certificate(o.Certificate), Achievements: achievementList(o.Achievements)}
 	for _, r := range o.Results {
 		out.Results = append(out.Results, resultDTO{QuestionID: r.QuestionID, SelectedOption: r.SelectedOption, Correct: r.Correct, CorrectOption: r.CorrectOption, Explanation: r.Explanation})
 	}
@@ -285,11 +294,12 @@ type draftVersionDTO struct {
 }
 
 type draftLessonDTO struct {
-	ID           string  `json:"id"`
-	Title        string  `json:"title"`
-	Content      string  `json:"content"`
-	DisplayOrder int     `json:"displayOrder"`
-	VideoMediaID *string `json:"videoMediaId"`
+	ID            string            `json:"id"`
+	Title         string            `json:"title"`
+	Content       string            `json:"content"`
+	DisplayOrder  int               `json:"displayOrder"`
+	VideoMediaID  *string           `json:"videoMediaId"`
+	ExternalVideo *externalVideoDTO `json:"externalVideo"`
 }
 
 type draftQuestionDTO struct {
@@ -314,7 +324,7 @@ func draft(d domain.Draft) draftDTO {
 		Version: draftVersionDTO{ID: d.Version.ID, VersionNumber: d.Version.Number, PassingScore: d.Version.PassingScore, RowVersion: strconv.Itoa(d.Version.RowVersion)},
 		Lessons: make([]draftLessonDTO, 0, len(d.Lessons)), Questions: make([]draftQuestionDTO, 0, len(d.Questions))}
 	for _, l := range d.Lessons {
-		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID)})
+		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo)})
 	}
 	for _, q := range d.Questions {
 		out.Questions = append(out.Questions, draftQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, CorrectOption: q.CorrectOption, Explanation: q.Explanation, DisplayOrder: q.DisplayOrder})

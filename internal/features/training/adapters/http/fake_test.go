@@ -45,11 +45,12 @@ type fakeRepo struct {
 	audits   []string
 	fail     error
 	seq      int
+	plus     plusState
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{roles: map[string]string{}, supers: map[string]bool{}, courses: map[string]*fakeCourse{}, media: map[string]domain.VideoFile{},
-		progress: map[string]domain.Progress{}, results: map[string][]domain.Result{}}
+		progress: map[string]domain.Progress{}, results: map[string][]domain.Result{}, plus: newPlusState()}
 }
 
 func (f *fakeRepo) Within(_ context.Context, fn func(application.Store) error) error {

@@ -17,7 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// RequireSchema falla de forma explícita si falta la migración V8.
+// Límite de la verificación pública de constancias por IP: 1 solicitud por segundo con ráfaga de 10.
+const (
+	publicVerifyRPS   = 1.0
+	publicVerifyBurst = 10
+)
+
+// RequireSchema falla de forma explícita si falta la migración V8 o V11.
 func RequireSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	return postgres.New(pool).RequireSchema(ctx)
 }
@@ -25,8 +31,15 @@ func RequireSchema(ctx context.Context, pool *pgxpool.Pool) error {
 // Routes devuelve el registrador de rutas. videos puede ser nil cuando R2 está
 // deshabilitado: la lectura de cursos funciona y las operaciones con video
 // responden 503.
-func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, videos contracts.VideoStorage, cfg config.R2Config, logger *slog.Logger, sessions ...contracts.SessionValidator) func(chi.Router) {
+//
+// La verificación pública de constancias (sin autenticación) usa un limitador por IP
+// propio y más estricto que el global, derivado de la configuración HTTP.
+func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, videos contracts.VideoStorage, cfg config.R2Config, httpCfg config.HTTPConfig, logger *slog.Logger, sessions ...contracts.SessionValidator) func(chi.Router) {
 	service := application.New(postgres.New(pool), videos, domain.VideoPolicy{MaxBytes: cfg.TrainingVideoMaxBytes})
 	handler := httpadapter.New(service, logger)
-	return func(r chi.Router) { handler.Register(r, middleware.Authenticate(verifier, sessions...)) }
+	publicLimiter := middleware.NewIPRateLimiter(publicVerifyRPS, publicVerifyBurst, httpCfg.TrustProxyHeaders)
+	return func(r chi.Router) {
+		handler.Register(r, middleware.Authenticate(verifier, sessions...))
+		handler.RegisterPublic(r, publicLimiter.Middleware)
+	}
 }

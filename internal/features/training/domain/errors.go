@@ -50,3 +50,17 @@ func invalid(fields map[string]string) error {
 func indexed(name string, i int, field string) string {
 	return fmt.Sprintf("%s[%d].%s", name, i, field)
 }
+
+// Errores de asignaciones, rutas, insignias y verificación pública.
+var (
+	ErrCourseNotPublished  = errors.New("training course is not published")
+	ErrAssigneeNotFound    = errors.New("training assignee not found")
+	ErrLocationNotFound    = errors.New("training location not found")
+	ErrAssignmentNotFound  = errors.New("training assignment not found")
+	ErrAssignmentExists    = errors.New("training assignment already exists")
+	ErrCertificateNotFound = errors.New("training certificate not found")
+	ErrAchievementNotFound = errors.New("training achievement not found")
+	ErrPathNotFound        = errors.New("learning path not found")
+	ErrPathConflict        = errors.New("learning path was modified by someone else")
+	ErrPathArchived        = errors.New("learning path is archived")
+)

@@ -155,9 +155,9 @@ Estado: implementados los cursos versionados (borrador y publicación), leccione
 con video privado en R2 (MP4/WebM), modo estudio sin calificación, progreso y
 "última lección vista", intentos DIAGNOSTIC/FINAL idempotentes calificados por el
 servidor, XP y constancia única por usuario y versión. Contrato, decisiones y
-desviaciones en [TRAINING.md](TRAINING.md); requiere la migración V8. Pendientes:
-asignaciones (`training_assignments`), insignias (`training_achievements`),
-catálogo descargable offline y verificación pública de constancias.
+desviaciones en [TRAINING.md](TRAINING.md); requiere la migración V8. Ampliado con asignaciones,
+rutas, insignias, evaluación por módulo, video de YouTube, catálogo offline y verificación
+pública de constancias (V11; ver la sección "Asignaciones, rutas, insignias y evaluación por módulo").
 
 ## 8. Investigación CAP
 

@@ -56,4 +56,5 @@ NOTIFICATIONS.md. Requieren V7 y un worker separado antes de activarlas.
 La Academia BPM (cursos versionados con video privado, modo estudio, intentos
 calificados en servidor y constancias) está implementada localmente; leer
 `specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
-Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
+Asignaciones, rutas, insignias, evaluación por módulo, video de YouTube y catálogo offline
+están en la misma sección de `specs/TRAINING.md` y requieren además V11.

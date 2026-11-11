@@ -36,7 +36,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	checklists.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	alerts.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	notifications.Routes(nil, validToken{}, logger, expiredSession{})(r)
-	training.Routes(nil, validToken{}, nil, config.R2Config{}, logger, expiredSession{})(r)
+	training.Routes(nil, validToken{}, nil, config.R2Config{}, config.HTTPConfig{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
 		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
 		{"GET", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/view"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/attend"},

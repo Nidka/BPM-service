@@ -98,12 +98,16 @@ type Lesson struct {
 	ID, Title, Content string
 	DisplayOrder       int
 	VideoMediaID       string
+	// ExternalVideo es un video de YouTube; excluyente con VideoMediaID.
+	ExternalVideo *ExternalVideo
 }
 
 // Video describe el video disponible de una lección publicada.
 type Video struct {
 	MediaID, MIMEType string
 	SizeBytes         int64
+	// SHA256 solo se completa en el catálogo offline para verificar la descarga.
+	SHA256 string
 }
 
 // LearnLesson es la lección tal como la ve quien aprende.

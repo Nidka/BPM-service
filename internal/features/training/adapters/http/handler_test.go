@@ -52,7 +52,9 @@ func newEnv(t *testing.T) *env {
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	service := application.New(repo, videos, domain.VideoPolicy{MaxBytes: 1 << 20})
 	router := chi.NewRouter()
-	New(service, logger).Register(router, middleware.Authenticate(tokenVerifier{}))
+	handler := New(service, logger)
+	handler.Register(router, middleware.Authenticate(tokenVerifier{}))
+	handler.RegisterPublic(router, middleware.NewIPRateLimiter(1, 3, false).Middleware)
 	return &env{t: t, repo: repo, videos: videos, logs: logs, router: router}
 }
 
