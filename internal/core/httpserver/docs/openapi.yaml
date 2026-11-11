@@ -29,6 +29,10 @@ tags:
     description: Dispositivos propios; entrega externa desacoplada mediante outbox transaccional.
   - name: Academia
     description: Cursos BPM versionados con video, modo estudio sin calificación y evaluación calificada en servidor.
+  - name: Reportes
+    description: Cumplimiento, exportación CSV, KPIs, avance de capacitación y constancias de cumplimiento.
+  - name: Uso
+    description: Registro de uso para investigación, idempotente y sin datos sanitarios.
 paths:
   /health:
     get:
@@ -2067,6 +2071,211 @@ paths:
           description: Video AVAILABLE.
           content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoConfirmResponse"}}}
         default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/reports/compliance:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: from, required: true, schema: {type: string, format: date}}
+    - {in: query, name: to, required: true, description: "Máximo 92 días desde from, inclusive.", schema: {type: string, format: date}}
+    - {in: query, name: locationId, schema: {type: string, format: uuid}}
+    get:
+      tags: [Reportes]
+      operationId: getComplianceReport
+      summary: Cumplimiento BPM por día, sede y empresa (RF-16)
+      description: ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. WORKER recibe 403. El día es la fecha local de la sede (America/Lima por defecto). Detalle en specs/REPORTS.md.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Cumplimiento por día, sede y empresa.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceReportResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/compliance/export.csv:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: from, required: true, schema: {type: string, format: date}}
+    - {in: query, name: to, required: true, description: "Máximo 366 días.", schema: {type: string, format: date}}
+    - {in: query, name: locationId, schema: {type: string, format: uuid}}
+    get:
+      tags: [Reportes]
+      operationId: exportChecklistHistoryCsv
+      summary: Exportar el historial de checklists en CSV (RF-17)
+      description: ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. Streaming UTF-8 sin datos de personas; los textos que inician con =, +, -, @, tabulador o retorno de carro se prefijan con comilla simple. Máximo 50000 filas (422 EXPORT_TOO_LARGE).
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Archivo CSV adjunto (Cache-Control no-store).
+          content: {text/csv: {schema: {type: string}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/summary:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: from, required: true, schema: {type: string, format: date}}
+    - {in: query, name: to, required: true, description: "Máximo 366 días.", schema: {type: string, format: date}}
+    - {in: query, name: locationId, schema: {type: string, format: uuid}}
+    get:
+      tags: [Reportes]
+      operationId: getCompanyComplianceSummary
+      summary: Reporte de cumplimiento por empresa y período (RF-28)
+      description: Resumen por sede, área y plantilla, incidencias reportadas/cerradas/abiertas y temperaturas fuera de rango. ADMIN, CHEF (sus sedes) y SUPER_ADMIN.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Resumen del período.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceSummaryResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/kpis:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Reportes]
+      operationId: getKpis
+      summary: Panel de indicadores clave (RF-30)
+      description: Cumplimiento hoy/7/30 días, controles pendientes del día, alertas e incidencias abiertas y avance de capacitación (null para CHEF).
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Indicadores.
+          content: {application/json: {schema: {$ref: "#/components/schemas/KpisResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/training/courses:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Reportes]
+      operationId: getTrainingProgressByCourse
+      summary: Avance de capacitación por curso (RF-09)
+      description: Solo ADMIN y SUPER_ADMIN.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Avance por curso publicado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingCourseProgressResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/training/people:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: courseId, schema: {type: string, format: uuid}}
+    - $ref: "#/components/parameters/PageSize"
+    - $ref: "#/components/parameters/PageToken"
+    get:
+      tags: [Reportes]
+      operationId: getTrainingProgressByPerson
+      summary: Avance de capacitación por persona, paginado (RF-09)
+      description: Solo ADMIN y SUPER_ADMIN. Ordenado por userId.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Página de personas.
+          content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPeoplePage"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/settings:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Reportes]
+      operationId: getReportSettings
+      summary: Configuración de reportes
+      description: ADMIN y SUPER_ADMIN. Sin configuración previa devuelve correo semanal activo y umbral 80.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Configuración vigente.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ReportSettingsResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+    put:
+      tags: [Reportes]
+      operationId: putReportSettings
+      summary: Actualizar la configuración de reportes
+      description: Activa o desactiva el correo semanal (RF-29) y fija el umbral de las constancias (RF-39).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ReportSettings"}}}
+      responses:
+        "200":
+          description: Configuración guardada.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ReportSettingsResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/certificates:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Reportes]
+      operationId: listComplianceCertificates
+      summary: Constancias de cumplimiento emitidas
+      description: ADMIN y SUPER_ADMIN. Más recientes primero.
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - $ref: "#/components/parameters/PageSize"
+      - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: Página de constancias.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceCertificatePage"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+    post:
+      tags: [Reportes]
+      operationId: issueComplianceCertificate
+      summary: Emitir la constancia de cumplimiento de un período (RF-39)
+      description: ADMIN y SUPER_ADMIN. El servidor calcula el promedio de toda la empresa y emite solo si alcanza el umbral. Idempotente por período; el período debe haber terminado.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceCertificateRequest"}}}
+      responses:
+        "200":
+          description: Constancia ya emitida para ese período.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceCertificateResponse"}}}
+        "201":
+          description: Constancia emitida.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ComplianceCertificateResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/compliance-certificates/{code}:
+    parameters:
+    - {in: path, name: code, required: true, schema: {type: string, pattern: '^[A-Z2-7]{24}$'}}
+    get:
+      tags: [Reportes]
+      operationId: verifyComplianceCertificate
+      summary: Verificar una constancia por código (público)
+      description: Sin autenticación. Devuelve solo datos agregados; código desconocido o mal formado responde 404 CERTIFICATE_NOT_FOUND.
+      security: []
+      responses:
+        "200":
+          description: Constancia válida.
+          content: {application/json: {schema: {$ref: "#/components/schemas/PublicComplianceCertificateResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/usage/events:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Uso]
+      operationId: recordUsageEvents
+      summary: Registrar un lote de eventos de uso (RF-27)
+      description: ADMIN, CHEF y WORKER con membresía. Lote atómico de 1 a 50 eventos, idempotente por UUID de evento; usuario y empresa los fija el servidor; no se guardan cuerpos ni datos sanitarios.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/UsageBatchRequest"}}}
+      responses:
+        "200":
+          description: Eventos aceptados y duplicados.
+          content: {application/json: {schema: {$ref: "#/components/schemas/UsageBatchResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/usage/summary:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: from, required: true, schema: {type: string, format: date}}
+    - {in: query, name: to, required: true, description: "Máximo 92 días.", schema: {type: string, format: date}}
+    get:
+      tags: [Uso]
+      operationId: getUsageSummary
+      summary: Uso agregado de la aplicación
+      description: ADMIN y SUPER_ADMIN. Sesiones, duración y módulos, sin datos de personas.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Resumen de uso.
+          content: {application/json: {schema: {$ref: "#/components/schemas/UsageSummaryResponse"}}}
+        default: {$ref: "#/components/responses/ReportsError"}
 components:
   parameters:
     PageSize:
@@ -2112,6 +2321,15 @@ components:
       bearerFormat: Firebase ID token
       description: ID token emitido por Firebase Authentication.
   responses:
+    ReportsError:
+      description: >-
+        400 INVALID_REQUEST/INVALID_PAGINATION; 401 UNAUTHENTICATED/SESSION_EXPIRED; 403 ACCESS_DENIED;
+        404 REPORT_LOCATION_NOT_FOUND, TRAINING_COURSE_NOT_FOUND o CERTIFICATE_NOT_FOUND; 409
+        IDEMPOTENCY_CONFLICT o USAGE_SESSION_CONFLICT; 422 VALIDATION_ERROR, REPORT_NO_DATA,
+        REPORT_THRESHOLD_NOT_MET o EXPORT_TOO_LARGE; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorResponse"}
     TrainingError:
       description: >-
         400 INVALID_REQUEST (JSON estricto, query o cuerpo no admitidos); 401 UNAUTHENTICATED/SESSION_EXPIRED;
@@ -4163,3 +4381,273 @@ components:
       required: ["count"]
       properties: {"count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
       description: "Conteo personal autorizado; un error nunca se convierte en cero."
+    ReportDayStat:
+      type: object
+      required: [date, runs, averageCompliance]
+      properties:
+        date: {type: string, format: date}
+        runs: {type: integer, minimum: 0}
+        averageCompliance: {type: number, nullable: true, minimum: 0, maximum: 100}
+    ComplianceReport:
+      type: object
+      required: [from, to, runs, averageCompliance, days, locations]
+      properties:
+        from: {type: string, format: date}
+        to: {type: string, format: date}
+        runs: {type: integer}
+        averageCompliance: {type: number, nullable: true}
+        days: {type: array, items: {$ref: "#/components/schemas/ReportDayStat"}}
+        locations:
+          type: array
+          items:
+            type: object
+            required: [locationId, locationName, runs, averageCompliance, days]
+            properties:
+              locationId: {type: string, format: uuid}
+              locationName: {type: string}
+              runs: {type: integer}
+              averageCompliance: {type: number, nullable: true}
+              days: {type: array, items: {$ref: "#/components/schemas/ReportDayStat"}}
+    ComplianceReportResponse:
+      type: object
+      required: [data]
+      properties: {data: {$ref: "#/components/schemas/ComplianceReport"}}
+    ComplianceSummary:
+      type: object
+      required: [from, to, runs, averageCompliance, locations, areas, templates, incidents, temperatures]
+      properties:
+        from: {type: string, format: date}
+        to: {type: string, format: date}
+        runs: {type: integer}
+        averageCompliance: {type: number, nullable: true}
+        locations:
+          type: array
+          items:
+            type: object
+            required: [locationId, locationName, runs, averageCompliance, incidentsReported, incidentsClosed, incidentsOpenNow, temperatureMeasurements, temperatureOutOfRange]
+            properties:
+              locationId: {type: string, format: uuid}
+              locationName: {type: string}
+              runs: {type: integer}
+              averageCompliance: {type: number, nullable: true}
+              incidentsReported: {type: integer}
+              incidentsClosed: {type: integer}
+              incidentsOpenNow: {type: integer}
+              temperatureMeasurements: {type: integer}
+              temperatureOutOfRange: {type: integer}
+        areas:
+          type: array
+          items:
+            type: object
+            required: [area, runs, averageCompliance]
+            properties:
+              area: {type: string}
+              runs: {type: integer}
+              averageCompliance: {type: number, nullable: true}
+        templates:
+          type: array
+          items:
+            type: object
+            required: [templateId, name, area, runs, averageCompliance]
+            properties:
+              templateId: {type: string, format: uuid}
+              name: {type: string}
+              area: {type: string}
+              runs: {type: integer}
+              averageCompliance: {type: number, nullable: true}
+        incidents:
+          type: object
+          required: [reported, closed, openNow]
+          properties: {reported: {type: integer}, closed: {type: integer}, openNow: {type: integer}}
+        temperatures:
+          type: object
+          required: [measurements, outOfRange]
+          properties: {measurements: {type: integer}, outOfRange: {type: integer}}
+    ComplianceSummaryResponse:
+      type: object
+      required: [data]
+      properties: {data: {$ref: "#/components/schemas/ComplianceSummary"}}
+    ReportWindow:
+      type: object
+      required: [averageCompliance, runs]
+      properties:
+        averageCompliance: {type: number, nullable: true}
+        runs: {type: integer}
+    Kpis:
+      type: object
+      required: [generatedAt, compliance, pendingChecks, openAlerts, openIncidents, training]
+      properties:
+        generatedAt: {type: string, format: date-time}
+        compliance:
+          type: object
+          required: [today, last7Days, last30Days]
+          properties:
+            today: {$ref: "#/components/schemas/ReportWindow"}
+            last7Days: {$ref: "#/components/schemas/ReportWindow"}
+            last30Days: {$ref: "#/components/schemas/ReportWindow"}
+        pendingChecks:
+          type: object
+          required: [assigned, pending, overdue]
+          properties: {assigned: {type: integer}, pending: {type: integer}, overdue: {type: integer}}
+        openAlerts: {type: integer}
+        openIncidents: {type: integer}
+        training:
+          type: object
+          nullable: true
+          description: null para CHEF.
+          required: [publishedCourses, learners, completedEnrollments, inProgressEnrollments, completionPercent, averageBestScore]
+          properties:
+            publishedCourses: {type: integer}
+            learners: {type: integer}
+            completedEnrollments: {type: integer}
+            inProgressEnrollments: {type: integer}
+            completionPercent: {type: number}
+            averageBestScore: {type: number, nullable: true}
+    KpisResponse:
+      type: object
+      required: [data]
+      properties: {data: {$ref: "#/components/schemas/Kpis"}}
+    TrainingCourseProgress:
+      type: object
+      required: [courseId, code, title, assignable, enrolled, inProgress, completed, completionPercent, averageBestScore]
+      properties:
+        courseId: {type: string, format: uuid}
+        code: {type: string}
+        title: {type: string}
+        assignable: {type: integer}
+        enrolled: {type: integer}
+        inProgress: {type: integer}
+        completed: {type: integer}
+        completionPercent: {type: number}
+        averageBestScore: {type: number, nullable: true}
+    TrainingCourseProgressResponse:
+      type: object
+      required: [data]
+      properties: {data: {type: array, items: {$ref: "#/components/schemas/TrainingCourseProgress"}}}
+    TrainingPersonProgress:
+      type: object
+      required: [userId, displayName, role, publishedCourses, completed, inProgress, averageBestScore, lastActivityAt]
+      properties:
+        userId: {type: string}
+        displayName: {type: string}
+        role: {type: string, enum: [ADMIN, CHEF, WORKER]}
+        publishedCourses: {type: integer}
+        completed: {type: integer}
+        inProgress: {type: integer}
+        averageBestScore: {type: number, nullable: true}
+        lastActivityAt: {type: string, format: date-time, nullable: true}
+    TrainingPeoplePage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: {type: array, maxItems: 100, items: {$ref: "#/components/schemas/TrainingPersonProgress"}}
+        pagination: {$ref: "#/components/schemas/Pagination"}
+    ReportSettings:
+      type: object
+      additionalProperties: false
+      required: [weeklyEmailEnabled, complianceThreshold]
+      properties:
+        weeklyEmailEnabled: {type: boolean}
+        complianceThreshold: {type: number, minimum: 1, maximum: 100, description: Hasta 2 decimales.}
+    ReportSettingsResponse:
+      type: object
+      required: [data]
+      properties: {data: {$ref: "#/components/schemas/ReportSettings"}}
+    ComplianceCertificateRequest:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from: {type: string, format: date}
+        to: {type: string, format: date, description: Anterior a hoy (America/Lima); máximo 366 días.}
+    ComplianceCertificate:
+      type: object
+      required: [id, periodStart, periodEnd, averageCompliance, threshold, runs, verificationCode, issuedAt]
+      properties:
+        id: {type: string, format: uuid}
+        periodStart: {type: string, format: date}
+        periodEnd: {type: string, format: date}
+        averageCompliance: {type: number}
+        threshold: {type: number}
+        runs: {type: integer}
+        verificationCode: {type: string, pattern: '^[A-Z2-7]{24}$'}
+        issuedAt: {type: string, format: date-time}
+    ComplianceCertificateResponse:
+      type: object
+      required: [data]
+      properties: {data: {$ref: "#/components/schemas/ComplianceCertificate"}}
+    ComplianceCertificatePage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: {type: array, maxItems: 100, items: {$ref: "#/components/schemas/ComplianceCertificate"}}
+        pagination: {$ref: "#/components/schemas/Pagination"}
+    PublicComplianceCertificateResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [valid, organizationName, periodStart, periodEnd, averageCompliance, threshold, issuedAt, verificationCode]
+          properties:
+            valid: {type: boolean}
+            organizationName: {type: string}
+            periodStart: {type: string, format: date}
+            periodEnd: {type: string, format: date}
+            averageCompliance: {type: number}
+            threshold: {type: number}
+            issuedAt: {type: string, format: date-time}
+            verificationCode: {type: string}
+    UsageEvent:
+      type: object
+      additionalProperties: false
+      required: [id, sessionId, type, occurredAt]
+      properties:
+        id: {type: string, format: uuid}
+        sessionId: {type: string, format: uuid}
+        type: {type: string, enum: [SESSION_START, SESSION_END, MODULE_VISIT, ALERT_VIEWED, ALERT_ATTENDED]}
+        module: {type: string, enum: [APP, HOME, CHECKLISTS, OPERATIONS, INCIDENTS, ALERTS, TRAINING, REPORTS, SETTINGS], description: Obligatorio en MODULE_VISIT.}
+        occurredAt: {type: string, format: date-time, description: Últimos 7 días; máximo 5 minutos en el futuro.}
+        durationSeconds: {type: integer, minimum: 0, maximum: 86400, description: Solo MODULE_VISIT y SESSION_END.}
+    UsageBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events: {type: array, minItems: 1, maxItems: 50, items: {$ref: "#/components/schemas/UsageEvent"}}
+    UsageBatchResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accepted, duplicates]
+          properties: {accepted: {type: integer}, duplicates: {type: integer}}
+    UsageSummaryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [from, to, sessions, endedSessions, activeUsers, averageSessionSeconds, alertsViewed, alertsAttended, modules, days]
+          properties:
+            from: {type: string, format: date}
+            to: {type: string, format: date}
+            sessions: {type: integer}
+            endedSessions: {type: integer}
+            activeUsers: {type: integer}
+            averageSessionSeconds: {type: number, nullable: true}
+            alertsViewed: {type: integer}
+            alertsAttended: {type: integer}
+            modules:
+              type: array
+              items:
+                type: object
+                required: [module, visits, uniqueUsers, totalSeconds]
+                properties: {module: {type: string}, visits: {type: integer}, uniqueUsers: {type: integer}, totalSeconds: {type: integer}}
+            days:
+              type: array
+              items:
+                type: object
+                required: [date, sessions]
+                properties: {date: {type: string, format: date}, sessions: {type: integer}}

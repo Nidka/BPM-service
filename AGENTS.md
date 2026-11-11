@@ -57,3 +57,7 @@ La Academia BPM (cursos versionados con video privado, modo estudio, intentos
 calificados en servidor y constancias) está implementada localmente; leer
 `specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
 Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
+
+Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de
+cumplimiento y correo semanal del worker) y registro de uso para investigación están
+implementados localmente; leer `specs/REPORTS.md`. Requieren V10.

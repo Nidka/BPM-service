@@ -90,3 +90,12 @@ de la API que exige este esquema; el arranque falla de forma explícita si falta
 El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
 revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
 V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).
+
+## Reportes y uso (V10)
+
+`V10__reports_usage.sql` añade la función `bpm_report_timezone`, `report_settings`,
+`compliance_certificates` (inmutable por trigger), `weekly_report_deliveries`, la columna e índice
+único `usage_events.client_event_id` (idempotencia de eventos), restricciones `NOT VALID` de uso e
+índices de lectura. Aplicar después de V8 (y V9 si existe) y antes de la API/worker que lo exige;
+ambos fallan al arrancar si falta. No crea datos de prueba ni toca filas existentes. V3 sigue
+reservada. Ver [REPORTS.md](REPORTS.md).
