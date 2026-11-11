@@ -2067,6 +2067,193 @@ paths:
           description: Video AVAILABLE.
           content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoConfirmResponse"}}}
         default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    patch:
+      tags: [Organizaciones]
+      summary: Editar organización y tipo de establecimiento
+      operationId: updateOrganization
+      description: ADMIN del tenant o SUPER_ADMIN. Reemplazo completo de campos editables con control optimista por rowVersion (409 VERSION_CONFLICT). Requiere V12. Ver specs/ORGANIZATIONS.md.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/OrganizationUpdateRequest"}}}
+      responses:
+        "200": {description: Organización actualizada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountOrganization"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/locations/{locationID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: locationID, in: path, required: true, schema: {type: string, format: uuid}}
+    patch:
+      tags: [Organizaciones]
+      summary: Editar sede (nombre, dirección, zona horaria, activa/inactiva)
+      operationId: updateLocation
+      description: ADMIN del tenant o SUPER_ADMIN. Control optimista por rowVersion. Se audita location.updated.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/LocationUpdateRequest"}}}
+      responses:
+        "200": {description: Sede actualizada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountLocation"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/members/{userID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: userID, in: path, required: true, schema: {type: string, maxLength: 128}}
+    patch:
+      tags: [Organizaciones]
+      summary: Editar rol y sedes de un miembro
+      operationId: updateMember
+      description: ADMIN del tenant o SUPER_ADMIN. Nunca deja la organización sin ADMIN activo (409 LAST_ADMIN_REQUIRED).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [role, locationIds, rowVersion], properties: {role: {type: string, enum: [ADMIN, CHEF, WORKER]}, locationIds: {type: array, maxItems: 100, items: {type: string, format: uuid}}, rowVersion: {type: integer, minimum: 1}}}}}
+      responses:
+        "200": {description: Miembro actualizado, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountMember"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/members/{userID}/deactivate:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: userID, in: path, required: true, schema: {type: string, maxLength: 128}}
+    post:
+      tags: [Organizaciones]
+      summary: Dar de baja lógica a un miembro
+      operationId: deactivateMember
+      description: Baja lógica idempotente; retira dispositivos del tenant y revoca sesiones si no tiene otra membresía activa.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/RowVersionRequest"}}}
+      responses:
+        "200": {description: Miembro inactivo, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountMember"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/members/{userID}/reactivate:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: userID, in: path, required: true, schema: {type: string, maxLength: 128}}
+    post:
+      tags: [Organizaciones]
+      summary: Reactivar a un miembro
+      operationId: reactivateMember
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/RowVersionRequest"}}}
+      responses:
+        "200": {description: Miembro activo, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountMember"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/members/{userID}/transfer-admin:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: userID, in: path, required: true, schema: {type: string, maxLength: 128}}
+    post:
+      tags: [Organizaciones]
+      summary: Transferir la administración al miembro indicado
+      operationId: transferAdmin
+      description: El destino pasa a ADMIN y quien transfiere pasa a actorRole con actorLocationIds. rowVersion es el del destino.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [rowVersion], properties: {rowVersion: {type: integer, minimum: 1}, actorRole: {type: string, enum: [CHEF, WORKER]}, actorLocationIds: {type: array, maxItems: 100, items: {type: string, format: uuid}}}}}}
+      responses:
+        "200": {description: Administración transferida, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [newAdmin, formerAdmin], properties: {newAdmin: {$ref: "#/components/schemas/AccountMember"}, formerAdmin: {nullable: true, allOf: [{$ref: "#/components/schemas/AccountMember"}]}}}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/invitations:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Organizaciones]
+      summary: Listar invitaciones
+      operationId: listInvitations
+      description: ADMIN del tenant o SUPER_ADMIN. Filtro opcional status, query, pageSize y pageToken.
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [PENDING, ACCEPTED, REVOKED, EXPIRED]}}
+        - {name: query, in: query, schema: {type: string, maxLength: 160}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {name: pageToken, in: query, schema: {type: string, maxLength: 2048}}
+      responses:
+        "200": {description: Página de invitaciones, content: {application/json: {schema: {type: object, required: [data, pagination], properties: {data: {type: array, items: {$ref: "#/components/schemas/Invitation"}}, pagination: {$ref: "#/components/schemas/Pagination"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Organizaciones]
+      summary: Invitar a una persona por correo
+      operationId: createInvitation
+      description: Token aleatorio de un solo uso (solo se guarda su hash), vigencia 7 días; el correo sale por outbox/Resend. Mismo id y contenido repite 200 sin duplicar.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [id, email, role], properties: {id: {type: string, format: uuid}, email: {type: string, format: email, maxLength: 320}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, locationIds: {type: array, maxItems: 100, items: {type: string, format: uuid}}}}}}
+      responses:
+        "200": {description: Repetición idéntica, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        "201": {description: Invitación creada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/invitations/{invitationID}/resend:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: invitationID, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Organizaciones]
+      summary: Reenviar una invitación con un token nuevo
+      operationId: resendInvitation
+      description: Invalida el token anterior. 429 INVITATION_RESEND_TOO_SOON dentro del minuto siguiente al último envío.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Invitación reenviada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/invitations/{invitationID}/revoke:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {name: invitationID, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Organizaciones]
+      summary: Revocar una invitación
+      operationId: revokeInvitation
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Invitación revocada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/invitations/accept:
+    post:
+      tags: [Organizaciones]
+      summary: Aceptar una invitación
+      operationId: acceptInvitation
+      description: Requiere sesión verificada cuyo correo coincida con el invitado (403 INVITATION_EMAIL_MISMATCH). Errores 404 INVITATION_NOT_FOUND, 409 INVITATION_EXPIRED, INVITATION_ALREADY_USED, INVITATION_REVOKED.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [token], properties: {token: {type: string, minLength: 43, maxLength: 43}}}}}
+      responses:
+        "200": {description: Membresía creada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [organizationId, role, locationIds], properties: {organizationId: {type: string}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, locationIds: {type: array, items: {type: string, format: uuid}}}}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/me/devices:
+    get:
+      tags: [Organizaciones]
+      summary: Listar mis dispositivos registrados
+      operationId: listMyDevices
+      description: Solo los dispositivos ACTIVE del usuario autenticado; nunca los de otros ni el token push.
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {name: pageToken, in: query, schema: {type: string, maxLength: 2048}}
+      responses:
+        "200": {description: Página de dispositivos, content: {application/json: {schema: {type: object, required: [data, pagination], properties: {data: {type: array, items: {$ref: "#/components/schemas/AccountDevice"}}, pagination: {$ref: "#/components/schemas/Pagination"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/me/devices/{deviceID}:
+    parameters:
+      - {name: deviceID, in: path, required: true, schema: {type: string, format: uuid}}
+    delete:
+      tags: [Organizaciones]
+      summary: Revocar un dispositivo propio
+      operationId: revokeMyDevice
+      description: Idempotente; borra el token push. Un dispositivo ajeno responde 404.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Dispositivo inactivo, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/AccountDevice"}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
 components:
   parameters:
     PageSize:
@@ -2674,7 +2861,7 @@ components:
         legalName: {type: string, minLength: 2, maxLength: 200}
         tradeName: {type: string, maxLength: 200}
         taxId: {type: string, maxLength: 20}
-        businessType: {type: string, enum: [RESTAURANT, CAFETERIA, CATERING, RELATED_SERVICE]}
+        businessType: {type: string, enum: [RESTAURANT, CAFETERIA, CATERING, OTHER_FOOD_SERVICE]}
         contactName: {type: string, maxLength: 160, description: "Nombre personal opcional: letras, diacríticos, espacios, apóstrofos y guiones; sin números."}
         contactPhone: {type: string, maxLength: 30, description: "Opcional. De 7 a 15 dígitos; permite + inicial, espacios, guiones y paréntesis."}
         contactEmail: {type: string, maxLength: 320, description: "Opcional. Correo completo con dominio con punto, sin controles; hasta 320 bytes."}
@@ -4163,3 +4350,94 @@ components:
       required: ["count"]
       properties: {"count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
       description: "Conteo personal autorizado; un error nunca se convierte en cero."
+    RowVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [rowVersion]
+      properties: {rowVersion: {type: integer, minimum: 1}}
+    OrganizationUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [legalName, businessType, rowVersion]
+      properties:
+        legalName: {type: string, minLength: 2, maxLength: 200}
+        tradeName: {type: string, maxLength: 200}
+        taxId: {type: string, maxLength: 20}
+        businessType: {type: string, enum: [RESTAURANT, CAFETERIA, CATERING, OTHER_FOOD_SERVICE]}
+        contactName: {type: string, maxLength: 160}
+        contactPhone: {type: string, maxLength: 30}
+        contactEmail: {type: string, maxLength: 320}
+        rowVersion: {type: integer, minimum: 1}
+    AccountOrganization:
+      type: object
+      required: [id, legalName, businessType, rowVersion]
+      properties:
+        id: {type: string}
+        legalName: {type: string}
+        tradeName: {type: string}
+        taxId: {type: string}
+        businessType: {type: string, enum: [RESTAURANT, CAFETERIA, CATERING, OTHER_FOOD_SERVICE]}
+        contactName: {type: string}
+        contactPhone: {type: string}
+        contactEmail: {type: string}
+        rowVersion: {type: integer, minimum: 1}
+    LocationUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, address, timezone, status, rowVersion]
+      properties:
+        name: {type: string, minLength: 2, maxLength: 160}
+        address: {type: string, minLength: 3, maxLength: 300}
+        district: {type: string, maxLength: 120}
+        contactPhone: {type: string, maxLength: 30}
+        timezone: {type: string, maxLength: 80, example: America/Lima}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+        rowVersion: {type: integer, minimum: 1}
+    AccountLocation:
+      type: object
+      required: [id, name, address, timezone, status, rowVersion]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        address: {type: string}
+        district: {type: string}
+        contactPhone: {type: string}
+        timezone: {type: string}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+        rowVersion: {type: integer, minimum: 1}
+    AccountMember:
+      type: object
+      required: [id, name, email, role, locationIds, status, rowVersion]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        email: {type: string}
+        role: {type: string, enum: [ADMIN, CHEF, WORKER]}
+        locationIds: {type: array, items: {type: string, format: uuid}}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+        rowVersion: {type: integer, minimum: 1}
+    Invitation:
+      type: object
+      required: [id, email, role, locationIds, status, expiresAt, lastSentAt, createdAt, sendCount, rowVersion]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string}
+        role: {type: string, enum: [ADMIN, CHEF, WORKER]}
+        locationIds: {type: array, items: {type: string, format: uuid}}
+        status: {type: string, enum: [PENDING, ACCEPTED, REVOKED, EXPIRED]}
+        expiresAt: {type: string, format: date-time}
+        lastSentAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+        sendCount: {type: integer, minimum: 1}
+        rowVersion: {type: integer, minimum: 1}
+    AccountDevice:
+      type: object
+      required: [id, organizationId, organizationName, platform, status, lastSeenAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        organizationId: {type: string}
+        organizationName: {type: string}
+        platform: {type: string, enum: [ANDROID, IOS, WEB]}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+        lastSeenAt: {type: string, format: date-time, nullable: true}
+        createdAt: {type: string, format: date-time}

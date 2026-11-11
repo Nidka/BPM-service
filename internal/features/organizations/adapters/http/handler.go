@@ -32,10 +32,12 @@ type organizationDTO struct {
 	ContactName  string `json:"contactName"`
 	ContactPhone string `json:"contactPhone"`
 	ContactEmail string `json:"contactEmail"`
+	// RowVersion solo se devuelve en lecturas y se exige al editar.
+	RowVersion int `json:"rowVersion,omitempty"`
 }
 
 func organization(o domain.Organization) organizationDTO {
-	return organizationDTO{o.ID, o.LegalName, o.TradeName, o.TaxID, o.BusinessType, o.ContactName, o.ContactPhone, o.ContactEmail}
+	return organizationDTO{o.ID, o.LegalName, o.TradeName, o.TaxID, o.BusinessType, o.ContactName, o.ContactPhone, o.ContactEmail, o.RowVersion}
 }
 
 type locationDTO struct {
@@ -45,14 +47,33 @@ type locationDTO struct {
 	District     string `json:"district"`
 	ContactPhone string `json:"contactPhone"`
 	Timezone     string `json:"timezone"`
+	// Status y RowVersion se devuelven en lecturas; en PATCH se exigen.
+	Status     string `json:"status,omitempty"`
+	RowVersion int    `json:"rowVersion,omitempty"`
 }
+
+func location(l domain.Location) locationDTO {
+	return locationDTO{l.ID, l.Name, l.Address, l.District, l.ContactPhone, l.Timezone, l.Status, l.RowVersion}
+}
+
 type memberDTO struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
 	Email       string   `json:"email"`
 	Role        string   `json:"role"`
 	LocationIDs []string `json:"locationIds"`
+	Status      string   `json:"status"`
+	RowVersion  int      `json:"rowVersion"`
 }
+
+func member(m domain.Member) memberDTO {
+	ids := m.LocationIDs
+	if ids == nil {
+		ids = []string{}
+	}
+	return memberDTO{m.ID, m.Name, m.Email, m.Role, ids, m.Status, m.RowVersion}
+}
+
 type entryDTO struct {
 	ID     string `json:"id"`
 	Title  string `json:"title"`
@@ -81,6 +102,7 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Post("/organizations/{organizationID}/members", h.addMember)
 		r.Post("/organizations/{organizationID}/members/check", h.checkMember)
 		r.Post("/organizations/{organizationID}/members/search", h.searchMemberAccounts)
+		h.registerAccounts(r)
 	})
 }
 func (h *Handler) actor(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -98,6 +120,7 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, e error) {
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "No tienes acceso a esta organización o acción."})
 	case errors.Is(e, domain.ErrConflict):
 		response.Error(w, 409, id, response.APIError{Code: "RESOURCE_CONFLICT", Message: "El registro ya existe o cambió. Actualiza la información antes de continuar."})
+	case h.accountError(w, id, e):
 	case errors.Is(e, domain.ErrMemberUnavailable):
 		response.Error(w, 404, id, response.APIError{Code: "MEMBER_NOT_AVAILABLE", Message: "No se encontró una cuenta BPM activa con ese correo."})
 	default:
@@ -169,10 +192,10 @@ func (h *Handler) workspace(w http.ResponseWriter, r *http.Request) {
 	ls := []locationDTO{}
 	ms := []memberDTO{}
 	for _, l := range v.Locations {
-		ls = append(ls, locationDTO{l.ID, l.Name, l.Address, l.District, l.ContactPhone, l.Timezone})
+		ls = append(ls, location(l))
 	}
 	for _, m := range v.Members {
-		ms = append(ms, memberDTO{m.ID, m.Name, m.Email, m.Role, m.LocationIDs})
+		ms = append(ms, member(m))
 	}
 	response.JSON(w, 200, map[string]any{"data": map[string]any{"organization": organization(v.Organization), "role": v.Role, "nextPageTokens": v.NextTokens, "totals": v.Totals, "locations": ls, "members": ms, "courses": entries(v.Courses), "checklists": entries(v.Checklists), "incidents": entries(v.Incidents)}})
 }
@@ -190,7 +213,7 @@ func (h *Handler) createLocation(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, e)
 		return
 	}
-	response.JSON(w, 200, map[string]any{"data": locationDTO{o.ID, o.Name, o.Address, o.District, o.ContactPhone, o.Timezone}})
+	response.JSON(w, 200, map[string]any{"data": location(o)})
 }
 func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	uid, ok := h.actor(w, r)

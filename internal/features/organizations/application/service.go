@@ -13,6 +13,7 @@ import (
 // Store pertenece a una transacción. La autorización y las escrituras comparten
 // bloqueos para impedir que se sustituya la membresía por la de otra organización.
 type Store interface {
+	AccountStore
 	Actor(context.Context, string) (domain.Actor, error)
 	OrganizationsPage(context.Context, domain.Actor, pagination.Window) ([]domain.Organization, error)
 	LocationsPage(context.Context, domain.Actor, string, string, pagination.Window) ([]domain.Location, error)
@@ -75,24 +76,7 @@ func (s *Service) CreateOrganization(ctx context.Context, uid string, input doma
 	if !uuid.MatchString(input.ID) {
 		fields["id"] = "Identificador de operación inválido."
 	}
-	validateText(fields, "legalName", input.LegalName, 2, 200)
-	validateText(fields, "tradeName", input.TradeName, 0, 200)
-	validateText(fields, "taxId", input.TaxID, 0, 20)
-	if !inputformat.PersonName(input.ContactName, 0, 160) {
-		fields["contactName"] = "Usa letras, espacios, apóstrofos o guiones; sin números (hasta 160 caracteres)."
-	}
-	if !inputformat.Phone(input.ContactPhone) {
-		fields["contactPhone"] = "Usa entre 7 y 15 dígitos; puedes incluir + al inicio, espacios, guiones y paréntesis."
-	}
-	if !inputformat.Text(input.ContactEmail, 0, 320) || len(input.ContactEmail) > 320 ||
-		strings.TrimSpace(input.ContactEmail) != "" && !inputformat.Email(input.ContactEmail) {
-		fields["contactEmail"] = "Ingresa un correo válido."
-	}
-	switch input.BusinessType {
-	case "RESTAURANT", "CAFETERIA", "CATERING", "RELATED_SERVICE":
-	default:
-		fields["businessType"] = "Selecciona un tipo de establecimiento."
-	}
+	validateOrganization(fields, &input)
 	if len(fields) > 0 {
 		return domain.Organization{}, &domain.ValidationError{Fields: fields}
 	}

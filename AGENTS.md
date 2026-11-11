@@ -57,3 +57,7 @@ La Academia BPM (cursos versionados con video privado, modo estudio, intentos
 calificados en servidor y constancias) está implementada localmente; leer
 `specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
 Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
+
+La gestión de cuentas (editar/desactivar miembros, transferir administración, invitaciones por
+correo, dispositivos propios y tipo de establecimiento) está en `specs/ORGANIZATIONS.md`; requiere V12
+e `INVITATION_ACCEPT_URL` opcional.

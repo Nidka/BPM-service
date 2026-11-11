@@ -90,3 +90,11 @@ de la API que exige este esquema; el arranque falla de forma explícita si falta
 El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
 revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
 V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).
+
+## Gestión de cuentas (V12)
+
+`V12__accounts_management.sql` añade `row_version` a organizaciones, sedes y membresías,
+la tabla `organization_invitations` (solo hash del token) y amplía `business_type`
+(`RELATED_SERVICE` pasa a `OTHER_FOOD_SERVICE`). Aplicar después de V8 (V7 es necesaria
+para el outbox) y antes de la API/worker que la exigen. El preflight se detiene ante tipos
+de establecimiento desconocidos. V3 sigue reservada. Ver [ORGANIZATIONS.md](ORGANIZATIONS.md).

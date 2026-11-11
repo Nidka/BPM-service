@@ -72,6 +72,10 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := organizations.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
 	if err := alerts.RequireSchema(ctx, pool); err != nil {
 		return fail(err)
 	}
