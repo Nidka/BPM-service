@@ -9,6 +9,8 @@ servers:
   - url: /
     description: Servidor actual
 tags:
+  - name: Investigación
+    description: Módulo de investigación CAP, consentimiento, resultados y necesidades.
   - name: Sistema
     description: Estado y disponibilidad del servicio.
   - name: Identidad
@@ -2067,6 +2069,327 @@ paths:
           description: Video AVAILABLE.
           content: {application/json: {schema: {$ref: "#/components/schemas/TrainingVideoConfirmResponse"}}}
         default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/research/participation:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Investigación]
+      operationId: getResearchParticipation
+      summary: Estado del participante
+      description: "Miembro activo de la organización. Devuelve participante seudónimo, documento de consentimiento vigente, consentimiento y, solo con consentimiento vigente, la encuesta CAP sin respuestas correctas."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/organizations/{organizationID}/research/consent:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Investigación]
+      operationId: recordResearchConsent
+      summary: Aceptar o revocar el consentimiento
+      description: "Aceptar exige la versión vigente del documento (409 RESEARCH_CONSENT_VERSION_OUTDATED) y crea al participante con un código seudónimo. Revocar retira al participante (WITHDRAWN). Idempotente."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchConsentRequest"}}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/organizations/{organizationID}/research/submissions:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Investigación]
+      operationId: submitResearchSurvey
+      summary: Enviar PRETEST o POSTTEST
+      description: "Exige consentimiento vigente, la versión CAP publicada y una sola entrega por participante, versión y momento. 201 la primera vez; 200 en repetición idéntica; 409 IDEMPOTENCY_CONFLICT, RESEARCH_SUBMISSION_EXISTS o RESEARCH_VERSION_OUTDATED. El servidor calcula los puntajes."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchSubmissionRequest"}}}
+      responses:
+        "201":
+          description: Entrega registrada.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/access:
+    get:
+      tags: [Investigación]
+      operationId: getResearchAccess
+      summary: Permisos de investigación del usuario
+      description: "Cualquier usuario autenticado. canResearch depende de la concesión de plataforma, no de roles de empresa."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/access-grants:
+    get:
+      tags: [Investigación]
+      operationId: listResearchGrants
+      summary: Listar concesiones
+      description: "Solo SUPER_ADMIN. Paginado por cursor."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+    post:
+      tags: [Investigación]
+      operationId: grantResearchAccess
+      summary: Conceder acceso de investigación
+      description: "Solo SUPER_ADMIN. Identifica al usuario activo por correo. Idempotente."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchGrantRequest"}}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/access-grants/{userID}:
+    parameters:
+    - {in: path, name: userID, required: true, schema: {type: string}}
+    delete:
+      tags: [Investigación]
+      operationId: revokeResearchAccess
+      summary: Revocar acceso de investigación
+      description: "Solo SUPER_ADMIN."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "204":
+          description: Revocado.
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/consent-documents:
+    get:
+      tags: [Investigación]
+      operationId: listConsentDocuments
+      summary: Listar documentos de consentimiento
+      description: "Investigador."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+    post:
+      tags: [Investigación]
+      operationId: publishConsentDocument
+      summary: Publicar documento de consentimiento
+      description: "Investigador. Archiva el vigente; los participantes deben aceptar la nueva versión."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchConsentDocumentRequest"}}}
+      responses:
+        "201":
+          description: Publicado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments:
+    get:
+      tags: [Investigación]
+      operationId: listResearchInstruments
+      summary: Listar instrumentos
+      description: "Investigador. Paginado por cursor."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+    post:
+      tags: [Investigación]
+      operationId: createResearchInstrument
+      summary: Crear instrumento en borrador
+      description: "Investigador. Crea la versión 1 en borrador."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchInstrumentRequest"}}}
+      responses:
+        "201":
+          description: Borrador creado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments/import:
+    post:
+      tags: [Investigación]
+      operationId: importResearchInstrument
+      summary: Importar instrumento desde JSON
+      description: "Investigador. Acepta el formato de docs/research/cap-instrument.json (source y generalData se ignoran). Crea un borrador; las respuestas correctas pueden faltar hasta publicar."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchInstrumentRequest"}}}
+      responses:
+        "201":
+          description: Borrador creado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments/{instrumentID}:
+    parameters:
+    - {in: path, name: instrumentID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Investigación]
+      operationId: getResearchInstrument
+      summary: Instrumento y versiones
+      description: "Investigador."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments/{instrumentID}/draft:
+    parameters:
+    - {in: path, name: instrumentID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Investigación]
+      operationId: getResearchDraft
+      summary: Borrador con respuestas correctas
+      description: "Investigador."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+    put:
+      tags: [Investigación]
+      operationId: saveResearchDraft
+      summary: Reemplazar preguntas del borrador
+      description: "Investigador. Control optimista con rowVersion (409 RESEARCH_DRAFT_CONFLICT)."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchDraftRequest"}}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments/{instrumentID}/versions:
+    parameters:
+    - {in: path, name: instrumentID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Investigación]
+      operationId: createResearchDraft
+      summary: Abrir nueva versión
+      description: "Investigador. Copia la última publicada (409 RESEARCH_DRAFT_EXISTS si ya hay borrador)."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "201":
+          description: Borrador creado.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/instruments/{instrumentID}/publish:
+    parameters:
+    - {in: path, name: instrumentID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Investigación]
+      operationId: publishResearchDraft
+      summary: Publicar el borrador
+      description: "Investigador. Inmutable al publicar. CAP: exactamente 8 opción múltiple, 8 Likert y 10 de frecuencia, con respuesta correcta en cada opción múltiple (422 RESEARCH_INSTRUMENT_INCOMPLETE)."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/organizations:
+    get:
+      tags: [Investigación]
+      operationId: listResearchOrganizations
+      summary: Listar empresas
+      description: "Investigador."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/results:
+    get:
+      tags: [Investigación]
+      operationId: getResearchResults
+      summary: Resultados consolidados por empresa (RF-26)
+      description: "Investigador. n, medias por dimensión y comparación pre vs post; excluye participantes que retiraron su consentimiento. instrumentVersionId opcional (por defecto la CAP publicada)."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      - {in: query, name: instrumentVersionId, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/exports/responses.csv:
+    get:
+      tags: [Investigación]
+      operationId: exportResearchCsv
+      summary: Exportación CSV anonimizada
+      description: "Investigador; cada exportación se audita. Solo código seudónimo, empresa, momento, fecha, versión, respuestas y puntajes; sin correo, UID ni nombres. Máximo 20000 filas (422 RESEARCH_EXPORT_TOO_LARGE)."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: instrumentVersionId, schema: {type: string, format: uuid}}
+      - {in: query, name: organizationId, schema: {type: string}}
+      responses:
+        "200":
+          description: Archivo CSV.
+          content: {text/csv: {schema: {type: string}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/research/needs:
+    get:
+      tags: [Investigación]
+      operationId: listResearchNeeds
+      summary: Listar necesidades detectadas (RF-50)
+      description: "Investigador. Más recientes primero; filtro opcional organizationId."
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {in: query, name: pageToken, schema: {type: string}}
+      - {in: query, name: organizationId, schema: {type: string}}
+      responses:
+        "200":
+          description: Correcto.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchListResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
+    post:
+      tags: [Investigación]
+      operationId: addResearchNeed
+      summary: Registrar necesidad detectada (RF-50)
+      description: "Investigador. Categorías TRAINING, PROCESS, INFRASTRUCTURE, DOCUMENTATION, TECHNOLOGY, SUPPLIERS, OTHER."
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/ResearchNeedRequest"}}}
+      responses:
+        "201":
+          description: Registrada.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
+        default: {$ref: "#/components/responses/ResearchError"}
 components:
   parameters:
     PageSize:
@@ -2173,6 +2496,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     ServiceUnavailable:
       description: Dependencia técnica o autenticación no disponible.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ResearchError:
+      description: Error sanitizado del módulo de investigación (RESEARCH_ACCESS_DENIED, RESEARCH_CONSENT_REQUIRED, RESEARCH_VERSION_OUTDATED, RESEARCH_SUBMISSION_EXISTS, IDEMPOTENCY_CONFLICT, RESEARCH_INSTRUMENT_INCOMPLETE y otros).
       content:
         application/json:
           schema:
@@ -4163,3 +4492,56 @@ components:
       required: ["count"]
       properties: {"count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
       description: "Conteo personal autorizado; un error nunca se convierte en cero."
+    ResearchObjectResponse:
+      type: object
+      required: [data]
+      properties: {data: {type: object, additionalProperties: true}}
+    ResearchListResponse:
+      type: object
+      required: [data, pagination]
+      properties: {data: {type: array, items: {type: object, additionalProperties: true}}, pagination: {$ref: "#/components/schemas/Pagination"}}
+    ResearchConsentRequest:
+      type: object
+      additionalProperties: false
+      required: [documentVersion, accepted]
+      properties: {documentVersion: {type: string, maxLength: 40}, accepted: {type: boolean}}
+    ResearchSubmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [id, clientOperationId, instrumentVersionId, moment, clientCreatedAt, answers]
+      properties:
+        id: {type: string, format: uuid}
+        clientOperationId: {type: string, format: uuid}
+        instrumentVersionId: {type: string, format: uuid}
+        moment: {type: string, enum: [PRETEST, POSTTEST]}
+        clientCreatedAt: {type: string, format: date-time}
+        answers: {type: array, minItems: 1, maxItems: 60, items: {type: object, additionalProperties: false, required: [questionId, value], properties: {questionId: {type: string, format: uuid}, value: {type: integer, description: "Opción múltiple - índice 0-based; Likert y frecuencia - 1 a 5."}}}}
+    ResearchGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties: {email: {type: string, maxLength: 320}}
+    ResearchConsentDocumentRequest:
+      type: object
+      additionalProperties: false
+      required: [version, title, text, responsibleInvestigator]
+      properties: {version: {type: string, maxLength: 40}, title: {type: string, maxLength: 200}, text: {type: string, maxLength: 20000}, responsibleInvestigator: {type: string, maxLength: 200}}
+    ResearchQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [type, text]
+      properties: {type: {type: string, enum: [MULTIPLE_CHOICE, LIKERT, FREQUENCY]}, text: {type: string, maxLength: 500}, options: {type: array, items: {type: string}}, correctOption: {type: integer, nullable: true, minimum: 0}}
+    ResearchInstrumentRequest:
+      type: object
+      required: [code, name, questions]
+      properties: {code: {type: string, maxLength: 50}, name: {type: string, maxLength: 200}, description: {type: string, maxLength: 2000}, isCap: {type: boolean}, source: {type: string}, generalData: {type: object, additionalProperties: true}, questions: {type: array, maxItems: 60, items: {$ref: "#/components/schemas/ResearchQuestionInput"}}}
+    ResearchDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [rowVersion, questions]
+      properties: {rowVersion: {type: integer, minimum: 1}, questions: {type: array, maxItems: 60, items: {$ref: "#/components/schemas/ResearchQuestionInput"}}}
+    ResearchNeedRequest:
+      type: object
+      additionalProperties: false
+      required: [organizationId, category, description]
+      properties: {organizationId: {type: string}, category: {type: string, enum: [TRAINING, PROCESS, INFRASTRUCTURE, DOCUMENTATION, TECHNOLOGY, SUPPLIERS, OTHER]}, description: {type: string, maxLength: 2000}, detectedAt: {type: string, format: date-time}}

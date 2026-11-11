@@ -90,3 +90,13 @@ de la API que exige este esquema; el arranque falla de forma explícita si falta
 El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
 revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
 V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).
+
+## Investigación CAP (V9)
+
+`V9__research_cap.sql` añade bandera CAP, versión de fila del borrador, respuesta correcta,
+puntajes e idempotencia de entregas, unicidad de participante y de código seudónimo,
+documentos de consentimiento, concesiones de acceso de investigación, necesidades
+detectadas y triggers de inmutabilidad. Aplicar después de V8 y antes de la API; el
+arranque falla de forma explícita si falta. El preflight se detiene ante participantes,
+códigos o versiones DRAFT/PUBLISHED duplicados; revisarlos sin borrar ni fusionar. No
+crea datos. Ver [RESEARCH.md](RESEARCH.md).

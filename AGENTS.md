@@ -57,3 +57,7 @@ La Academia BPM (cursos versionados con video privado, modo estudio, intentos
 calificados en servidor y constancias) está implementada localmente; leer
 `specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
 Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
+
+El módulo de investigación CAP (consentimiento, instrumentos versionados, pretest/postest,
+resultados por empresa, exportación anonimizada y necesidades) está implementado localmente;
+leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas por SUPER_ADMIN.
