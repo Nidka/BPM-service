@@ -14,6 +14,9 @@ import (
 	notificationpg "github.com/Nidka/BPM-service/internal/features/notifications/adapters/postgres"
 	"github.com/Nidka/BPM-service/internal/features/notifications/adapters/resend"
 	"github.com/Nidka/BPM-service/internal/features/notifications/application"
+	notificationdomain "github.com/Nidka/BPM-service/internal/features/notifications/domain"
+	"github.com/Nidka/BPM-service/internal/features/organizations"
+	organizationapp "github.com/Nidka/BPM-service/internal/features/organizations/application"
 	"net/http"
 	"time"
 )
@@ -36,6 +39,9 @@ func RunWorker(ctx context.Context) error {
 	if e = notifications.RequireSchema(ctx, pool); e != nil {
 		return e
 	}
+	if e = organizations.RequireSchema(ctx, pool); e != nil {
+		return e
+	}
 	providers := map[string]application.Provider{}
 	if cfg.Email.ResendAPIKey != "" && cfg.Email.From != "" {
 		providers["EMAIL"] = resend.New(&http.Client{Timeout: 12 * time.Second}, cfg.Email.ResendAPIKey)
@@ -49,10 +55,16 @@ func RunWorker(ctx context.Context) error {
 	}
 	dispatcher := application.NewDispatcher(notificationpg.New(pool), providers, cfg.Email.From)
 	evaluator := alerts.New(pool, logger)
+	var invitationSender organizationapp.MailSender
+	if providers["EMAIL"] != nil {
+		invitationSender = invitationMail{providers["EMAIL"]}
+	}
+	invitationMailer := organizations.InvitationMailer(pool, invitationSender, cfg.Email.From, cfg.Email.InvitationAcceptURL)
 	runner := outbox.NewRunner(outbox.NewPostgres(pool), map[string]outbox.Handler{
 		"operations.receipt.recorded.v1": func(ctx context.Context, v outbox.Event) error {
 			return evaluator.EvaluateReceipt(ctx, v.OrganizationID, v.AggregateID, time.Now().UTC())
 		},
+		organizations.InvitationEvent: invitationMailer.Handle,
 		"notifications.alert.ready.v1": func(ctx context.Context, v outbox.Event) error {
 			e := dispatcher.Dispatch(ctx, v.OrganizationID, v.AggregateID, time.Now().UTC())
 			if errors.Is(e, application.ErrUnavailable) {
@@ -87,4 +99,11 @@ func RunWorker(ctx context.Context) error {
 			tick()
 		}
 	}
+}
+
+// invitationMail adapta el proveedor de correo de notificaciones al puerto de invitaciones.
+type invitationMail struct{ provider application.Provider }
+
+func (m invitationMail) Send(ctx context.Context, key, from, to, subject, text string) (string, error) {
+	return m.provider.Send(ctx, key, notificationdomain.Message{From: from, To: to, Subject: subject, Text: text})
 }

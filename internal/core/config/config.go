@@ -110,6 +110,8 @@ type R2Config struct {
 type EmailConfig struct {
 	ResendAPIKey string
 	From         string
+	// InvitationAcceptURL es la página del cliente que recibe ?token= (opcional).
+	InvitationAcceptURL string
 }
 
 type ObservabilityConfig struct {
@@ -253,8 +255,9 @@ func loadFrom(getenv func(string) string) (Config, error) {
 			TrainingVideoMaxBytes: integer64("TRAINING_VIDEO_MAX_BYTES", 300<<20),
 		},
 		Email: EmailConfig{
-			ResendAPIKey: strings.TrimSpace(getenv("RESEND_API_KEY")),
-			From:         strings.TrimSpace(getenv("RESEND_FROM_EMAIL")),
+			ResendAPIKey:        strings.TrimSpace(getenv("RESEND_API_KEY")),
+			From:                strings.TrimSpace(getenv("RESEND_FROM_EMAIL")),
+			InvitationAcceptURL: strings.TrimSpace(getenv("INVITATION_ACCEPT_URL")),
 		},
 		Observability: ObservabilityConfig{
 			SentryDSN: strings.TrimSpace(getenv("SENTRY_DSN")),
