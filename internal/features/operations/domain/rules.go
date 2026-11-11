@@ -229,8 +229,8 @@ func NormalizePlan(v CleaningPlan) (CleaningPlan, error) {
 	text(f, "task", v.Task, 2, 240)
 	text(f, "instructions", v.Instructions, 0, 2000)
 	text(f, "productName", v.ProductName, 0, 160)
-	if v.Frequency != "DAILY" && v.Frequency != "WEEKLY" && v.Frequency != "MONTHLY" {
-		f["frequency"] = "Elige diaria, semanal o mensual; los turnos aún no están configurados."
+	if v.Frequency != "DAILY" && v.Frequency != "WEEKLY" && v.Frequency != "MONTHLY" && v.Frequency != "PER_SHIFT" {
+		f["frequency"] = "Elige diaria, semanal, mensual o por turno."
 	}
 	if v.DueTime != "" {
 		if d, e := time.Parse("15:04", v.DueTime); e != nil || d.Format("15:04") != v.DueTime {
@@ -246,6 +246,11 @@ func NormalizeExecution(v CleaningExecution, now time.Time) (CleaningExecution, 
 	id(f, "locationId", v.LocationID)
 	id(f, "cleaningPlanId", v.CleaningPlanID)
 	id(f, "clientOperationId", v.ClientOperationID)
+	if v.ShiftID != "" {
+		id(f, "shiftId", v.ShiftID)
+		v.ShiftID = strings.ToLower(v.ShiftID)
+	}
+	v.ShiftName = ""
 	v.ID = strings.ToLower(v.ID)
 	v.LocationID = strings.ToLower(v.LocationID)
 	v.CleaningPlanID = strings.ToLower(v.CleaningPlanID)

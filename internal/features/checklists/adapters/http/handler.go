@@ -89,25 +89,28 @@ func (v answerDTO) domain() domain.Answer {
 }
 
 type runDTO struct {
-	AssignmentID      string         `json:"assignmentId,omitempty"`
-	PerformedByName   string         `json:"performedByName"`
-	TemplateName      string         `json:"templateName"`
-	LocationName      string         `json:"locationName"`
-	CreatedAt         time.Time      `json:"createdAt"`
-	ID                string         `json:"id"`
-	OrganizationID    string         `json:"organizationId"`
-	LocationID        string         `json:"locationId"`
-	TemplateVersionID string         `json:"templateVersionId"`
-	PerformedBy       string         `json:"performedBy"`
-	ClientOperationID string         `json:"clientOperationId"`
-	ClientCreatedAt   time.Time      `json:"clientCreatedAt"`
-	Status            string         `json:"status"`
-	RowVersion        int            `json:"rowVersion"`
-	CompliancePercent *float64       `json:"compliancePercent,omitempty"`
-	SubmittedAt       *time.Time     `json:"submittedAt,omitempty"`
-	Items             []itemDTO      `json:"items"`
-	Answers           []answerDTO    `json:"answers"`
-	EvidenceCounts    map[string]int `json:"evidenceCounts"`
+	AssignmentID          string         `json:"assignmentId,omitempty"`
+	PerformedByName       string         `json:"performedByName"`
+	TemplateName          string         `json:"templateName"`
+	LocationName          string         `json:"locationName"`
+	CreatedAt             time.Time      `json:"createdAt"`
+	ID                    string         `json:"id"`
+	OrganizationID        string         `json:"organizationId"`
+	LocationID            string         `json:"locationId"`
+	TemplateVersionID     string         `json:"templateVersionId"`
+	PerformedBy           string         `json:"performedBy"`
+	ClientOperationID     string         `json:"clientOperationId"`
+	ClientCreatedAt       time.Time      `json:"clientCreatedAt"`
+	Status                string         `json:"status"`
+	RowVersion            int            `json:"rowVersion"`
+	CompliancePercent     *float64       `json:"compliancePercent,omitempty"`
+	SubmittedAt           *time.Time     `json:"submittedAt,omitempty"`
+	Items                 []itemDTO      `json:"items"`
+	Answers               []answerDTO    `json:"answers"`
+	EvidenceCounts        map[string]int `json:"evidenceCounts"`
+	ShiftID               string         `json:"shiftId,omitempty"`
+	ShiftName             string         `json:"shiftName,omitempty"`
+	TemplateVersionNumber int            `json:"templateVersionNumber"`
 }
 
 func run(v domain.Run) runDTO {
@@ -123,7 +126,7 @@ func run(v domain.Run) runDTO {
 		answers = append(answers, answerDTO{a.ItemID, a.ComplianceResult, a.TextValue, a.Observation, a.NumericValue})
 	}
 	return runDTO{v.AssignmentID, v.PerformedByName, v.TemplateName, v.LocationName, v.CreatedAt, v.ID, v.OrganizationID, v.LocationID, v.TemplateVersionID, v.PerformedBy,
-		v.ClientOperationID, v.ClientCreatedAt, v.Status, v.RowVersion, v.CompliancePercent, v.SubmittedAt, items, answers, v.EvidenceCounts}
+		v.ClientOperationID, v.ClientCreatedAt, v.Status, v.RowVersion, v.CompliancePercent, v.SubmittedAt, items, answers, v.EvidenceCounts, v.ShiftID, v.ShiftName, v.TemplateVersionNumber}
 }
 
 func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
@@ -136,6 +139,9 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Get("/organizations/{organizationID}/checklists", h.catalog)
 		r.Get("/organizations/{organizationID}/checklists/{templateID}", h.getTemplate)
 		r.Post("/organizations/{organizationID}/checklists", h.createTemplate)
+		r.Get("/organizations/{organizationID}/checklists/{templateID}/versions", h.versions)
+		r.Post("/organizations/{organizationID}/checklists/{templateID}/versions", h.publishVersion)
+		r.Get("/organizations/{organizationID}/checklists/{templateID}/versions/{versionID}", h.version)
 		r.Get("/organizations/{organizationID}/checklist-runs", h.history)
 		r.Post("/organizations/{organizationID}/checklist-runs", h.createRun)
 		r.Get("/organizations/{organizationID}/checklist-runs/{runID}", h.getRun)
@@ -156,6 +162,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		response.Error(w, 409, id, response.APIError{Code: "ASSIGNMENT_REQUIRED", Message: "Esta plantilla tiene un control programado para la sede. Ábrelo desde Control."})
 	case errors.Is(err, domain.ErrAssignmentStarted):
 		response.Error(w, 409, id, response.APIError{Code: "ASSIGNMENT_ALREADY_STARTED", Message: "El control de este período ya se inició. Consulta Control para retomarlo o ver su resultado."})
+	case errors.Is(err, domain.ErrShiftOutOfHours):
+		response.Error(w, 422, id, response.APIError{Code: "SHIFT_OUT_OF_HOURS", Message: "El turno de este control no está abierto ahora. Inícialo dentro del horario del turno."})
+	case errors.Is(err, domain.ErrTemplateOutdated):
+		response.Error(w, 409, id, response.APIError{Code: "TEMPLATE_VERSION_OUTDATED", Message: "La plantilla tiene una versión más reciente. Actualiza el catálogo antes de iniciar."})
 	case errors.Is(err, pagination.ErrInvalid):
 		response.Error(w, 400, id, response.APIError{Code: "INVALID_PAGINATION", Message: "La página no es válida. Actualiza la lista y vuelve a intentar."})
 	case errors.As(err, &validation):

@@ -90,3 +90,7 @@ de la API que exige este esquema; el arranque falla de forma explícita si falta
 El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
 revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
 V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).
+
+## Operaciones ampliadas (V13)
+
+`V13__operations_shifts_stock.sql` agrega `location_shifts`, `shift_id` en programaciones, revisiones y limpiezas, `stock_movements` (append-only) y una sola versión vigente por plantilla (`change_note`, `request_hash`). Aplicar después de V5 (y V4) con `ON_ERROR_STOP=1`, antes del backend que la exige. Preflight incluido: aborta si una plantilla tiene más de una versión PUBLISHED. Ver [OPERATIONS.md](OPERATIONS.md) y [CHECKLISTS.md](CHECKLISTS.md).

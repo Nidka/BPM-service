@@ -47,9 +47,9 @@ programación por sede/frecuencia; leer `specs/CHECKLISTS.md`.
 `features/media` implementa fotos privadas para controles e incidencias; leer
 `specs/MEDIA.md`. Operación diaria estructurada está en `specs/OPERATIONS.md` y
 el recorrido de incidencias/correcciones en `specs/INCIDENTS.md`.
-Las entregas requieren V4/V5/V6 antes de activar sus APIs; no implican que esas
-migraciones ya estén aplicadas en producción. Turnos, movimientos de stock,
-fotos de limpieza y reportes siguen pendientes.
+Las entregas requieren V4/V5/V6 (y V13 para turnos, movimientos de stock, versiones de plantilla y fotos de limpieza) antes de activar sus APIs; no implican que esas
+migraciones ya estén aplicadas en producción. Turnos, movimientos de stock y fotos de limpieza están en OPERATIONS.md, CHECKLISTS.md y MEDIA.md.
+Los reportes siguen pendientes.
 Alertas y notificaciones están implementadas localmente; leer ALERTS.md y
 NOTIFICATIONS.md. Requieren V7 y un worker separado antes de activarlas.
 

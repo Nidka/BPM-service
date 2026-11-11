@@ -12,6 +12,7 @@ import (
 type Store interface {
 	Target(context.Context, string, string, string, string, bool) (domain.Target, error)
 	IncidentTarget(context.Context, string, string, string, string, string, bool) (domain.Target, error)
+	CleaningTarget(context.Context, string, string, string, bool) (domain.Target, error)
 	File(context.Context, string, string, bool) (domain.File, error)
 	List(context.Context, domain.Target) ([]domain.File, error)
 	Reserve(context.Context, domain.Target, domain.File, int) (domain.File, error)
@@ -73,7 +74,7 @@ func (s *Service) Reserve(ctx context.Context, user, org string, input domain.Up
 			ext = ".png"
 		}
 		file := domain.File{ID: input.ID, OrganizationID: target.OrganizationID, LocationID: target.LocationID,
-			RunID: target.RunID, ItemID: target.ItemID, IncidentID: target.IncidentID, ActionID: target.ActionID, Stage: target.Stage, OriginalName: input.OriginalName, MIMEType: input.MIMEType,
+			RunID: target.RunID, ItemID: target.ItemID, CleaningID: target.CleaningID, IncidentID: target.IncidentID, ActionID: target.ActionID, Stage: target.Stage, OriginalName: input.OriginalName, MIMEType: input.MIMEType,
 			SizeBytes: input.SizeBytes, SHA256: input.SHA256, CreatedBy: user,
 			ObjectKey: "organizations/" + target.OrganizationID + "/locations/" + target.LocationID + "/media/" + input.ID + ext}
 		out.File, e = db.Reserve(ctx, target, file, s.policy.MaxFiles)
@@ -212,7 +213,7 @@ func fileAccess(ctx context.Context, db Store, user, org, id string, write bool)
 	if err != nil {
 		return file, err
 	}
-	target, err := evidenceAccess(ctx, db, user, org, domain.UploadInput{RunID: file.RunID, ItemID: file.ItemID, IncidentID: file.IncidentID, ActionID: file.ActionID, Stage: file.Stage}, write)
+	target, err := evidenceAccess(ctx, db, user, org, domain.UploadInput{CleaningID: file.CleaningID, RunID: file.RunID, ItemID: file.ItemID, IncidentID: file.IncidentID, ActionID: file.ActionID, Stage: file.Stage}, write)
 	if err != nil {
 		return domain.File{}, err
 	}
@@ -244,6 +245,16 @@ func (s *Service) ListIncident(ctx context.Context, user, org, incident, action,
 	return
 }
 func evidenceAccess(ctx context.Context, db Store, user, org string, in domain.UploadInput, write bool) (domain.Target, error) {
+	if in.CleaningID != "" {
+		target, e := db.CleaningTarget(ctx, user, org, in.CleaningID, write)
+		if e != nil {
+			return target, e
+		}
+		if !target.CanRead() || (write && !target.CanWrite()) {
+			return domain.Target{}, domain.ErrDenied
+		}
+		return target, nil
+	}
 	if in.IncidentID == "" {
 		return targetAccess(ctx, db, user, org, in.RunID, in.ItemID, write)
 	}
@@ -255,4 +266,21 @@ func evidenceAccess(ctx context.Context, db Store, user, org string, in domain.U
 		return domain.Target{}, domain.ErrDenied
 	}
 	return target, nil
+}
+
+// ListCleaning lista las fotos de una ejecución de limpieza con las mismas reglas de contenido.
+func (s *Service) ListCleaning(ctx context.Context, user, org, execution string) (out Collection, err error) {
+	if !domain.ValidID(execution) {
+		return out, domain.ErrNotFound
+	}
+	err = s.work.Within(ctx, func(db Store) error {
+		target, e := evidenceAccess(ctx, db, user, org, domain.UploadInput{CleaningID: strings.ToLower(execution)}, false)
+		if e != nil {
+			return e
+		}
+		out.Files, e = db.List(ctx, target)
+		out.Policy, out.UploadAvailable = s.policy, s.objects != nil
+		return e
+	})
+	return
 }

@@ -129,3 +129,33 @@ La Academia BPM reserva videos MP4/WebM sin sede en `media_files` con claves baj
 los muta (no tienen asociación de control, incidencia o limpieza); los gestiona la
 feature `training` con el puerto `contracts.VideoStorage`. Ver
 [TRAINING.md](TRAINING.md).
+
+## Fotos de limpieza
+
+Las ejecuciones de limpieza (`cleaning_media`, V1; sin migración nueva) admiten fotos JPEG/PNG con el mismo flujo privado:
+reserva, PUT firmado a R2, `confirm` (HEAD y GET acotado, SHA-256 y decodificación reales) y descarga con GET firmado.
+Mismos límites: `MEDIA_MAX_UPLOAD_BYTES`, 8000 px por lado, 16 megapíxeles, máximo **3 fotos activas por ejecución**
+(contando pendientes y fallidas hasta retirarlas). No se aceptan PDF, SVG, WebP ni vídeo.
+
+| Método y ruta | Notas |
+|---|---|
+| `GET /cleaning-executions/{executionID}/evidence` | `{data:{files, maxBytes, allowedMimeTypes, maxFiles, uploadAvailable}}`, igual que la lista de controles; cada archivo trae `cleaningExecutionId` y `runId`/`itemId` vacíos |
+| `POST /media/uploads` | cuerpo de siempre con `cleaningExecutionId` en lugar de `runId`+`itemId` o `incidentId`; mezclar destinos = 422 `fields.cleaningExecutionId` |
+| `POST /media/{mediaID}/confirm` | sin cambios |
+| `POST /media/{mediaID}/download` | sin cambios (ticket temporal; no persistir la URL) |
+| `DELETE /media/{mediaID}` | retiro lógico `DELETED`, repetible y auditado |
+
+Cuerpo de reserva para limpieza: `{id, cleaningExecutionId, originalName, mimeType, sizeBytes, sha256}` (sin `runId`, `itemId`,
+`incidentId`, `actionId`, `stage`). Respuesta `{data:{file, upload:{url, headers, expiresAt}}}`; `upload` es nulo si ya estaba
+`AVAILABLE`.
+
+Permisos (se reevalúan en cada llamada, también tras leer R2 antes de confirmar):
+
+- Leer y descargar: ADMIN/SUPER_ADMIN (supervisión), CHEF de una sede asignada, y WORKER solo si es el responsable de esa ejecución.
+- Reservar, confirmar y retirar: únicamente el responsable de la ejecución (CHEF o WORKER) y solo durante las **24 horas siguientes al registro**
+  (`createdAt` de la ejecución); después la evidencia queda de solo lectura (403 `ACCESS_DENIED`). ADMIN supervisa pero no adjunta.
+- Ejecución o sede de otra empresa: 403/404 como en controles; la sede debe estar activa.
+
+Un archivo con más de un destino (control, incidencia o limpieza) sigue bloqueado para listar, descargar y mutar.
+Las pruebas cubren responsable, otro worker, CHEF de otra sede, ADMIN, tenant ajeno, ventana de 24 horas, límite de tres, reintento
+idéntico y con metadatos distintos, PDF rechazado, confirmación por otro usuario y retiro.
