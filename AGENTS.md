@@ -61,3 +61,7 @@ Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
 La gestión de cuentas (editar/desactivar miembros, transferir administración, invitaciones por
 correo, dispositivos propios y tipo de establecimiento) está en `specs/ORGANIZATIONS.md`; requiere V12
 e `INVITATION_ACCEPT_URL` opcional.
+
+El módulo de investigación CAP (consentimiento, instrumentos versionados, pretest/postest,
+resultados por empresa, exportación anonimizada y necesidades) está implementado localmente;
+leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas por SUPER_ADMIN.

@@ -19,6 +19,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
+	"github.com/Nidka/BPM-service/internal/features/research"
 	"github.com/Nidka/BPM-service/internal/features/training"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -76,6 +77,10 @@ func NewContainer(
 		return fail(err)
 	}
 
+	if err := research.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
+
 	if err := alerts.RequireSchema(ctx, pool); err != nil {
 		return fail(err)
 	}
@@ -123,6 +128,7 @@ func NewContainer(
 			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			incidents.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			training.Routes(container.Database, container.TokenVerifier, container.VideoStorage, cfg.R2, logger, identityModule.Sessions),
+			research.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

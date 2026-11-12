@@ -98,3 +98,13 @@ la tabla `organization_invitations` (solo hash del token) y amplía `business_ty
 (`RELATED_SERVICE` pasa a `OTHER_FOOD_SERVICE`). Aplicar después de V8 (V7 es necesaria
 para el outbox) y antes de la API/worker que la exigen. El preflight se detiene ante tipos
 de establecimiento desconocidos. V3 sigue reservada. Ver [ORGANIZATIONS.md](ORGANIZATIONS.md).
+
+## Investigación CAP (V9)
+
+`V9__research_cap.sql` añade bandera CAP, versión de fila del borrador, respuesta correcta,
+puntajes e idempotencia de entregas, unicidad de participante y de código seudónimo,
+documentos de consentimiento, concesiones de acceso de investigación, necesidades
+detectadas y triggers de inmutabilidad. Aplicar después de V8 y antes de la API; el
+arranque falla de forma explícita si falta. El preflight se detiene ante participantes,
+códigos o versiones DRAFT/PUBLISHED duplicados; revisarlos sin borrar ni fusionar. No
+crea datos. Ver [RESEARCH.md](RESEARCH.md).
