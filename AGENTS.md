@@ -56,7 +56,6 @@ NOTIFICATIONS.md. Requieren V7 y un worker separado antes de activarlas.
 La Academia BPM (cursos versionados con video privado, modo estudio, intentos
 calificados en servidor y constancias) está implementada localmente; leer
 `specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
-Asignaciones, insignias y catálogo offline de capacitación siguen pendientes.
 
 La gestión de cuentas (editar/desactivar miembros, transferir administración, invitaciones por
 correo, dispositivos propios y tipo de establecimiento) está en `specs/ORGANIZATIONS.md`; requiere V12
@@ -65,3 +64,6 @@ e `INVITATION_ACCEPT_URL` opcional.
 El módulo de investigación CAP (consentimiento, instrumentos versionados, pretest/postest,
 resultados por empresa, exportación anonimizada y necesidades) está implementado localmente;
 leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas por SUPER_ADMIN.
+
+Asignaciones, rutas, insignias, evaluación por módulo, video de YouTube y catálogo offline
+están en la misma sección de `specs/TRAINING.md` y requieren además V11.

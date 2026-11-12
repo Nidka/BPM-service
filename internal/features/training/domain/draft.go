@@ -74,6 +74,13 @@ func NormalizeDraft(in DraftInput) (DraftInput, error) {
 		if l.VideoMediaID != "" && !ValidID(l.VideoMediaID) {
 			fields[indexed("lessons", i, "videoMediaId")] = "El identificador del video no es válido."
 		}
+		if l.ExternalVideo != nil {
+			if l.VideoMediaID != "" {
+				fields[indexed("lessons", i, "externalVideo")] = "Una lección admite video privado o externo, no ambos."
+			} else if l.ExternalVideo.Provider != ProviderYouTube || !ValidYouTubeID(l.ExternalVideo.VideoID) {
+				fields[indexed("lessons", i, "externalVideo")] = "Usa un video de YouTube válido."
+			}
+		}
 		if l.DisplayOrder < 1 || orders[l.DisplayOrder] {
 			fields[indexed("lessons", i, "displayOrder")] = "El orden debe ser positivo y no repetirse."
 		}

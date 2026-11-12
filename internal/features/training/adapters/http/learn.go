@@ -89,6 +89,9 @@ func (h *Handler) attempt(w http.ResponseWriter, r *http.Request) {
 	}
 	input := domain.AttemptInput{ID: body.ID, ClientOperationID: body.ClientOperationID, VersionID: body.VersionID, AttemptType: body.AttemptType,
 		StartedAt: body.StartedAt, ClientCreatedAt: body.ClientCreatedAt, Answers: make([]domain.Answer, 0, len(body.Answers))}
+	if body.LessonID != nil {
+		input.LessonID = *body.LessonID
+	}
 	fields := map[string]string{}
 	for i, a := range body.Answers {
 		if a.SelectedOption == nil {

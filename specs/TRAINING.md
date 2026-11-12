@@ -134,7 +134,7 @@ explícita si falta (`RequireSchema`). No ejecuta migraciones automáticamente.
   reflejan el estado actual. El replay se resuelve antes de comparar la versión:
   un reintento tardío tras publicar una versión nueva devuelve el original, no 409.
   Intentos previos a V8 (sin `request_hash`) responden conflicto al repetirse.
-- **Tipos de intento.** La tabla admite `MODULE`; la API solo acepta DIAGNOSTIC y FINAL.
+- **Tipos de intento.** La tabla admite `MODULE`; en esta primera entrega la API solo aceptaba DIAGNOSTIC y FINAL (MODULE se habilita en "Asignaciones, rutas, insignias y evaluación por módulo", más abajo).
 - **Códigos 404 y errores nuevos.** `TRAINING_COURSE_NOT_FOUND`,
   `TRAINING_LESSON_NOT_FOUND`, `TRAINING_QUESTION_NOT_FOUND`,
   `TRAINING_VIDEO_NOT_FOUND`, `TRAINING_DRAFT_NOT_FOUND` (también para `publish`
@@ -195,3 +195,322 @@ reproduce directamente desde la URL firmada de R2 (no pasa por el proxy).
 - PostgreSQL (se omiten sin `TEST_DATABASE_URL` apuntando a `bpm_test`): ciclo de
   vida completo, aislamiento por organización, concurrencia del mismo intento e
   índices de V8.
+
+---
+
+# Asignaciones, rutas, insignias y evaluación por módulo
+
+Amplía la Academia con RF-06 (asignaciones), RF-21 (aviso), RF-10 (insignias y XP),
+RF-42 (evaluación por módulo), RF-40 (rutas de aprendizaje), verificación pública de
+constancias, catálogo offline y video externo de YouTube. Todo lo anterior de este
+documento sigue vigente. Requiere además `V11__training_assignments_paths.sql`
+(aplicar después de V8; V7 es necesaria para el aviso). `RequireSchema` falla de
+forma explícita si falta V11. Prefijo común de las rutas autenticadas:
+`/api/v1/organizations/{organizationID}/training`. Las respuestas siguen el formato
+`{"data": ...}`; los listados paginados devuelven
+`{"data":{"items":[...]},"pagination":{"nextPageToken":"..."}}` (vacío si no hay más).
+Paginación: `pageSize` (1..100, 25 por defecto) y `pageToken` (cursor opaco que solo
+vale para el mismo usuario, empresa y filtros). Cualquier parámetro de query no
+declarado, repetido o inválido responde 400 `INVALID_REQUEST`. Fechas ISO-8601 UTC.
+
+## Permisos de lo nuevo
+
+| Operación | Roles |
+|---|---|
+| Crear/listar/cancelar asignaciones, catálogo y edición de insignias, crear/editar/publicar/archivar rutas | ADMIN y SUPER_ADMIN |
+| `me/assignments`, `me/achievements`, `me/offline-catalog` | ADMIN, CHEF y WORKER (con membresía; SUPER_ADMIN recibe 403) |
+| Listar y ver rutas | ADMIN, CHEF, WORKER y SUPER_ADMIN (quien aprende solo ve rutas PUBLISHED) |
+| Intentos MODULE | igual que `attempts`: ADMIN, CHEF, WORKER |
+| Verificación pública | sin autenticación |
+
+Un recurso de otra empresa responde 404 (curso, persona, sede, asignación, ruta,
+insignia). Quien no pertenece a la empresa de la ruta recibe 403 `ACCESS_DENIED`. La
+autorización se evalúa antes que el formato (salvo `PUT achievements` sin `active`,
+que responde 422 de inmediato).
+
+## 1. Asignaciones (RF-06)
+
+### POST `/assignments` (ADMIN, SUPER_ADMIN)
+
+Cuerpo (campos extra → 400):
+
+```json
+{
+  "id": "uuid generado por el cliente",
+  "courseId": "uuid",
+  "target": { "type": "USER", "userId": "firebase-uid" },
+  "dueAt": "2026-12-31T23:59:00Z"
+}
+```
+
+`target` es uno de: `{"type":"USER","userId":"..."}` (persona activa de la empresa),
+`{"type":"ROLE","role":"ADMIN|CHEF|WORKER","locationId":"uuid?"}` (todo el rol; con
+`locationId` solo quienes pertenecen a esa sede) o `{"type":"LOCATION","locationId":"uuid"}`
+(todas las personas de la sede). No se mezclan campos de otro tipo (422). `dueAt` es
+opcional (`null`), debe ser futura y de hasta 5 años.
+
+Respuesta 201 (200 si es la repetición idéntica del mismo `id`):
+
+```json
+{ "data": { "assignment": {
+  "id": "uuid",
+  "course": { "id": "uuid", "code": "M-01", "title": "Manos limpias" },
+  "target": { "type": "USER", "userId": "uid", "userName": "Ana Pérez", "role": null, "locationId": null, "locationName": null },
+  "dueAt": "2026-12-31T23:59:00Z",
+  "status": "ACTIVE",
+  "createdAt": "2026-11-10T15:00:00Z",
+  "cancelledAt": null
+} } }
+```
+
+Errores: 403 `ACCESS_DENIED`; 404 `TRAINING_COURSE_NOT_FOUND` (curso ajeno o
+inexistente), `TRAINING_ASSIGNEE_NOT_FOUND` (persona que no pertenece a la empresa),
+`TRAINING_LOCATION_NOT_FOUND`; 409 `IDEMPOTENCY_CONFLICT` (mismo `id` con otro
+contenido) y `TRAINING_ASSIGNMENT_EXISTS` (ya hay una asignación activa igual para el
+mismo curso y destinatario); 422 `TRAINING_COURSE_NOT_PUBLISHED` y `VALIDATION_ERROR`
+(con `fields`, por ejemplo `target.userId`, `dueAt`).
+
+### GET `/assignments?status=ACTIVE|CANCELLED&courseId=uuid&pageSize&pageToken` (ADMIN, SUPER_ADMIN)
+
+Más recientes primero. Cada elemento tiene la forma de `assignment` anterior.
+
+### POST `/assignments/{assignmentID}/cancel` (ADMIN, SUPER_ADMIN)
+
+Sin cuerpo. 200 con `{"data":{"assignment":{... "status":"CANCELLED","cancelledAt":"..."}}}`.
+Idempotente (cancelar una cancelada devuelve su estado). 404 `TRAINING_ASSIGNMENT_NOT_FOUND`.
+Tras cancelar puede volver a asignarse el mismo curso.
+
+### GET `/me/assignments?pageSize&pageToken` — "Mis capacitaciones asignadas"
+
+Una fila por curso publicado (si hay varias asignaciones aplicables se usa la de fecha
+límite más próxima). Aplican las asignaciones activas dirigidas a la persona, a su rol o
+a una sede a la que pertenece.
+
+```json
+{ "data": { "items": [ {
+  "assignmentId": "uuid",
+  "course": { "id": "uuid", "code": "M-01", "title": "Manos limpias", "description": "...", "estimatedDurationMinutes": 15 },
+  "dueAt": "2026-12-31T23:59:00Z",
+  "assignedAt": "2026-11-10T15:00:00Z",
+  "status": "PENDING",
+  "progressStatus": "NOT_STARTED",
+  "bestScore": null,
+  "completedAt": null
+} ] }, "pagination": { "nextPageToken": "" } }
+```
+
+`status` lo calcula el servidor desde `training_progress`: `COMPLETED` si el curso está
+completado (aunque sea después de la fecha límite); si no, `OVERDUE` si `dueAt` ya pasó;
+si no, `IN_PROGRESS` (progreso IN_PROGRESS) o `PENDING` (sin iniciar). `progressStatus` es
+el estado crudo (`NOT_STARTED|IN_PROGRESS|COMPLETED`).
+
+### Aviso al destinatario (RF-21)
+
+No se crea un mecanismo nuevo: al crear la primera asignación de una empresa se
+garantiza (con un bloqueo asesor, una sola vez) una regla de alertas
+`TRAINING_ASSIGNED` global, activa, con push habilitado y correo deshabilitado
+(`alert_rules`). El evaluador del worker (`features/alerts`) genera la alerta y el
+outbox/`notifications` la entrega en el siguiente ciclo (no es instantáneo). Si un
+administrador ya configuró o desactivó una regla global de ese tipo, se respeta.
+Limitaciones heredadas del evaluador: solo avisa a CHEF y WORKER (no a ADMIN), y solo
+a quien cumple el destinatario y pertenece a la sede cuando hay sede. Requiere el
+worker en ejecución.
+
+## 2. Evaluación por módulo (RF-42)
+
+`POST /courses/{courseId}/attempts` admite ahora `attemptType: "MODULE"` y el campo
+`lessonId` (UUID, **obligatorio y solo** para MODULE; en DIAGNOSTIC/FINAL se rechaza con
+422). Las demás reglas son las del intento normal (idempotencia por `id` +
+`clientOperationId`, huella canónica, versión vigente, 409 `IDEMPOTENCY_CONFLICT`,
+409 `TRAINING_VERSION_OUTDATED`).
+
+- Solo se evalúan las preguntas de esa lección: hay que responder exactamente esas
+  (una por pregunta); responder una pregunta de otra lección es 422
+  `TRAINING_ANSWERS_INVALID`.
+- Lección que no pertenece a la versión publicada del curso (de otro curso, de otra
+  empresa o inexistente) → 404 `TRAINING_LESSON_NOT_FOUND`. Lección sin preguntas → 422.
+- Puntaje = `round(correctas*100/total de la lección)`; aprueba con `passingScore` de la
+  versión. **No completa el curso ni emite constancia**; solo mueve NOT_STARTED a
+  IN_PROGRESS.
+- XP de módulo: 5 por respuesta correcta si el módulo se aprueba; por lección se
+  conserva el mejor resultado (repetir no multiplica el XP).
+
+La respuesta añade `achievements` (ver sección 3) en todos los tipos de intento:
+
+```json
+{ "data": { "attempt": {...}, "results": [...], "progress": {...}, "certificate": null,
+  "achievements": [ { "id": "uuid", "code": "PERFECT_SCORE", "name": "Puntaje perfecto", "description": "...", "points": 30,
+    "criterionType": "PERFECT_SCORE", "criterionThreshold": 1, "active": true, "awardedAt": "2026-11-10T15:00:00Z" } ] } }
+```
+
+## 3. Insignias, logros y XP (RF-10)
+
+El catálogo por defecto de la plataforma (`FIRST_COURSE`, `THREE_COURSES`,
+`PERFECT_SCORE`, `STREAK_3`) se materializa en `training_achievements` de cada
+empresa la primera vez que se necesita (no pisa ediciones). Criterios
+(`criterionType` + `criterionThreshold`), evaluados solo por el servidor:
+`COURSES_COMPLETED` (cursos completados >= umbral), `PERFECT_SCORE` (intentos FINAL o
+MODULE con 100 >= umbral), `STREAK_DAYS` (días UTC consecutivos con algún intento
+terminando hoy >= umbral). Se evalúan al registrar cada intento nuevo y se otorgan de
+forma idempotente (clave primaria `organization+user+achievement`): reintentos o
+repeticiones nunca duplican. `achievements` en la respuesta del intento lista solo las
+otorgadas por ese intento (también en su repetición idéntica).
+
+### GET `/me/achievements`
+
+```json
+{ "data": {
+  "totals": { "experiencePoints": 95, "courseExperiencePoints": 30, "moduleExperiencePoints": 15, "achievementPoints": 50 },
+  "achievements": [ { "id": "uuid", "code": "FIRST_COURSE", "name": "...", "description": "...", "points": 20,
+    "criterionType": "COURSES_COMPLETED", "criterionThreshold": 1, "active": true, "awardedAt": null } ]
+} }
+```
+
+`experiencePoints` = curso + módulos + puntos de insignias obtenidas. `achievements` incluye las
+activas de la empresa; `awardedAt` es `null` si aún no se logró.
+
+### GET `/achievements` (ADMIN, SUPER_ADMIN)
+`{"data":{"items":[<achievement>...]}}` con todas (activas o no).
+
+### PUT `/achievements/{achievementID}` (ADMIN, SUPER_ADMIN)
+Cuerpo: `{"name","description","points","criterionThreshold","active"}`; `name` 2..120,
+`description` hasta 300, `points` 0..1000, `criterionThreshold` 1..100, `active`
+obligatorio. 200 `{"data":{"achievement":{...}}}`; 404 `TRAINING_ACHIEVEMENT_NOT_FOUND`;
+422 con `fields`. Una insignia inactiva deja de otorgarse (las ya otorgadas se conservan).
+
+## 4. Rutas de aprendizaje (RF-40)
+
+Una ruta es una secuencia ordenada de cursos de la empresa (hasta 30). Estados
+`DRAFT`, `PUBLISHED`, `ARCHIVED`. Quien aprende solo ve `PUBLISHED`; un borrador o una
+ruta archivada responde 404 `TRAINING_PATH_NOT_FOUND`. El avance se calcula en el
+servidor contando solo cursos PUBLISHED.
+
+Forma de una ruta (`path`):
+
+```json
+{ "id": "uuid", "title": "Inducción", "description": "...", "status": "PUBLISHED", "rowVersion": "3", "publishedAt": "2026-11-10T15:00:00Z",
+  "courses": [ { "courseId": "uuid", "code": "M-01", "title": "Manos limpias", "position": 1, "courseStatus": "PUBLISHED", "progressStatus": "COMPLETED" } ],
+  "progress": { "status": "IN_PROGRESS", "completedCourses": 1, "totalCourses": 2, "percent": 50, "nextCourseId": "uuid" } }
+```
+
+`progressStatus` y `progress` son del usuario que consulta (para SUPER_ADMIN, sin
+avance). `nextCourseId` es el primer curso no completado (`null` si terminó).
+
+- `POST /paths` (ADMIN, SUPER_ADMIN): `{"id","title","description","courseIds":[...]}`
+  (`title` 2..200, `description` hasta 2000, `courseIds` obligatorio, sin repetidos,
+  cursos existentes en la empresa; 422 con `fields` como `courseIds[1]`). 201 (200 si es
+  repetición idéntica del mismo `id`; otro contenido → 409 `IDEMPOTENCY_CONFLICT`).
+  Responde `{"data":{"path":{...}}}` en DRAFT.
+- `PUT /paths/{pathID}` (ADMIN, SUPER_ADMIN): `{"title","description","courseIds","rowVersion"}`
+  reemplaza la secuencia. `rowVersion` (texto o número) es obligatorio: obsoleto → 409
+  `TRAINING_PATH_CONFLICT`; ruta archivada → 409 `TRAINING_PATH_ARCHIVED`. Si la ruta
+  está publicada, todos sus cursos deben estar publicados.
+- `POST /paths/{pathID}/publish` (sin cuerpo): exige al menos un curso y todos
+  PUBLISHED (422 `TRAINING_DRAFT_INCOMPLETE` con `fields.courseIds`); idempotente;
+  archivada → 409 `TRAINING_PATH_ARCHIVED`.
+- `POST /paths/{pathID}/archive` (sin cuerpo): idempotente.
+- `GET /paths/{pathID}`: una ruta (`{"data":{"path":{...}}}`).
+- `GET /paths?status=DRAFT|PUBLISHED|ARCHIVED&pageSize&pageToken`: orden por título; quien
+  aprende solo puede listar PUBLISHED (otro `status` → 403).
+
+## 5. Verificación pública de constancias
+
+`GET /api/v1/public/training-certificates/{verificationCode}` **sin autenticación**
+(ni cabecera `Authorization`, ni query). Limitada por IP: 1 solicitud por segundo con
+ráfaga de 10 (429 `RATE_LIMITED` con `Retry-After`), además del límite global. El
+código es de 24 caracteres base32 (`^[A-Z2-7]{24}$`, 120 bits), no enumerable.
+`Cache-Control: no-store`.
+
+```json
+{ "data": { "status": "VALID", "courseTitle": "Manos limpias", "versionNumber": 2,
+  "issuedAt": "2026-11-10T15:00:00Z", "organization": "Restaurante Sol", "holder": "Ana P." } }
+```
+
+`status` es `VALID` o `REVOKED` (una constancia revocada se informa, no se oculta).
+`holder` es el primer nombre y la inicial del primer apellido (`"A."` si solo hay un
+nombre). `organization` es el nombre comercial (o la razón social). Nunca se devuelven
+identificadores, correo, puntaje ni el código. Código inexistente **o con formato
+inválido** → 404 `TRAINING_CERTIFICATE_NOT_FOUND` (indistinguibles).
+
+## 6. Catálogo descargable offline
+
+`GET /me/offline-catalog` (ADMIN, CHEF, WORKER). Un solo paquete con los cursos publicados
+asignados al usuario (hasta 50, ordenados por id) para trabajar sin conexión:
+
+```json
+{ "data": { "etag": "9f2c...64 hex", "generatedAt": "2026-11-10T15:00:00Z", "courses": [ {
+  "course": { "id": "uuid", "code": "M-01", "title": "...", "description": "...", "estimatedDurationMinutes": 15 },
+  "version": { "id": "uuid", "versionNumber": 2, "passingScore": 80 },
+  "lessons": [ { "id": "uuid", "title": "...", "content": "...", "displayOrder": 1,
+    "video": { "mediaId": "uuid", "mimeType": "video/mp4", "sizeBytes": 1234567, "sha256": "64 hex" },
+    "externalVideo": null, "offlineAvailable": true } ],
+  "questions": [ { "id": "uuid", "lessonId": "uuid", "questionText": "...", "options": ["a","b"], "displayOrder": 1 } ]
+} ] } }
+```
+
+- Las preguntas **no** traen `correctOption` ni `explanation`; no hay URL alguna.
+- `video` (video privado R2 AVAILABLE) lleva `mediaId`, `mimeType`, `sizeBytes` y
+  `sha256`: el cliente obtiene la URL con `POST /courses/{courseId}/lessons/{lessonId}/video`,
+  descarga, verifica el SHA-256 y guarda el archivo localmente.
+- `externalVideo` (YouTube) es solo en línea: `offlineAvailable: false`. Una lección sin
+  video o con video privado tiene `offlineAvailable: true`.
+- Cabecera `ETag: "<etag>"` y `Cache-Control: private, no-cache`. Enviar
+  `If-None-Match: "<etag>"` devuelve 304 sin cuerpo si el contenido no cambió. El `etag`
+  es un hash del contenido (no incluye progreso) y cambia si cambia una versión
+  publicada, un video o el conjunto de cursos asignados.
+- Para calificar un intento offline se usa `POST attempts` (idempotente) al reconectar.
+
+## 7. Video externo de YouTube por lección
+
+Una lección puede tener, además de (en lugar de) el video privado, un video de
+YouTube; **como máximo uno de los dos** (`videoMediaId` o `externalVideo`, ambos →
+422 `VALIDATION_ERROR` en `lessons[i].externalVideo`).
+
+- Salida (borrador, vista de aprender, catálogo offline): `"externalVideo": {"provider":"YOUTUBE","videoId":"dQw4w9WgXcQ"}`
+  o `null`. Nunca se devuelve una URL. El cliente arma
+  `https://www.youtube-nocookie.com/embed/{videoId}`. `videoId` cumple `^[A-Za-z0-9_-]{11}$`.
+- Entrada en `PUT /courses/{courseId}/draft` (campo de cada lección, opcional/`null`):
+  una URL como texto (`"https://youtu.be/dQw4w9WgXcQ"`) o un objeto
+  `{"provider":"YOUTUBE","videoId":"..."}` o `{"provider":"YOUTUBE","url":"..."}` (uno
+  de los dos, no ambos). El servidor normaliza a `videoId`. URLs admitidas (http/https,
+  sin credenciales ni puerto): `youtube.com|www.youtube.com|m.youtube.com/watch?v=ID`,
+  `youtu.be/ID`, `youtube.com/shorts/ID` y `youtube-nocookie.com/embed/ID`. Cualquier otro
+  dominio o formato inválido → 422.
+- Publicar no exige `AVAILABLE` para videos externos (solo para los privados).
+- `POST .../lessons/{lessonId}/video` solo firma videos privados; en una lección con video
+  externo responde 404 `TRAINING_VIDEO_NOT_FOUND`.
+
+## Códigos de error añadidos
+
+| Estado | Código | Cuándo |
+|---|---|---|
+| 404 | `TRAINING_ASSIGNEE_NOT_FOUND`, `TRAINING_LOCATION_NOT_FOUND`, `TRAINING_ASSIGNMENT_NOT_FOUND`, `TRAINING_ACHIEVEMENT_NOT_FOUND`, `TRAINING_PATH_NOT_FOUND`, `TRAINING_CERTIFICATE_NOT_FOUND` | Recurso inexistente o de otra empresa |
+| 409 | `TRAINING_ASSIGNMENT_EXISTS`, `TRAINING_PATH_CONFLICT`, `TRAINING_PATH_ARCHIVED` | Duplicado activo, `rowVersion` obsoleto, ruta archivada |
+| 422 | `TRAINING_COURSE_NOT_PUBLISHED` | Asignar un curso sin versión publicada |
+| 429 | `RATE_LIMITED` | Verificación pública o límite global |
+
+## Decisiones y desviaciones (segunda entrega)
+
+- **Esquema.** V11 relaja `training_assignments_target_check` (ahora basta persona, rol
+  o sede), añade `cancelled_at/cancelled_by`, un índice único de asignaciones activas
+  equivalentes, `training_attempts.lesson_id`, `training_module_results` (mejor
+  resultado por módulo), columnas de criterio/vigencia en `training_achievements`,
+  `source_attempt_id` en `user_achievements`, `learning_paths` y `learning_path_courses`,
+  y `external_video_provider/external_video_id` en `training_lessons` (con CHECK de formato
+  y exclusión con `media_file_id`).
+- **Catálogo de insignias por defecto.** `training_achievements.organization_id` es
+  obligatorio en V1, así que el "catálogo de plataforma" vive en código y se copia por
+  empresa de forma perezosa; no hay filas con `organization_id` nulo.
+- **Estado de asignación.** `training_assignments.status` solo persiste `ACTIVE` y
+  `CANCELLED`; `PENDING/IN_PROGRESS/COMPLETED/OVERDUE` se calculan por usuario. El valor
+  legado `COMPLETED` de la tabla no se usa.
+- **Una fila por curso en "mis capacitaciones".** Evita duplicados cuando un curso se
+  asigna a la persona y a su rol.
+- **Repetir una creación de asignación tras vencer su `dueAt`** devuelve 422 (la fecha
+  futura se valida antes de buscar la repetición); la creación es una operación en línea
+  de administración.
+- **XP de módulo** no modifica `training_progress`; vive en `training_module_results`
+  y se suma al total en `GET /me/achievements`.
+- **Pruebas:** asignación a otra empresa, rol sin permiso, vencimiento, logros una sola
+  vez ante reintentos, MODULE con lección ajena, verificación pública inexistente/revocada,
+  rutas, catálogo offline y video externo (HTTP con memoria y PostgreSQL real).

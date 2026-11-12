@@ -2577,6 +2577,211 @@ paths:
           description: Registrada.
           content: {application/json: {schema: {$ref: "#/components/schemas/ResearchObjectResponse"}}}
         default: {$ref: "#/components/responses/ResearchError"}
+  /api/v1/organizations/{organizationID}/training/assignments:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Academia]
+      operationId: createTrainingAssignment
+      summary: Asignar un curso publicado a una persona, un rol o una sede
+      description: |
+        ADMIN y SUPER_ADMIN. Idempotente por id (200 en repetición idéntica; otro contenido 409 IDEMPOTENCY_CONFLICT).
+        Curso, persona o sede de otra empresa responden 404; curso sin publicar 422 TRAINING_COURSE_NOT_PUBLISHED;
+        duplicado activo 409 TRAINING_ASSIGNMENT_EXISTS. Garantiza la regla de alertas TRAINING_ASSIGNED de la empresa;
+        el aviso llega en el siguiente ciclo del worker (solo roles CHEF y WORKER).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAssignmentRequest"}}}
+      responses:
+        "200": {description: Repetición idéntica., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAssignmentResponse"}}}}
+        "201": {description: Asignación creada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAssignmentResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+    get:
+      tags: [Academia]
+      operationId: listTrainingAssignments
+      summary: Listar asignaciones de la empresa (más recientes primero)
+      description: ADMIN y SUPER_ADMIN. Filtros status (ACTIVE|CANCELLED) y courseId. Paginación por cursor.
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: status, schema: {type: string, enum: [ACTIVE, CANCELLED]}}
+      - {in: query, name: courseId, schema: {type: string, format: uuid}}
+      - $ref: "#/components/parameters/PageSize"
+      - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200": {description: Página de asignaciones., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAssignmentPage"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/assignments/{assignmentID}/cancel:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: assignmentID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: cancelTrainingAssignment
+      summary: Cancelar una asignación (idempotente)
+      description: ADMIN y SUPER_ADMIN. Sin cuerpo. Asignación de otra empresa o inexistente responde 404 TRAINING_ASSIGNMENT_NOT_FOUND.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Asignación cancelada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAssignmentResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/me/assignments:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Academia]
+      operationId: listMyTrainingAssignments
+      summary: Mis capacitaciones asignadas con estado calculado por el servidor
+      description: Roles ADMIN, CHEF y WORKER (membresía). Un elemento por curso (la asignación con fecha límite más próxima). Estado PENDING, IN_PROGRESS, COMPLETED u OVERDUE.
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - $ref: "#/components/parameters/PageSize"
+      - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200": {description: Página., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingMyAssignmentPage"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/me/achievements:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Academia]
+      operationId: getMyTrainingAchievements
+      summary: Mis logros y XP total
+      description: Insignias activas de la empresa con awardedAt (null si aún no se logra) y el desglose de XP. Los criterios los evalúa solo el servidor.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Logros., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingMyAchievementsResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/me/offline-catalog:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Academia]
+      operationId: getTrainingOfflineCatalog
+      summary: Paquete offline con los cursos asignados
+      description: Lecciones, preguntas sin respuestas ni explicaciones y metadatos de video privado (sin URL). Cabecera ETag y soporte de If-None-Match (304). Los videos de YouTube llevan offlineAvailable false.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Paquete., headers: {ETag: {schema: {type: string}}}, content: {application/json: {schema: {$ref: "#/components/schemas/TrainingOfflineCatalogResponse"}}}}
+        "304": {description: Sin cambios.}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/achievements:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    get:
+      tags: [Academia]
+      operationId: listTrainingAchievements
+      summary: Catálogo de insignias de la empresa
+      description: ADMIN y SUPER_ADMIN. El catálogo por defecto se materializa en la empresa la primera vez.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Catálogo., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAchievementList"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/achievements/{achievementID}:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: achievementID, required: true, schema: {type: string, format: uuid}}
+    put:
+      tags: [Academia]
+      operationId: updateTrainingAchievement
+      summary: Editar nombre, puntos, umbral y vigencia de una insignia
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAchievementUpdate"}}}
+      responses:
+        "200": {description: Insignia., content: {application/json: {schema: {type: object, properties: {data: {type: object, properties: {achievement: {$ref: "#/components/schemas/TrainingAchievement"}}}}}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/paths:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    post:
+      tags: [Academia]
+      operationId: createTrainingPath
+      summary: Crear una ruta de aprendizaje (DRAFT)
+      description: ADMIN y SUPER_ADMIN. Idempotente por id. Los cursos deben existir en la empresa (422 con fields si no).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathRequest"}}}
+      responses:
+        "200": {description: Repetición idéntica., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        "201": {description: Ruta creada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+    get:
+      tags: [Academia]
+      operationId: listTrainingPaths
+      summary: Listar rutas con mi avance
+      description: Quien aprende solo ve PUBLISHED; ADMIN puede filtrar por status. Orden por título.
+      security: [{FirebaseBearer: []}]
+      parameters:
+      - {in: query, name: status, schema: {type: string, enum: [DRAFT, PUBLISHED, ARCHIVED]}}
+      - $ref: "#/components/parameters/PageSize"
+      - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200": {description: Página de rutas., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathPage"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/paths/{pathID}:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: pathID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Academia]
+      operationId: getTrainingPath
+      summary: Obtener una ruta con mi avance
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Ruta., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+    put:
+      tags: [Academia]
+      operationId: updateTrainingPath
+      summary: Editar una ruta con control de versión
+      description: ADMIN y SUPER_ADMIN. rowVersion obsoleto 409 TRAINING_PATH_CONFLICT; ruta archivada 409 TRAINING_PATH_ARCHIVED.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathRequest"}}}
+      responses:
+        "200": {description: Ruta actualizada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/paths/{pathID}/publish:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: pathID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: publishTrainingPath
+      summary: Publicar una ruta (idempotente)
+      description: Exige al menos un curso y todos publicados (422 TRAINING_DRAFT_INCOMPLETE con fields).
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Ruta publicada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/paths/{pathID}/archive:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: pathID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: archiveTrainingPath
+      summary: Archivar una ruta (idempotente)
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Ruta archivada., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPathResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/public/training-certificates/{verificationCode}:
+    get:
+      tags: [Academia]
+      operationId: verifyTrainingCertificate
+      summary: Verificación pública de una constancia (sin autenticación)
+      description: Limitada por IP (1 solicitud por segundo, ráfaga de 10). Solo datos mínimos. Código inexistente o con formato inválido 404 TRAINING_CERTIFICATE_NOT_FOUND; una constancia revocada responde 200 con status REVOKED. Cache-Control no-store.
+      security: []
+      parameters:
+      - {in: path, name: verificationCode, required: true, schema: {type: string, pattern: "^[A-Z2-7]{24}$"}}
+      responses:
+        "200": {description: Constancia., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingPublicCertificateResponse"}}}}
+        "404": {description: No existe.}
+        "429": {description: RATE_LIMITED.}
 components:
   parameters:
     PageSize:
@@ -2629,7 +2834,10 @@ components:
         persisten progreso o intentos); 404 TRAINING_COURSE_NOT_FOUND, TRAINING_LESSON_NOT_FOUND,
         TRAINING_QUESTION_NOT_FOUND, TRAINING_VIDEO_NOT_FOUND o TRAINING_DRAFT_NOT_FOUND (también para
         recursos de otra organización); 409 TRAINING_DRAFT_CONFLICT, TRAINING_COURSE_CODE_TAKEN,
-        TRAINING_VERSION_OUTDATED, IDEMPOTENCY_CONFLICT, TRAINING_VIDEO_CONFLICT o TRAINING_VIDEO_NOT_READY;
+        TRAINING_VERSION_OUTDATED, IDEMPOTENCY_CONFLICT, TRAINING_VIDEO_CONFLICT, TRAINING_VIDEO_NOT_READY, TRAINING_ASSIGNMENT_EXISTS,
+        TRAINING_PATH_CONFLICT o TRAINING_PATH_ARCHIVED; 404 adicionales TRAINING_ASSIGNEE_NOT_FOUND,
+        TRAINING_LOCATION_NOT_FOUND, TRAINING_ASSIGNMENT_NOT_FOUND, TRAINING_ACHIEVEMENT_NOT_FOUND,
+        TRAINING_PATH_NOT_FOUND y TRAINING_CERTIFICATE_NOT_FOUND; 422 TRAINING_COURSE_NOT_PUBLISHED;
         422 VALIDATION_ERROR, TRAINING_ANSWERS_INVALID, TRAINING_DRAFT_INCOMPLETE (con fields) o
         TRAINING_VIDEO_INVALID; 429 RATE_LIMITED; 500 INTERNAL_ERROR sanitizado; 503 STORAGE_UNAVAILABLE.
         Nunca expone URL firmadas, respuestas correctas ni detalles internos.
@@ -2738,6 +2946,7 @@ components:
         content: {type: string, description: Texto plano con saltos de línea.}
         displayOrder: {type: integer, minimum: 1}
         video: {$ref: "#/components/schemas/TrainingLearnVideo"}
+        externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
     TrainingLearnQuestion:
       type: object
       description: Nunca incluye correctOption ni explanation; la respuesta solo se revela tras responder.
@@ -2822,7 +3031,8 @@ components:
         id: {type: string, format: uuid}
         clientOperationId: {type: string, format: uuid}
         versionId: {type: string, format: uuid}
-        attemptType: {type: string, enum: [DIAGNOSTIC, FINAL]}
+        attemptType: {type: string, enum: [DIAGNOSTIC, FINAL, MODULE]}
+        lessonId: {type: string, format: uuid, description: Obligatorio y solo para MODULE; solo se evalúan las preguntas de esa lección (lección ajena 404 TRAINING_LESSON_NOT_FOUND). MODULE no completa el curso ni emite constancia; da XP e insignias.}
         startedAt: {type: string, format: date-time}
         clientCreatedAt: {type: string, format: date-time}
         answers:
@@ -2841,8 +3051,9 @@ components:
       properties:
         data:
           type: object
-          required: [attempt, results, progress, certificate]
+          required: [attempt, results, progress, certificate, achievements]
           properties:
+            achievements: {type: array, items: {$ref: "#/components/schemas/TrainingAchievement"}, description: Insignias otorgadas por este intento (también en la repetición idéntica).}
             attempt:
               type: object
               required: [id, attemptType, score, passed, completedAt]
@@ -2914,6 +3125,7 @@ components:
         content: {type: string, maxLength: 20000}
         displayOrder: {type: integer, minimum: 1}
         videoMediaId: {type: string, format: uuid, nullable: true, description: "Video de capacitación AVAILABLE o PENDING_UPLOAD de la organización."}
+        externalVideo: {nullable: true, description: "Entrada: URL de YouTube (watch?v=, youtu.be, shorts, youtube-nocookie.com/embed) como texto u objeto {provider: YOUTUBE, videoId | url}; el servidor la normaliza a {provider, videoId}. Otro dominio o formato inválido 422; con videoMediaId a la vez 422. Salida: objeto TrainingExternalVideo o null."}
     TrainingDraftQuestion:
       type: object
       additionalProperties: false
@@ -4823,3 +5035,193 @@ components:
       additionalProperties: false
       required: [organizationId, category, description]
       properties: {organizationId: {type: string}, category: {type: string, enum: [TRAINING, PROCESS, INFRASTRUCTURE, DOCUMENTATION, TECHNOLOGY, SUPPLIERS, OTHER]}, description: {type: string, maxLength: 2000}, detectedAt: {type: string, format: date-time}}
+    TrainingExternalVideo:
+      type: object
+      nullable: true
+      description: Video de YouTube. El cliente arma https://www.youtube-nocookie.com/embed/{videoId}. Excluyente con el video privado. Solo en línea.
+      required: [provider, videoId]
+      properties:
+        provider: {type: string, enum: [YOUTUBE]}
+        videoId: {type: string, pattern: "^[A-Za-z0-9_-]{11}$"}
+    TrainingAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [id, courseId, target]
+      properties:
+        id: {type: string, format: uuid}
+        courseId: {type: string, format: uuid}
+        target:
+          type: object
+          additionalProperties: false
+          description: USER usa userId; ROLE usa role (y locationId opcional); LOCATION usa locationId. No se mezclan.
+          required: [type]
+          properties:
+            type: {type: string, enum: [USER, ROLE, LOCATION]}
+            userId: {type: string, maxLength: 128}
+            role: {type: string, enum: [ADMIN, CHEF, WORKER]}
+            locationId: {type: string, format: uuid}
+        dueAt: {type: string, format: date-time, nullable: true, description: Futura y de hasta 5 años.}
+    TrainingAssignment:
+      type: object
+      required: [id, course, target, dueAt, status, createdAt, cancelledAt]
+      properties:
+        id: {type: string, format: uuid}
+        course: {type: object, required: [id, code, title], properties: {id: {type: string, format: uuid}, code: {type: string}, title: {type: string}}}
+        target:
+          type: object
+          required: [type]
+          properties:
+            type: {type: string, enum: [USER, ROLE, LOCATION]}
+            userId: {type: string, nullable: true}
+            userName: {type: string, nullable: true}
+            role: {type: string, nullable: true}
+            locationId: {type: string, format: uuid, nullable: true}
+            locationName: {type: string, nullable: true}
+        dueAt: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [ACTIVE, CANCELLED]}
+        createdAt: {type: string, format: date-time}
+        cancelledAt: {type: string, format: date-time, nullable: true}
+    TrainingAssignmentResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {type: object, required: [assignment], properties: {assignment: {$ref: "#/components/schemas/TrainingAssignment"}}}
+    TrainingAssignmentPage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: {type: object, required: [items], properties: {items: {type: array, items: {$ref: "#/components/schemas/TrainingAssignment"}}}}
+        pagination: {type: object, properties: {nextPageToken: {type: string}}}
+    TrainingMyAssignment:
+      type: object
+      required: [assignmentId, course, dueAt, assignedAt, status, progressStatus, bestScore, completedAt]
+      properties:
+        assignmentId: {type: string, format: uuid}
+        course: {type: object, properties: {id: {type: string, format: uuid}, code: {type: string}, title: {type: string}, description: {type: string}, estimatedDurationMinutes: {type: integer, nullable: true}}}
+        dueAt: {type: string, format: date-time, nullable: true}
+        assignedAt: {type: string, format: date-time}
+        status: {type: string, enum: [PENDING, IN_PROGRESS, COMPLETED, OVERDUE]}
+        progressStatus: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]}
+        bestScore: {type: integer, nullable: true}
+        completedAt: {type: string, format: date-time, nullable: true}
+    TrainingMyAssignmentPage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: {type: object, required: [items], properties: {items: {type: array, items: {$ref: "#/components/schemas/TrainingMyAssignment"}}}}
+        pagination: {type: object, properties: {nextPageToken: {type: string}}}
+    TrainingAchievement:
+      type: object
+      required: [id, code, name, description, points, criterionType, criterionThreshold, active, awardedAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        description: {type: string}
+        points: {type: integer}
+        criterionType: {type: string, enum: [COURSES_COMPLETED, PERFECT_SCORE, STREAK_DAYS]}
+        criterionThreshold: {type: integer, minimum: 1, maximum: 100}
+        active: {type: boolean}
+        awardedAt: {type: string, format: date-time, nullable: true}
+    TrainingAchievementList:
+      type: object
+      required: [data]
+      properties:
+        data: {type: object, required: [items], properties: {items: {type: array, items: {$ref: "#/components/schemas/TrainingAchievement"}}}}
+    TrainingAchievementUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, points, criterionThreshold, active]
+      properties:
+        name: {type: string, minLength: 2, maxLength: 120}
+        description: {type: string, maxLength: 300}
+        points: {type: integer, minimum: 0, maximum: 1000}
+        criterionThreshold: {type: integer, minimum: 1, maximum: 100}
+        active: {type: boolean}
+    TrainingMyAchievementsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [totals, achievements]
+          properties:
+            totals: {type: object, properties: {experiencePoints: {type: integer}, courseExperiencePoints: {type: integer}, moduleExperiencePoints: {type: integer}, achievementPoints: {type: integer}}}
+            achievements: {type: array, items: {$ref: "#/components/schemas/TrainingAchievement"}}
+    TrainingPathRequest:
+      type: object
+      additionalProperties: false
+      description: id solo al crear; rowVersion obligatorio al editar.
+      required: [title, courseIds]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string, minLength: 2, maxLength: 200}
+        description: {type: string, maxLength: 2000}
+        courseIds: {type: array, maxItems: 30, items: {type: string, format: uuid}}
+        rowVersion: {type: string}
+    TrainingPath:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        description: {type: string}
+        status: {type: string, enum: [DRAFT, PUBLISHED, ARCHIVED]}
+        rowVersion: {type: string}
+        publishedAt: {type: string, format: date-time, nullable: true}
+        courses: {type: array, items: {type: object, properties: {courseId: {type: string, format: uuid}, code: {type: string}, title: {type: string}, position: {type: integer}, courseStatus: {type: string}, progressStatus: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]}}}}
+        progress: {type: object, properties: {status: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]}, completedCourses: {type: integer}, totalCourses: {type: integer}, percent: {type: integer}, nextCourseId: {type: string, format: uuid, nullable: true}}}
+    TrainingPathResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {type: object, properties: {path: {$ref: "#/components/schemas/TrainingPath"}}}
+    TrainingPathPage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data: {type: object, required: [items], properties: {items: {type: array, items: {$ref: "#/components/schemas/TrainingPath"}}}}
+        pagination: {type: object, properties: {nextPageToken: {type: string}}}
+    TrainingOfflineCatalogResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [etag, generatedAt, courses]
+          properties:
+            etag: {type: string}
+            generatedAt: {type: string, format: date-time}
+            courses:
+              type: array
+              items:
+                type: object
+                properties:
+                  course: {type: object}
+                  version: {type: object, properties: {id: {type: string}, versionNumber: {type: integer}, passingScore: {type: integer}}}
+                  lessons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string, format: uuid}
+                        title: {type: string}
+                        content: {type: string}
+                        displayOrder: {type: integer}
+                        video: {type: object, nullable: true, properties: {mediaId: {type: string, format: uuid}, mimeType: {type: string}, sizeBytes: {type: integer}, sha256: {type: string}}}
+                        externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
+                        offlineAvailable: {type: boolean}
+                  questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
+    TrainingPublicCertificateResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [status, courseTitle, versionNumber, issuedAt, organization, holder]
+          properties:
+            status: {type: string, enum: [VALID, REVOKED]}
+            courseTitle: {type: string}
+            versionNumber: {type: integer}
+            issuedAt: {type: string, format: date-time}
+            organization: {type: string}
+            holder: {type: string, description: Nombre abreviado (primer nombre e inicial del apellido).}

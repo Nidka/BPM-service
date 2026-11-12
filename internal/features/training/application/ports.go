@@ -13,6 +13,7 @@ import (
 // AttemptRecord es un intento ya calificado por el servidor, listo para persistirse.
 type AttemptRecord struct {
 	ID, ClientOperationID, CourseID, VersionID, UserID, AttemptType, RequestHash string
+	LessonID                                                                     string
 	Score                                                                        int
 	Passed                                                                       bool
 	StartedAt, ClientCreatedAt, CompletedAt                                      time.Time
@@ -83,6 +84,7 @@ type Store interface {
 	LearnStore
 	AuthoringStore
 	VideoStore
+	PlusStore
 	AuditStore
 }
 

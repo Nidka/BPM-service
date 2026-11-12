@@ -17,8 +17,10 @@ type Answer struct {
 // AttemptInput es la solicitud de un intento calificado.
 type AttemptInput struct {
 	ID, ClientOperationID, VersionID, AttemptType string
-	StartedAt, ClientCreatedAt                    time.Time
-	Answers                                       []Answer
+	// LessonID solo aplica a MODULE. omitempty mantiene estable la huella de los intentos previos.
+	LessonID                   string `json:",omitempty"`
+	StartedAt, ClientCreatedAt time.Time
+	Answers                    []Answer
 }
 
 // NormalizeAttempt valida el formato del intento y lo deja canónico (IDs en
@@ -29,13 +31,20 @@ func NormalizeAttempt(in AttemptInput, now time.Time) (AttemptInput, error) {
 	in.ID = strings.ToLower(in.ID)
 	in.ClientOperationID = strings.ToLower(in.ClientOperationID)
 	in.VersionID = strings.ToLower(in.VersionID)
+	in.LessonID = strings.ToLower(in.LessonID)
 	for name, v := range map[string]string{"id": in.ID, "clientOperationId": in.ClientOperationID, "versionId": in.VersionID} {
 		if !ValidID(v) {
 			fields[name] = "Debe ser un identificador UUID válido."
 		}
 	}
-	if in.AttemptType != AttemptDiagnostic && in.AttemptType != AttemptFinal {
-		fields["attemptType"] = "El tipo de intento debe ser DIAGNOSTIC o FINAL."
+	if in.AttemptType != AttemptDiagnostic && in.AttemptType != AttemptFinal && in.AttemptType != AttemptModule {
+		fields["attemptType"] = "El tipo de intento debe ser DIAGNOSTIC, FINAL o MODULE."
+	}
+	if in.AttemptType == AttemptModule && !ValidID(in.LessonID) {
+		fields["lessonId"] = "Un intento MODULE necesita la lección evaluada."
+	}
+	if in.AttemptType != AttemptModule && in.LessonID != "" {
+		fields["lessonId"] = "Solo los intentos MODULE llevan lección."
 	}
 	if in.StartedAt.IsZero() {
 		fields["startedAt"] = "Indica cuándo empezó el intento."
@@ -198,4 +207,15 @@ func (p Progress) AfterAttempt(attemptType string, g Grade, now time.Time) Progr
 		}
 	}
 	return p
+}
+
+// LessonQuestions filtra las preguntas que pertenecen a una lección (evaluación por módulo).
+func LessonQuestions(questions []Question, lessonID string) []Question {
+	out := make([]Question, 0, len(questions))
+	for _, q := range questions {
+		if q.LessonID == lessonID {
+			out = append(out, q)
+		}
+	}
+	return out
 }

@@ -95,6 +95,7 @@ func (h *Handler) putDraft(w http.ResponseWriter, r *http.Request) {
 			if l.VideoMediaID != nil {
 				lesson.VideoMediaID = *l.VideoMediaID
 			}
+			lesson.ExternalVideo = parseExternalVideo(l.ExternalVideo)
 			input.Lessons = append(input.Lessons, lesson)
 		}
 	}

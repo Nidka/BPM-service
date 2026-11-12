@@ -127,8 +127,8 @@ func NewContainer(
 			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
 			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			incidents.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
-			training.Routes(container.Database, container.TokenVerifier, container.VideoStorage, cfg.R2, logger, identityModule.Sessions),
 			research.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			training.Routes(container.Database, container.TokenVerifier, container.VideoStorage, cfg.R2, cfg.HTTP, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)
