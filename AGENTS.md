@@ -67,3 +67,7 @@ leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas po
 
 Asignaciones, rutas, insignias, evaluación por módulo, video de YouTube y catálogo offline
 están en la misma sección de `specs/TRAINING.md` y requieren además V11.
+
+Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de
+cumplimiento y correo semanal del worker) y registro de uso para investigación están
+implementados localmente; leer `specs/REPORTS.md`. Requieren V10.
