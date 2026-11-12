@@ -2991,6 +2991,264 @@ paths:
           description: Resumen de uso.
           content: {application/json: {schema: {$ref: "#/components/schemas/UsageSummaryResponse"}}}
         default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/shifts:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listShifts
+      summary: Listar turnos de una sede
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - {in: query, name: locationId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: status, required: false, schema: {type: string, enum: [ACTIVE, ALL], default: ACTIVE}, description: "ALL solo para ADMIN/SUPER_ADMIN."}
+      description: Roles ADMIN, SUPER_ADMIN, CHEF y WORKER con acceso a la sede. Orden por hora de inicio.
+      responses:
+        "200":
+          description: Página de turnos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data: {type: array, maxItems: 100, items: {$ref: "#/components/schemas/Shift"}}
+                  pagination: {type: object, required: [nextPageToken], properties: {nextPageToken: {type: string}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createShift
+      summary: Definir un turno (ADMIN/SUPER_ADMIN)
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ShiftInput"}
+      description: Horas locales de la sede. Un fin menor que el inicio cruza la medianoche. 422 si se solapa con otro turno activo o repite el nombre.
+      responses:
+        "200":
+          description: Turno creado o recuperado.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Shift"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/shifts/{shiftID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: shiftID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Operación diaria]
+      operationId: getShift
+      summary: Consultar un turno
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Turno.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Shift"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    put:
+      tags: [Operación diaria]
+      operationId: updateShift
+      summary: Cambiar nombre y horario con rowVersion
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, startTime, endTime, rowVersion]
+              properties:
+                name: {type: string, minLength: 2, maxLength: 60}
+                startTime: {type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"}
+                endTime: {type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"}
+                rowVersion: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: Turno actualizado. 409 si la versión es obsoleta o el turno está inactivo.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Shift"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/shifts/{shiftID}/deactivate:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: shiftID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Operación diaria]
+      operationId: deactivateShift
+      summary: Desactivar un turno sin programaciones activas
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false, required: [rowVersion], properties: {rowVersion: {type: integer, minimum: 1}}}
+      responses:
+        "200":
+          description: Turno inactivo (repetible). 409 SHIFT_IN_USE si hay programaciones activas.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Shift"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/stock-movements:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Operación diaria]
+      operationId: listStockMovements
+      summary: Historial de consumos y descartes por sede, lote o tipo
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+        - {$ref: "#/components/parameters/SearchQuery"}
+        - {in: query, name: locationId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: lotId, required: false, schema: {type: string, format: uuid}}
+        - {in: query, name: type, required: false, schema: {type: string, enum: [CONSUMPTION, DISCARD]}}
+      responses:
+        "200":
+          description: Página, del más reciente al más antiguo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data: {type: array, maxItems: 100, items: {$ref: "#/components/schemas/StockMovement"}}
+                  pagination: {type: object, required: [nextPageToken], properties: {nextPageToken: {type: string}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Operación diaria]
+      operationId: createStockMovement
+      summary: Registrar consumo o descarte de un lote (CHEF de la sede)
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/StockMovementInput"}
+      responses:
+        "200":
+          description: Movimiento registrado o recuperado. 409 INSUFFICIENT_STOCK o LOT_EXPIRED.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/StockMovement"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/stock-movements/{movementID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: movementID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Operación diaria]
+      operationId: getStockMovement
+      summary: Consultar un movimiento
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Movimiento.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/StockMovement"}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/checklists/{templateID}/versions:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: templateID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Checklists]
+      operationId: listChecklistVersions
+      summary: Historial de versiones de una plantilla
+      security: [{FirebaseBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {$ref: "#/components/parameters/PageToken"}
+      responses:
+        "200":
+          description: Versiones de la más reciente a la más antigua.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data: {type: array, items: {$ref: "#/components/schemas/ChecklistVersion"}}
+                  pagination: {type: object, required: [nextPageToken], properties: {nextPageToken: {type: string}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Checklists]
+      operationId: publishChecklistVersion
+      summary: Publicar una versión nueva e inmutable (ADMIN/SUPER_ADMIN)
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [versionId, baseVersionNumber, items]
+              properties:
+                versionId: {type: string, format: uuid}
+                baseVersionNumber: {type: integer, minimum: 1}
+                changeNote: {type: string, maxLength: 500}
+                items: {type: array, minItems: 1, maxItems: 100, items: {type: object}}
+      responses:
+        "201":
+          description: Versión publicada (misma respuesta al repetir UUID y contenido). 409 VERSION_CONFLICT si otra versión se publicó antes.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/checklists/{templateID}/versions/{versionID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: templateID, required: true, schema: {type: string, format: uuid}}
+      - {in: path, name: versionID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Checklists]
+      operationId: getChecklistVersion
+      summary: Versión concreta con sus preguntas
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Plantilla con las preguntas de esa versión.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/cleaning-executions/{executionID}/evidence:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: executionID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Evidencias]
+      operationId: listCleaningEvidence
+      summary: Fotos de una ejecución de limpieza
+      security: [{FirebaseBearer: []}]
+      description: Reserva con POST /media/uploads enviando cleaningExecutionId; confirmar, descargar y retirar usan las rutas de /media/{mediaID}.
+      responses:
+        "200":
+          description: Fotos activas, política de carga y disponibilidad.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/MediaError"}
 components:
   parameters:
     PageSize:
@@ -5708,3 +5966,67 @@ components:
                 type: object
                 required: [date, sessions]
                 properties: {date: {type: string, format: date}, sessions: {type: integer}}
+
+    Shift:
+      type: object
+      required: [id, locationId, name, startTime, endTime, timezone, crossesMidnight, active, openNow, rowVersion, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        locationId: {type: string, format: uuid}
+        name: {type: string}
+        startTime: {type: string, example: "06:00"}
+        endTime: {type: string, example: "14:00"}
+        timezone: {type: string, example: America/Lima}
+        crossesMidnight: {type: boolean}
+        active: {type: boolean}
+        openNow: {type: boolean}
+        rowVersion: {type: integer}
+        createdAt: {type: string, format: date-time}
+    ShiftInput:
+      type: object
+      additionalProperties: false
+      required: [id, locationId, name, startTime, endTime]
+      properties:
+        id: {type: string, format: uuid}
+        locationId: {type: string, format: uuid}
+        name: {type: string, minLength: 2, maxLength: 60}
+        startTime: {type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"}
+        endTime: {type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"}
+    StockMovementInput:
+      type: object
+      additionalProperties: false
+      required: [id, locationId, lotId, type, quantity, clientOperationId, clientCreatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        locationId: {type: string, format: uuid}
+        lotId: {type: string, format: uuid}
+        type: {type: string, enum: [CONSUMPTION, DISCARD]}
+        quantity: {type: string, example: "0.5", description: "Decimal exacto mayor que cero, hasta 3 decimales."}
+        reason: {type: string, enum: [EXPIRED, DETERIORATED, CONTAMINATION, OTHER], description: "Obligatorio en DISCARD; prohibido en CONSUMPTION."}
+        note: {type: string, maxLength: 500, description: "Obligatoria con reason OTHER."}
+        clientOperationId: {type: string, format: uuid}
+        clientCreatedAt: {type: string, format: date-time}
+    StockMovement:
+      allOf:
+        - {$ref: "#/components/schemas/StockMovementInput"}
+        - type: object
+          required: [productName, unit, batchCode, balanceAfter, performedBy, performedByName, createdAt]
+          properties:
+            productName: {type: string}
+            unit: {type: string}
+            batchCode: {type: string}
+            balanceAfter: {type: string}
+            performedBy: {type: string}
+            performedByName: {type: string}
+            createdAt: {type: string, format: date-time}
+    ChecklistVersion:
+      type: object
+      required: [id, templateId, versionNumber, status, changeNote, itemCount, publishedAt]
+      properties:
+        id: {type: string, format: uuid}
+        templateId: {type: string, format: uuid}
+        versionNumber: {type: integer}
+        status: {type: string, enum: [PUBLISHED, ARCHIVED]}
+        changeNote: {type: string}
+        itemCount: {type: integer}
+        publishedAt: {type: string, format: date-time, nullable: true}

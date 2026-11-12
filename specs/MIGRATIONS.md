@@ -117,3 +117,7 @@ crea datos. Ver [RESEARCH.md](RESEARCH.md).
 índices de lectura. Aplicar después de V8 (y V9 si existe) y antes de la API/worker que lo exige;
 ambos fallan al arrancar si falta. No crea datos de prueba ni toca filas existentes. V3 sigue
 reservada. Ver [REPORTS.md](REPORTS.md).
+
+## Operaciones ampliadas (V13)
+
+`V13__operations_shifts_stock.sql` agrega `location_shifts`, `shift_id` en programaciones, revisiones y limpiezas, `stock_movements` (append-only) y una sola versión vigente por plantilla (`change_note`, `request_hash`). Aplicar después de V5 (y V4) con `ON_ERROR_STOP=1`, antes del backend que la exige. Preflight incluido: aborta si una plantilla tiene más de una versión PUBLISHED. Ver [OPERATIONS.md](OPERATIONS.md) y [CHECKLISTS.md](CHECKLISTS.md).

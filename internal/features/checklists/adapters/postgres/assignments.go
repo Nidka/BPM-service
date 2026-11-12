@@ -16,11 +16,13 @@ func (r *Repository) WithinAssignments(ctx context.Context, fn func(application.
 }
 
 const assignmentSelect = `SELECT a.id::text,a.template_id::text,t.name,v.id::text,a.location_id::text,l.name,
- a.frequency,COALESCE(to_char(a.due_time,'HH24:MI'),''),l.timezone,a.active,a.created_at
+ a.frequency,COALESCE(to_char(a.due_time,'HH24:MI'),''),l.timezone,a.active,a.created_at,
+ COALESCE(sh.id::text,''),COALESCE(sh.name,''),COALESCE(to_char(sh.start_time,'HH24:MI'),''),COALESCE(to_char(sh.end_time,'HH24:MI'),''),v.version_number
  FROM checklist_assignments a
  JOIN checklist_templates t ON t.organization_id=a.organization_id AND t.id=a.template_id AND t.status='ACTIVE'
  JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id AND l.status='ACTIVE'
- JOIN LATERAL (SELECT id FROM checklist_template_versions WHERE organization_id=t.organization_id AND template_id=t.id AND status='PUBLISHED' ORDER BY version_number DESC LIMIT 1) v ON true
+ LEFT JOIN location_shifts sh ON sh.organization_id=a.organization_id AND sh.id=a.shift_id
+ JOIN LATERAL (SELECT id,version_number FROM checklist_template_versions WHERE organization_id=t.organization_id AND template_id=t.id AND status='PUBLISHED' ORDER BY version_number DESC LIMIT 1) v ON true
  WHERE a.organization_id=$1
  AND ($3 IN ('ADMIN','SUPER_ADMIN') OR EXISTS(SELECT 1 FROM organization_memberships m
  JOIN membership_locations ml ON ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=a.location_id
@@ -28,7 +30,7 @@ const assignmentSelect = `SELECT a.id::text,a.template_id::text,t.name,v.id::tex
 
 func scanAssignment(row pgx.Row) (a domain.Assignment, err error) {
 	err = row.Scan(&a.ID, &a.TemplateID, &a.TemplateName, &a.TemplateVersionID, &a.LocationID, &a.LocationName,
-		&a.Frequency, &a.DueTime, &a.Timezone, &a.Active, &a.CreatedAt)
+		&a.Frequency, &a.DueTime, &a.Timezone, &a.Active, &a.CreatedAt, &a.ShiftID, &a.ShiftName, &a.ShiftStart, &a.ShiftEnd, &a.TemplateVersionNumber)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = domain.ErrNotFound
 	}
@@ -87,7 +89,7 @@ func (s *store) CreateAssignment(ctx context.Context, actor domain.Actor, org st
 	}
 	previous, err := s.Assignment(ctx, actor, org, a.ID, false)
 	if err == nil {
-		if previous.Active && previous.TemplateID == a.TemplateID && previous.LocationID == a.LocationID && previous.Frequency == a.Frequency && previous.DueTime == a.DueTime {
+		if previous.Active && previous.TemplateID == a.TemplateID && previous.LocationID == a.LocationID && previous.Frequency == a.Frequency && previous.DueTime == a.DueTime && previous.ShiftID == a.ShiftID {
 			return previous, nil
 		}
 		return domain.Assignment{}, domain.ErrConflict
@@ -95,16 +97,26 @@ func (s *store) CreateAssignment(ctx context.Context, actor domain.Actor, org st
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.Assignment{}, err
 	}
+	if a.ShiftID != "" {
+		var shift string
+		err = s.tx.QueryRow(ctx, `SELECT id::text FROM location_shifts WHERE organization_id=$1 AND id=$2 AND location_id=$3 AND active FOR SHARE`, org, a.ShiftID, a.LocationID).Scan(&shift)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Assignment{}, domain.ErrNotFound
+		}
+		if err != nil {
+			return domain.Assignment{}, err
+		}
+	}
 	var exists bool
-	err = s.tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM checklist_assignments WHERE organization_id=$1 AND location_id=$2 AND template_id=$3 AND active)`, org, a.LocationID, a.TemplateID).Scan(&exists)
+	err = s.tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM checklist_assignments WHERE organization_id=$1 AND location_id=$2 AND template_id=$3 AND active AND (shift_id IS NULL OR $4='' OR shift_id=NULLIF($4,'')::uuid))`, org, a.LocationID, a.TemplateID, a.ShiftID).Scan(&exists)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
 	if exists {
 		return domain.Assignment{}, domain.ErrConflict
 	}
-	_, err = s.tx.Exec(ctx, `INSERT INTO checklist_assignments(id,organization_id,location_id,template_id,frequency,due_time,created_by,updated_by)
- VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::time,$7,$7)`, a.ID, org, a.LocationID, a.TemplateID, a.Frequency, a.DueTime, actor.ID)
+	_, err = s.tx.Exec(ctx, `INSERT INTO checklist_assignments(id,organization_id,location_id,template_id,frequency,due_time,shift_id,created_by,updated_by)
+ VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::time,NULLIF($7,'')::uuid,$8,$8)`, a.ID, org, a.LocationID, a.TemplateID, a.Frequency, a.DueTime, a.ShiftID, actor.ID)
 	if err != nil {
 		return domain.Assignment{}, pgConflict(err)
 	}
@@ -177,16 +189,19 @@ func (s *store) StartedRun(ctx context.Context, org, id string) (bool, error) {
 }
 
 func (s *store) RunSchedule(ctx context.Context, actor domain.Actor, org string, v domain.Run) (domain.Assignment, error) {
-	var templateID string
-	err := s.tx.QueryRow(ctx, `SELECT t.id::text FROM checklist_template_versions v JOIN checklist_templates t ON t.organization_id=v.organization_id AND t.id=v.template_id
- WHERE v.organization_id=$1 AND v.id=$2 AND v.status='PUBLISHED' AND t.status='ACTIVE' FOR SHARE OF t`, org, v.TemplateVersionID).Scan(&templateID)
+	var templateID, versionStatus string
+	err := s.tx.QueryRow(ctx, `SELECT t.id::text,v.status FROM checklist_template_versions v JOIN checklist_templates t ON t.organization_id=v.organization_id AND t.id=v.template_id
+ WHERE v.organization_id=$1 AND v.id=$2 AND v.status IN ('PUBLISHED','ARCHIVED') AND t.status='ACTIVE' FOR SHARE OF t`, org, v.TemplateVersionID).Scan(&templateID, &versionStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Assignment{}, domain.ErrNotFound
 	}
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	rows, err := s.tx.Query(ctx, `SELECT id::text FROM checklist_assignments WHERE organization_id=$1 AND location_id=$2 AND template_id=$3 AND active ORDER BY id LIMIT 2 FOR UPDATE`, org, v.LocationID, templateID)
+	if versionStatus != "PUBLISHED" {
+		return domain.Assignment{}, domain.ErrTemplateOutdated
+	}
+	rows, err := s.tx.Query(ctx, `SELECT id::text FROM checklist_assignments WHERE organization_id=$1 AND location_id=$2 AND template_id=$3 AND active ORDER BY id LIMIT 100 FOR UPDATE`, org, v.LocationID, templateID)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
@@ -205,9 +220,6 @@ func (s *store) RunSchedule(ctx context.Context, actor domain.Actor, org string,
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	if len(ids) > 1 {
-		return domain.Assignment{}, domain.ErrConflict
-	}
 	if len(ids) == 0 {
 		if v.AssignmentID != "" {
 			return domain.Assignment{}, domain.ErrNotFound
@@ -217,10 +229,14 @@ func (s *store) RunSchedule(ctx context.Context, actor domain.Actor, org string,
 	if v.AssignmentID == "" {
 		return domain.Assignment{}, domain.ErrAssignmentRequired
 	}
-	if v.AssignmentID != ids[0] {
+	matched := false
+	for _, id := range ids {
+		matched = matched || id == v.AssignmentID
+	}
+	if !matched {
 		return domain.Assignment{}, domain.ErrNotFound
 	}
-	a, err := s.Assignment(ctx, actor, org, ids[0], false)
+	a, err := s.Assignment(ctx, actor, org, v.AssignmentID, false)
 	if err != nil {
 		return a, err
 	}
