@@ -88,6 +88,19 @@ func TestShiftAssignmentsAndTemplateVersionsPostgres(t *testing.T) {
 	}
 
 	// Turnos relativos a la hora local de cada sede: uno abierto y otro por abrir.
+	// El servicio usa el reloj real; si algún turno relativo (de -60 a +240 min en
+	// Lima, de -30 a +60 en Tokio) cruzara la medianoche, la ocurrencia del día
+	// cambiaría y los estados esperados dejarían de ser válidos. En esa franja se
+	// omite la prueba para que el resultado no dependa de la hora de ejecución.
+	crossesMidnight := func(zone string, from, to int) bool {
+		z, _ := time.LoadLocation(zone)
+		now := time.Now().In(z)
+		minute := now.Hour()*60 + now.Minute()
+		return minute+from < 0 || minute+to >= 24*60
+	}
+	if crossesMidnight("America/Lima", -60, 240) || crossesMidnight("Asia/Tokyo", -30, 60) {
+		t.Skip("los turnos relativos cruzarían la medianoche a esta hora; se omite para evitar un resultado dependiente del reloj")
+	}
 	local := func(zone string, minutes int) string {
 		z, _ := time.LoadLocation(zone)
 		at := time.Now().In(z).Add(time.Duration(minutes) * time.Minute)
