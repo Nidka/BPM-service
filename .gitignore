@@ -25,3 +25,6 @@ local.properties
 *.jks
 *.keystore
 
+
+# Backups locales de la base (scripts/aplicar-migraciones.ps1).
+*.dump
