@@ -2,16 +2,11 @@ package app
 
 import (
 	"context"
-	"github.com/Nidka/BPM-service/internal/core/config"
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/features/alerts"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
-	"github.com/Nidka/BPM-service/internal/features/reports"
-	"github.com/Nidka/BPM-service/internal/features/research"
-	"github.com/Nidka/BPM-service/internal/features/training"
-	"github.com/Nidka/BPM-service/internal/features/usage"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"log/slog"
@@ -39,10 +34,6 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	checklists.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	alerts.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	notifications.Routes(nil, validToken{}, logger, expiredSession{})(r)
-	training.Routes(nil, validToken{}, nil, config.R2Config{}, config.HTTPConfig{}, logger, expiredSession{})(r)
-	reports.Routes(nil, validToken{}, logger, expiredSession{})(r)
-	usage.Routes(nil, validToken{}, logger, expiredSession{})(r)
-	research.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
 		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
 		{"GET", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/view"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/attend"},
@@ -51,12 +42,6 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 		{"GET", "/organizations"}, {"POST", "/organizations/org/members"},
 		{"GET", "/organizations/org/checklists"}, {"POST", "/organizations/org/checklist-runs"},
 		{"PUT", "/organizations/org/checklist-runs/run/answers"}, {"POST", "/organizations/org/checklist-runs/run/submit"},
-		{"GET", "/organizations/org/training/courses"}, {"POST", "/organizations/org/training/courses/00000000-0000-0000-0000-000000000001/attempts"},
-		{"PUT", "/organizations/org/training/courses/00000000-0000-0000-0000-000000000001/draft"}, {"POST", "/organizations/org/training/videos/uploads"},
-		{"GET", "/organizations/org/reports/compliance"}, {"GET", "/organizations/org/reports/summary"}, {"PUT", "/organizations/org/reports/settings"}, {"POST", "/organizations/org/reports/certificates"},
-		{"POST", "/organizations/org/usage/events"}, {"GET", "/organizations/org/usage/summary"},
-		{"GET", "/organizations/org/research/participation"}, {"POST", "/organizations/org/research/consent"}, {"POST", "/organizations/org/research/submissions"},
-		{"GET", "/research/access"}, {"GET", "/research/instruments"}, {"GET", "/research/results"},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, nil)

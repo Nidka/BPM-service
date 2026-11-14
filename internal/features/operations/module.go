@@ -13,12 +13,8 @@ import (
 	"log/slog"
 )
 
-// RequireSchema comprueba V5 (operación diaria) y V13 (turnos y movimientos de stock).
 func RequireSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if e := postgres.New(pool).RequireSchema(ctx); e != nil {
-		return e
-	}
-	return postgres.New(pool).RequireSchemaPlus(ctx)
+	return postgres.New(pool).RequireSchema(ctx)
 }
 func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.Logger, sessions ...contracts.SessionValidator) func(chi.Router) {
 	h := httpadapter.New(application.New(postgres.New(pool)), logger)

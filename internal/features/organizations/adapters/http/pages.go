@@ -25,34 +25,34 @@ func (h *Handler) pageRequest(w http.ResponseWriter, r *http.Request) (string, s
 	return uid, chi.URLParam(r, "organizationID"), page, true
 }
 func (h *Handler) locationsPage(w http.ResponseWriter, r *http.Request) {
-	uid, org, status, p, ok := h.pageRequestStatus(w, r)
+	uid, org, p, ok := h.pageRequest(w, r)
 	if !ok {
 		return
 	}
-	v, e := h.service.LocationsByStatus(r.Context(), uid, org, status, p)
+	v, e := h.service.LocationsPage(r.Context(), uid, org, p)
 	if e != nil {
 		h.fail(w, r, e)
 		return
 	}
 	out := []locationDTO{}
 	for _, l := range v.Items {
-		out = append(out, location(l))
+		out = append(out, locationDTO{l.ID, l.Name, l.Address, l.District, l.ContactPhone, l.Timezone})
 	}
 	pageResponse(w, out, v.NextToken)
 }
 func (h *Handler) membersPage(w http.ResponseWriter, r *http.Request) {
-	uid, org, status, p, ok := h.pageRequestStatus(w, r)
+	uid, org, p, ok := h.pageRequest(w, r)
 	if !ok {
 		return
 	}
-	v, e := h.service.MembersByStatus(r.Context(), uid, org, status, p)
+	v, e := h.service.MembersPage(r.Context(), uid, org, p)
 	if e != nil {
 		h.fail(w, r, e)
 		return
 	}
 	out := []memberDTO{}
 	for _, m := range v.Items {
-		out = append(out, member(m))
+		out = append(out, memberDTO{m.ID, m.Name, m.Email, m.Role, m.LocationIDs})
 	}
 	pageResponse(w, out, v.NextToken)
 }

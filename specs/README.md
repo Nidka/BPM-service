@@ -18,7 +18,6 @@ Orden recomendado de lectura:
 12. `MIGRATIONS.md`: convención y flujo de cambios PostgreSQL.
 13. `SECURITY.md`: controles obligatorios.
 14. `SESSIONS.md`: límites de sesión, migración V2 y publicación coordinada.
-15. `TRAINING.md`: Academia BPM (cursos, video, modo estudio, evaluación) y migración V8.
 
 Las especificaciones describen decisiones vigentes. Si una decisión cambia, se
 actualiza aquí en el mismo cambio que modifica el código.

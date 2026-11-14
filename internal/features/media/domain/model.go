@@ -26,22 +26,15 @@ func (e *ValidationError) Error() string { return "invalid evidence metadata" }
 
 type UploadInput struct {
 	ID, RunID, ItemID, IncidentID, ActionID, Stage, OriginalName, MIMEType, SHA256 string
-	// CleaningID identifica la ejecución de limpieza destino; excluye revisión e incidencia.
-	CleaningID string
-	SizeBytes  int64
+	SizeBytes                                                                      int64
 }
 type File struct {
-	CleaningID                                                                                                                               string
 	ID, OrganizationID, LocationID, RunID, ItemID, IncidentID, ActionID, Stage, OriginalName, MIMEType, SHA256, ObjectKey, Status, CreatedBy string
 	SizeBytes                                                                                                                                int64
 	CreatedAt                                                                                                                                time.Time
 	UploadedAt                                                                                                                               *time.Time
 }
-type Target struct {
-	CleaningID, CleaningOwner                                                                                                                                      string
-	CleaningOpen                                                                                                                                                   bool
-	OrganizationID, LocationID, RunID, ItemID, UserID, Role, RunOwner, RunStatus, IncidentID, ActionID, Stage, Reporter, Responsible, IncidentStatus, ActionStatus string
-}
+type Target struct{ OrganizationID, LocationID, RunID, ItemID, UserID, Role, RunOwner, RunStatus, IncidentID, ActionID, Stage, Reporter, Responsible, IncidentStatus, ActionStatus string }
 type Policy struct {
 	MaxBytes     int64
 	MaxFiles     int
@@ -59,12 +52,7 @@ func (p Policy) Validate(in UploadInput) (UploadInput, error) {
 	if !ValidID(in.ID) {
 		fields["id"] = "La foto no tiene un identificador válido."
 	}
-	in.CleaningID = strings.ToLower(in.CleaningID)
-	if in.CleaningID != "" {
-		if !ValidID(in.CleaningID) || in.RunID != "" || in.ItemID != "" || in.IncidentID != "" || in.ActionID != "" || in.Stage != "" {
-			fields["cleaningExecutionId"] = "Elige una ejecución de limpieza válida."
-		}
-	} else if in.IncidentID != "" {
+	if in.IncidentID != "" {
 		if !ValidIncidentTarget(in.IncidentID, in.ActionID, in.Stage) || in.RunID != "" || in.ItemID != "" {
 			fields["incidentId"] = "Elige una incidencia y una etapa de evidencia válidas."
 		}
@@ -100,7 +88,7 @@ func (p Policy) Validate(in UploadInput) (UploadInput, error) {
 }
 
 func (f File) Match(in UploadInput) error {
-	if f.ID != in.ID || f.CleaningID != in.CleaningID || f.RunID != in.RunID || f.ItemID != in.ItemID || f.IncidentID != in.IncidentID || f.ActionID != in.ActionID || f.Stage != in.Stage || f.OriginalName != in.OriginalName || f.MIMEType != in.MIMEType || f.SizeBytes != in.SizeBytes || f.SHA256 != in.SHA256 {
+	if f.ID != in.ID || f.RunID != in.RunID || f.ItemID != in.ItemID || f.IncidentID != in.IncidentID || f.ActionID != in.ActionID || f.Stage != in.Stage || f.OriginalName != in.OriginalName || f.MIMEType != in.MIMEType || f.SizeBytes != in.SizeBytes || f.SHA256 != in.SHA256 {
 		return ErrConflict
 	}
 	return nil
@@ -108,19 +96,12 @@ func (f File) Match(in UploadInput) error {
 
 // CanRead mantiene separados acceso de supervisión y ejecución de controles.
 func (t Target) CanRead() bool {
-	if t.CleaningID != "" {
-		return t.Role == "CHEF" || t.Role == "ADMIN" || t.Role == "SUPER_ADMIN" || (t.Role == "WORKER" && t.UserID == t.CleaningOwner)
-	}
 	if t.IncidentID != "" {
 		return t.Role == "CHEF" || t.Role == "ADMIN" || t.Role == "SUPER_ADMIN" || (t.Role == "WORKER" && (t.UserID == t.Reporter || t.UserID == t.Responsible))
 	}
 	return t.Role == "CHEF" || t.Role == "ADMIN" || t.Role == "SUPER_ADMIN"
 }
 func (t Target) CanWrite() bool {
-	if t.CleaningID != "" {
-		// Solo quien ejecutó la limpieza adjunta o retira fotos, dentro de la ventana de edición.
-		return (t.Role == "CHEF" || t.Role == "WORKER") && t.UserID == t.CleaningOwner && t.CleaningOpen
-	}
 	if t.IncidentID != "" {
 		if !t.CanRead() {
 			return false

@@ -55,17 +55,6 @@ func TestProtectedOrganizationRoutes(t *testing.T) {
 		{"member search rejects short prefix", "POST", "/organizations/org/members/search", `{"query":"ch"}`, "token", true, 422, "VALIDATION_ERROR"},
 		{"member search rejects role", "POST", "/organizations/org/members/search", `{"query":"chef","role":"ADMIN"}`, "token", true, 400, "INVALID_REQUEST"},
 		{"member search rejects URL query", "POST", "/organizations/org/members/search?query=chef", `{"query":"chef"}`, "token", true, 400, "INVALID_REQUEST"},
-		{"member patch requires authentication", "PATCH", "/organizations/org/members/u", `{}`, "", true, 401, "UNAUTHENTICATED"},
-		{"member patch rejects bad role", "PATCH", "/organizations/org/members/u", `{"role":"ROOT","rowVersion":1}`, "token", true, 422, "VALIDATION_ERROR"},
-		{"member patch rejects unknown field", "PATCH", "/organizations/org/members/u", `{"role":"ADMIN","status":"ACTIVE"}`, "token", true, 400, "INVALID_REQUEST"},
-		{"deactivate requires version", "POST", "/organizations/org/members/u/deactivate", `{}`, "token", true, 422, "VALIDATION_ERROR"},
-		{"invite validates", "POST", "/organizations/org/invitations", `{}`, "token", true, 422, "VALIDATION_ERROR"},
-		{"accept requires verified email", "POST", "/invitations/accept", `{"token":"x"}`, "token", false, 403, "EMAIL_NOT_VERIFIED"},
-		{"accept malformed token is 404", "POST", "/invitations/accept", `{"token":"x"}`, "token", true, 404, "INVITATION_NOT_FOUND"},
-		{"invitations unknown filter", "GET", "/organizations/org/invitations?role=ADMIN", "", "token", true, 400, "INVALID_PAGINATION"},
-		{"members invalid status", "GET", "/organizations/org/members?status=ALL", "", "token", true, 400, "INVALID_PAGINATION"},
-		{"devices require authentication", "GET", "/me/devices", "", "", true, 401, "UNAUTHENTICATED"},
-		{"device revoke rejects non uuid", "DELETE", "/me/devices/x", "", "token", true, 404, "RESOURCE_NOT_FOUND"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))

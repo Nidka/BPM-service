@@ -213,9 +213,6 @@ func (s *Service) Execute(ctx context.Context, user, org, key string, input doma
 		if !plan.Active || plan.LocationID != v.LocationID {
 			return v, domain.ErrNotFound
 		}
-		if e = s.checkShift(ctx, db, a, org, plan, &v); e != nil {
-			return v, e
-		}
 		v.ResponsibleUserID = a.ID
 		v.Area = plan.Area
 		v.Task = plan.Task

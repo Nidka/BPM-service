@@ -57,13 +57,6 @@ func TestChecklistPostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, string(mediaMigration)); err != nil {
 		t.Fatal(err)
 	}
-	plusMigration, err := os.ReadFile("../../../../../migraciones/V13__operations_shifts_stock.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, string(plusMigration)); err != nil {
-		t.Fatal(err)
-	}
 	exec := func(sql string, args ...any) {
 		t.Helper()
 		if _, e := pool.Exec(ctx, sql, args...); e != nil {

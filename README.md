@@ -34,8 +34,6 @@ dependencias externas y solo se usa para eliminar duplicación comprobada.
   organizaciones/sedes y adición de miembros existentes según rol y tenant.
 - Feature de checklists con publicación inicial, catálogo descargable,
   borradores offline, respuestas idempotentes y envío con puntaje del servidor.
-- Feature de Academia BPM con cursos versionados, videos privados MP4/WebM,
-  modo estudio, intentos calificados en servidor y constancias (V8).
 - Errores HTTP uniformes mediante un arreglo `errors`, códigos estables,
   mensajes seguros, campos inválidos y `requestId`.
 - Adaptador Cloudflare R2 privado con PUT/GET firmado, MIME, tamaño, SHA-256 y
@@ -57,7 +55,6 @@ Documentación para continuar el proyecto:
 - [Migraciones](specs/MIGRATIONS.md)
 - [Seguridad](specs/SECURITY.md)
 - [Sesiones, límites y publicación de V2](specs/SESSIONS.md)
-- [Academia BPM](specs/TRAINING.md)
 - [Railway](RAILWAY.md)
 
 ## Requisitos

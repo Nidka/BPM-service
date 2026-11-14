@@ -33,7 +33,7 @@ func (s *store) Actor(ctx context.Context, uid string) (a domain.Actor, e error)
 	return
 }
 
-const orgColumns = `o.id,o.legal_name,COALESCE(o.trade_name,''),COALESCE(o.tax_id,''),o.business_type,COALESCE(o.contact_name,''),COALESCE(o.contact_phone,''),COALESCE(o.contact_email,''),o.row_version`
+const orgColumns = `o.id,o.legal_name,COALESCE(o.trade_name,''),COALESCE(o.tax_id,''),o.business_type,COALESCE(o.contact_name,''),COALESCE(o.contact_phone,''),COALESCE(o.contact_email,'')`
 
 func (s *store) Organizations(ctx context.Context, a domain.Actor) ([]domain.Organization, error) {
 	rows, e := s.tx.Query(ctx, `SELECT `+orgColumns+` FROM organizations o WHERE o.status='ACTIVE' AND ($2='SUPER_ADMIN' OR EXISTS(SELECT 1 FROM organization_memberships m WHERE m.organization_id=o.id AND m.user_id=$1 AND m.status='ACTIVE')) ORDER BY o.legal_name,o.id LIMIT 100`, a.ID, a.Role)
@@ -44,7 +44,7 @@ func (s *store) Organizations(ctx context.Context, a domain.Actor) ([]domain.Org
 	result := []domain.Organization{}
 	for rows.Next() {
 		var o domain.Organization
-		if e = rows.Scan(&o.ID, &o.LegalName, &o.TradeName, &o.TaxID, &o.BusinessType, &o.ContactName, &o.ContactPhone, &o.ContactEmail, &o.RowVersion); e != nil {
+		if e = rows.Scan(&o.ID, &o.LegalName, &o.TradeName, &o.TaxID, &o.BusinessType, &o.ContactName, &o.ContactPhone, &o.ContactEmail); e != nil {
 			return nil, e
 		}
 		result = append(result, o)

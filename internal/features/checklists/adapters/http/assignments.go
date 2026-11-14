@@ -20,31 +20,25 @@ type assignedRunDTO struct {
 	SubmittedAt     *time.Time `json:"submittedAt"`
 }
 type assignmentDTO struct {
-	ID                    string          `json:"id"`
-	TemplateID            string          `json:"templateId"`
-	TemplateName          string          `json:"templateName"`
-	TemplateVersionID     string          `json:"templateVersionId"`
-	LocationID            string          `json:"locationId"`
-	LocationName          string          `json:"locationName"`
-	Frequency             string          `json:"frequency"`
-	DueTime               string          `json:"dueTime"`
-	Timezone              string          `json:"timezone"`
-	Active                bool            `json:"active"`
-	CreatedAt             time.Time       `json:"createdAt"`
-	PeriodStartsAt        *time.Time      `json:"periodStartsAt"`
-	PeriodEndsAt          *time.Time      `json:"periodEndsAt"`
-	TemplateVersionNumber int             `json:"templateVersionNumber"`
-	ShiftID               string          `json:"shiftId"`
-	ShiftName             string          `json:"shiftName"`
-	ShiftStartTime        string          `json:"shiftStartTime"`
-	ShiftEndTime          string          `json:"shiftEndTime"`
-	ShiftState            string          `json:"shiftState"`
-	Run                   *assignedRunDTO `json:"run"`
+	ID                string          `json:"id"`
+	TemplateID        string          `json:"templateId"`
+	TemplateName      string          `json:"templateName"`
+	TemplateVersionID string          `json:"templateVersionId"`
+	LocationID        string          `json:"locationId"`
+	LocationName      string          `json:"locationName"`
+	Frequency         string          `json:"frequency"`
+	DueTime           string          `json:"dueTime"`
+	Timezone          string          `json:"timezone"`
+	Active            bool            `json:"active"`
+	CreatedAt         time.Time       `json:"createdAt"`
+	PeriodStartsAt    *time.Time      `json:"periodStartsAt"`
+	PeriodEndsAt      *time.Time      `json:"periodEndsAt"`
+	Run               *assignedRunDTO `json:"run"`
 }
 
 func assignment(v domain.Assignment) assignmentDTO {
 	out := assignmentDTO{ID: v.ID, TemplateID: v.TemplateID, TemplateName: v.TemplateName, TemplateVersionID: v.TemplateVersionID, LocationID: v.LocationID, LocationName: v.LocationName,
-		Frequency: v.Frequency, DueTime: v.DueTime, Timezone: v.Timezone, Active: v.Active, CreatedAt: v.CreatedAt, PeriodEndsAt: v.Period.EndsAt, TemplateVersionNumber: v.TemplateVersionNumber, ShiftID: v.ShiftID, ShiftName: v.ShiftName, ShiftStartTime: v.ShiftStart, ShiftEndTime: v.ShiftEnd, ShiftState: v.Period.ShiftState}
+		Frequency: v.Frequency, DueTime: v.DueTime, Timezone: v.Timezone, Active: v.Active, CreatedAt: v.CreatedAt, PeriodEndsAt: v.Period.EndsAt}
 	if !v.Period.StartsAt.IsZero() {
 		out.PeriodStartsAt = &v.Period.StartsAt
 	}
@@ -106,12 +100,11 @@ func (h *Handler) assignmentCreate(w http.ResponseWriter, r *http.Request) {
 		LocationID string `json:"locationId"`
 		Frequency  string `json:"frequency"`
 		DueTime    string `json:"dueTime"`
-		ShiftID    string `json:"shiftId"`
 	}
 	if !httprequest.DecodeJSON(w, r, &input, 4096) {
 		return
 	}
-	v, err := h.assignments.Create(r.Context(), uid, chi.URLParam(r, "organizationID"), domain.Assignment{ID: input.ID, TemplateID: input.TemplateID, LocationID: input.LocationID, Frequency: input.Frequency, DueTime: input.DueTime, ShiftID: input.ShiftID})
+	v, err := h.assignments.Create(r.Context(), uid, chi.URLParam(r, "organizationID"), domain.Assignment{ID: input.ID, TemplateID: input.TemplateID, LocationID: input.LocationID, Frequency: input.Frequency, DueTime: input.DueTime})
 	if err != nil {
 		h.fail(w, r, err)
 		return

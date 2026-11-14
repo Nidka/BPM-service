@@ -129,22 +129,3 @@ func TestWorkerConfigurationKeepsProvidersExplicit(t *testing.T) {
 		delete(values, pair.k)
 	}
 }
-
-func TestTrainingVideoMaxBytesBounds(t *testing.T) {
-	load := func(value string) (Config, error) {
-		values := map[string]string{"DATABASE_URL": "postgres://test:test@localhost/bpm_test", "TRAINING_VIDEO_MAX_BYTES": value}
-		return loadFrom(func(key string) string { return values[key] })
-	}
-	cfg, err := load("")
-	if err != nil || cfg.R2.TrainingVideoMaxBytes != 300<<20 {
-		t.Fatalf("el valor por defecto debe ser 300 MiB: %v %d", err, cfg.R2.TrainingVideoMaxBytes)
-	}
-	if cfg, err = load("1073741824"); err != nil || cfg.R2.TrainingVideoMaxBytes != 1<<30 {
-		t.Fatalf("1 GiB es el máximo permitido: %v", err)
-	}
-	for _, invalid := range []string{"1073741825", "1048575", "0", "-5", "mucho"} {
-		if _, err = load(invalid); err == nil {
-			t.Fatalf("%q debe rechazarse", invalid)
-		}
-	}
-}

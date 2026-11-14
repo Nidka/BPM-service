@@ -33,11 +33,8 @@ type Item struct {
 }
 
 type Run struct {
-	EvidenceCounts map[string]int
-	AssignmentID   string
-	// Turno derivado de la programación y número de versión de la plantilla ejecutada.
-	ShiftID, ShiftName                                             string
-	TemplateVersionNumber                                          int
+	EvidenceCounts                                                 map[string]int
+	AssignmentID                                                   string
 	TemplateName, LocationName, PerformedByName                    string
 	CreatedAt                                                      time.Time
 	ID, OrganizationID, LocationID, TemplateVersionID, PerformedBy string

@@ -27,7 +27,6 @@ func New(service *application.Service, logger *slog.Logger) *Handler {
 
 type fileDTO struct {
 	ID           string     `json:"id"`
-	CleaningID   string     `json:"cleaningExecutionId,omitempty"`
 	IncidentID   string     `json:"incidentId,omitempty"`
 	ActionID     string     `json:"actionId,omitempty"`
 	Stage        string     `json:"stage,omitempty"`
@@ -42,7 +41,7 @@ type fileDTO struct {
 }
 
 func file(f domain.File) fileDTO {
-	return fileDTO{ID: f.ID, CleaningID: f.CleaningID, RunID: f.RunID, ItemID: f.ItemID, IncidentID: f.IncidentID, ActionID: f.ActionID, Stage: f.Stage, OriginalName: f.OriginalName, MIMEType: f.MIMEType, SizeBytes: f.SizeBytes, Status: f.Status, CreatedAt: f.CreatedAt, UploadedAt: f.UploadedAt}
+	return fileDTO{ID: f.ID, RunID: f.RunID, ItemID: f.ItemID, IncidentID: f.IncidentID, ActionID: f.ActionID, Stage: f.Stage, OriginalName: f.OriginalName, MIMEType: f.MIMEType, SizeBytes: f.SizeBytes, Status: f.Status, CreatedAt: f.CreatedAt, UploadedAt: f.UploadedAt}
 }
 
 type ticketDTO struct {
@@ -67,7 +66,6 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Use(auth)
 		r.Get("/organizations/{organizationID}/checklist-runs/{runID}/items/{itemID}/evidence", h.list)
 		r.Get("/organizations/{organizationID}/incidents/{incidentID}/evidence/BEFORE", h.listIncident)
-		r.Get("/organizations/{organizationID}/cleaning-executions/{executionID}/evidence", h.listCleaning)
 		r.Get("/organizations/{organizationID}/incidents/{incidentID}/actions/{actionID}/evidence/AFTER", h.listIncident)
 		r.Post("/organizations/{organizationID}/media/uploads", h.reserve)
 		r.Post("/organizations/{organizationID}/media/{mediaID}/confirm", h.confirm)
@@ -127,7 +125,6 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		ID           string `json:"id"`
 		RunID        string `json:"runId"`
-		CleaningID   string `json:"cleaningExecutionId"`
 		IncidentID   string `json:"incidentId"`
 		ActionID     string `json:"actionId"`
 		Stage        string `json:"stage"`
@@ -140,7 +137,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 	if !request.DecodeJSON(w, r, &in, 4096) {
 		return
 	}
-	value, err := h.service.Reserve(r.Context(), user, chi.URLParam(r, "organizationID"), domain.UploadInput{ID: in.ID, CleaningID: in.CleaningID, RunID: in.RunID, ItemID: in.ItemID, IncidentID: in.IncidentID, ActionID: in.ActionID, Stage: in.Stage, OriginalName: in.OriginalName, MIMEType: in.MIMEType, SizeBytes: in.SizeBytes, SHA256: in.SHA256})
+	value, err := h.service.Reserve(r.Context(), user, chi.URLParam(r, "organizationID"), domain.UploadInput{ID: in.ID, RunID: in.RunID, ItemID: in.ItemID, IncidentID: in.IncidentID, ActionID: in.ActionID, Stage: in.Stage, OriginalName: in.OriginalName, MIMEType: in.MIMEType, SizeBytes: in.SizeBytes, SHA256: in.SHA256})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -222,17 +219,4 @@ func respondCollection(w http.ResponseWriter, data application.Collection) {
 		files = append(files, file(v))
 	}
 	response.JSON(w, 200, map[string]any{"data": map[string]any{"files": files, "maxBytes": data.Policy.MaxBytes, "allowedMimeTypes": data.Policy.AllowedMIMEs, "maxFiles": data.Policy.MaxFiles, "uploadAvailable": data.UploadAvailable}})
-}
-
-func (h *Handler) listCleaning(w http.ResponseWriter, r *http.Request) {
-	user, ok := h.uid(w, r)
-	if !ok {
-		return
-	}
-	data, err := h.service.ListCleaning(r.Context(), user, chi.URLParam(r, "organizationID"), chi.URLParam(r, "executionID"))
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	respondCollection(w, data)
 }

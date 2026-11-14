@@ -27,9 +27,6 @@ type Store interface {
 	CatalogPage(context.Context, string, pagination.Window, string) ([]domain.Template, error)
 	Catalog(context.Context, string) ([]domain.Template, error)
 	CreateTemplate(context.Context, domain.Actor, string, domain.Template) error
-	PublishVersion(context.Context, domain.Actor, string, string, domain.NewVersion, string) (domain.Template, error)
-	Version(context.Context, string, string, string) (domain.Template, error)
-	Versions(context.Context, string, string, pagination.Window) ([]domain.Version, error)
 	CreateRun(context.Context, domain.Actor, domain.Run) (domain.Run, error)
 	Run(context.Context, domain.Actor, string, string, bool) (domain.Run, error)
 	Replay(context.Context, string, string, string) (domain.Run, bool, error)
@@ -84,7 +81,40 @@ func (s *Service) CreateTemplate(ctx context.Context, uid, org string, v domain.
 	validateText(fields, "name", v.Name, 2, 180)
 	validateText(fields, "area", v.Area, 2, 80)
 	validateText(fields, "description", v.Description, 0, 500)
-	validateItems(fields, &v)
+	if len(v.Items) == 0 || len(v.Items) > 100 {
+		fields["items"] = "Incluye entre 1 y 100 preguntas."
+	}
+	seenIDs, seenOrders := map[string]bool{}, map[int]bool{}
+	for i := range v.Items {
+		item := &v.Items[i]
+		item.SectionName = strings.TrimSpace(item.SectionName)
+		item.Label = strings.TrimSpace(item.Label)
+		item.Unit = strings.TrimSpace(item.Unit)
+		if !uuid.MatchString(item.ID) || seenIDs[item.ID] || item.ID == v.ID || item.ID == v.VersionID ||
+			item.DisplayOrder <= 0 || seenOrders[item.DisplayOrder] ||
+			utf8.RuneCountInString(item.SectionName) < 2 || utf8.RuneCountInString(item.SectionName) > 120 ||
+			utf8.RuneCountInString(item.Label) < 2 || utf8.RuneCountInString(item.Label) > 300 ||
+			strings.IndexFunc(item.Label+item.SectionName+item.Unit, unicode.IsControl) >= 0 || len(item.Unit) > 20 {
+			fields["items"] = "Revisa los identificadores, orden y textos de las preguntas."
+		}
+		seenIDs[item.ID], seenOrders[item.DisplayOrder] = true, true
+		switch item.ResponseType {
+		case "COMPLIANCE", "TEXT":
+			if item.MinimumValue != nil || item.MaximumValue != nil || item.Unit != "" {
+				fields["items"] = "Las preguntas de cumplimiento o texto no usan rangos numéricos."
+			}
+		case "TEMPERATURE", "NUMBER":
+			if item.MinimumValue == nil || item.MaximumValue == nil || !validDecimal(item.MinimumValue) || !validDecimal(item.MaximumValue) ||
+				(item.MinimumValue != nil && item.MaximumValue != nil && *item.MinimumValue > *item.MaximumValue) {
+				fields["items"] = "Las preguntas numéricas requieren un rango válido de dos decimales."
+			}
+		default:
+			fields["items"] = "Tipo de respuesta no permitido."
+		}
+		if item.EvidenceRequiredOnFailure && item.ResponseType == "TEXT" {
+			fields["items"] = "La foto por incumplimiento se aplica a respuestas de cumplimiento o mediciones."
+		}
+	}
 	if len(fields) != 0 {
 		return domain.Template{}, &domain.ValidationError{Fields: fields}
 	}
@@ -150,13 +180,6 @@ func (s *Service) CreateRun(ctx context.Context, uid, org string, v domain.Run) 
 				period, periodErr := schedule.PeriodAt(v.CreatedAt)
 				if periodErr != nil {
 					return periodErr
-				}
-				if schedule.ShiftID != "" {
-					// Un control por turno solo se inicia con el turno abierto, según el reloj del servidor.
-					if period.ShiftState != "OPEN" {
-						return domain.ErrShiftOutOfHours
-					}
-					v.ShiftID = schedule.ShiftID
 				}
 				started, readErr := db.PeriodRuns(ctx, org, []domain.AssignmentPeriod{period})
 				if readErr != nil {
@@ -376,42 +399,4 @@ func (s *Service) Submit(ctx context.Context, uid, org, runID string, version in
 		return e
 	})
 	return
-}
-
-// validateItems valida las preguntas de una plantilla o de una nueva versión publicada.
-func validateItems(fields map[string]string, v *domain.Template) {
-	if len(v.Items) == 0 || len(v.Items) > 100 {
-		fields["items"] = "Incluye entre 1 y 100 preguntas."
-	}
-	seenIDs, seenOrders := map[string]bool{}, map[int]bool{}
-	for i := range v.Items {
-		item := &v.Items[i]
-		item.SectionName = strings.TrimSpace(item.SectionName)
-		item.Label = strings.TrimSpace(item.Label)
-		item.Unit = strings.TrimSpace(item.Unit)
-		if !uuid.MatchString(item.ID) || seenIDs[item.ID] || item.ID == v.ID || item.ID == v.VersionID ||
-			item.DisplayOrder <= 0 || seenOrders[item.DisplayOrder] ||
-			utf8.RuneCountInString(item.SectionName) < 2 || utf8.RuneCountInString(item.SectionName) > 120 ||
-			utf8.RuneCountInString(item.Label) < 2 || utf8.RuneCountInString(item.Label) > 300 ||
-			strings.IndexFunc(item.Label+item.SectionName+item.Unit, unicode.IsControl) >= 0 || len(item.Unit) > 20 {
-			fields["items"] = "Revisa los identificadores, orden y textos de las preguntas."
-		}
-		seenIDs[item.ID], seenOrders[item.DisplayOrder] = true, true
-		switch item.ResponseType {
-		case "COMPLIANCE", "TEXT":
-			if item.MinimumValue != nil || item.MaximumValue != nil || item.Unit != "" {
-				fields["items"] = "Las preguntas de cumplimiento o texto no usan rangos numéricos."
-			}
-		case "TEMPERATURE", "NUMBER":
-			if item.MinimumValue == nil || item.MaximumValue == nil || !validDecimal(item.MinimumValue) || !validDecimal(item.MaximumValue) ||
-				(item.MinimumValue != nil && item.MaximumValue != nil && *item.MinimumValue > *item.MaximumValue) {
-				fields["items"] = "Las preguntas numéricas requieren un rango válido de dos decimales."
-			}
-		default:
-			fields["items"] = "Tipo de respuesta no permitido."
-		}
-		if item.EvidenceRequiredOnFailure && item.ResponseType == "TEXT" {
-			fields["items"] = "La foto por incumplimiento se aplica a respuestas de cumplimiento o mediciones."
-		}
-	}
 }

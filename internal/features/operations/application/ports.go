@@ -35,8 +35,6 @@ type Store interface {
 	CatalogStore
 	ReceiptStore
 	CleaningStore
-	ShiftStore
-	StockStore
 	Actor(context.Context, string, string) (domain.Actor, error)
 	Location(context.Context, domain.Actor, string, string) (string, error)
 	Lock(context.Context, string) error

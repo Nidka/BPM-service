@@ -41,7 +41,6 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Get("/organizations/{organizationID}/cleaning-executions", h.executions)
 		r.Post("/organizations/{organizationID}/cleaning-executions", h.execute)
 		r.Get("/organizations/{organizationID}/cleaning-executions/{executionID}", h.execution)
-		h.registerPlus(r)
 	})
 }
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -56,14 +55,6 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "Tu cuenta no tiene permiso para esta operación o sede."})
 	case errors.Is(err, domain.ErrNotFound):
 		response.Error(w, 404, id, response.APIError{Code: "NOT_FOUND", Message: "El registro no está disponible en esta empresa o sede."})
-	case errors.Is(err, domain.ErrInsufficientStock):
-		response.Error(w, 409, id, response.APIError{Code: "INSUFFICIENT_STOCK", Message: "El saldo del lote no alcanza para esta cantidad o el lote ya no está disponible."})
-	case errors.Is(err, domain.ErrLotExpired):
-		response.Error(w, 409, id, response.APIError{Code: "LOT_EXPIRED", Message: "El lote está vencido y no puede consumirse. Regístralo como descarte por vencimiento."})
-	case errors.Is(err, domain.ErrShiftInUse):
-		response.Error(w, 409, id, response.APIError{Code: "SHIFT_IN_USE", Message: "El turno tiene programaciones activas. Desactívalas antes de retirar el turno."})
-	case errors.Is(err, domain.ErrShiftOutOfHours):
-		response.Error(w, 422, id, response.APIError{Code: "SHIFT_OUT_OF_HOURS", Message: "La hora del registro está fuera del horario del turno elegido.", Fields: map[string]string{"shiftId": "La hora está fuera del horario de este turno."}})
 	case errors.Is(err, domain.ErrConflict):
 		response.Error(w, 409, id, response.APIError{Code: "RESOURCE_CONFLICT", Message: "El registro cambió o esta operación ya tiene datos diferentes. Revisa la versión guardada."})
 	default:

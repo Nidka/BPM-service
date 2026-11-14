@@ -22,7 +22,7 @@ func (s *store) OrganizationsPage(ctx context.Context, a domain.Actor, w paginat
 	out := []domain.Organization{}
 	for rows.Next() {
 		var o domain.Organization
-		if e = rows.Scan(&o.ID, &o.LegalName, &o.TradeName, &o.TaxID, &o.BusinessType, &o.ContactName, &o.ContactPhone, &o.ContactEmail, &o.RowVersion); e != nil {
+		if e = rows.Scan(&o.ID, &o.LegalName, &o.TradeName, &o.TaxID, &o.BusinessType, &o.ContactName, &o.ContactPhone, &o.ContactEmail); e != nil {
 			return nil, e
 		}
 		out = append(out, o)
@@ -30,13 +30,10 @@ func (s *store) OrganizationsPage(ctx context.Context, a domain.Actor, w paginat
 	return out, rows.Err()
 }
 func (s *store) LocationsPage(ctx context.Context, a domain.Actor, org, role string, w pagination.Window) ([]domain.Location, error) {
-	return s.LocationsPageByStatus(ctx, a, org, role, "ACTIVE", w)
-}
-func (s *store) LocationsPageByStatus(ctx context.Context, a domain.Actor, org, role, status string, w pagination.Window) ([]domain.Location, error) {
-	rows, e := s.tx.Query(ctx, `SELECT l.id::text,l.name,l.address,COALESCE(l.district,''),COALESCE(l.contact_phone,''),l.timezone,l.status,l.row_version FROM locations l
- WHERE l.organization_id=$1 AND l.status=$8 AND ($3 OR EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=$1 AND ml.user_id=$2 AND ml.location_id=l.id))
+	rows, e := s.tx.Query(ctx, `SELECT l.id::text,l.name,l.address,COALESCE(l.district,''),COALESCE(l.contact_phone,''),l.timezone FROM locations l
+ WHERE l.organization_id=$1 AND l.status='ACTIVE' AND ($3 OR EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=$1 AND ml.user_id=$2 AND ml.location_id=l.id))
  AND ($4='' OR strpos(lower(l.name||' '||l.address||' '||COALESCE(l.district,'')),lower($4))>0)
- AND ($6='' OR (l.name,l.id::text)>($5,$6)) ORDER BY l.name,l.id::text LIMIT $7`, org, a.ID, domain.CanManage(role), w.Query, w.After.Key, w.After.ID, w.Size+1, status)
+ AND ($6='' OR (l.name,l.id::text)>($5,$6)) ORDER BY l.name,l.id::text LIMIT $7`, org, a.ID, domain.CanManage(role), w.Query, w.After.Key, w.After.ID, w.Size+1)
 	if e != nil {
 		return nil, e
 	}
@@ -44,7 +41,7 @@ func (s *store) LocationsPageByStatus(ctx context.Context, a domain.Actor, org, 
 	out := []domain.Location{}
 	for rows.Next() {
 		var v domain.Location
-		if e = rows.Scan(&v.ID, &v.Name, &v.Address, &v.District, &v.ContactPhone, &v.Timezone, &v.Status, &v.RowVersion); e != nil {
+		if e = rows.Scan(&v.ID, &v.Name, &v.Address, &v.District, &v.ContactPhone, &v.Timezone); e != nil {
 			return nil, e
 		}
 		out = append(out, v)
@@ -52,14 +49,10 @@ func (s *store) LocationsPageByStatus(ctx context.Context, a domain.Actor, org, 
 	return out, rows.Err()
 }
 func (s *store) MembersPage(ctx context.Context, org string, w pagination.Window) ([]domain.Member, error) {
-	return s.MembersPageByStatus(ctx, org, "ACTIVE", w)
-}
-func (s *store) MembersPageByStatus(ctx context.Context, org, status string, w pagination.Window) ([]domain.Member, error) {
-	rows, e := s.tx.Query(ctx, `SELECT u.id,u.display_name,u.email,m.role,COALESCE((SELECT array_agg(ml.location_id::text ORDER BY ml.location_id) FROM membership_locations ml WHERE ml.organization_id=$1 AND ml.user_id=u.id),'{}'::text[]),m.status,m.row_version,(u.status='ACTIVE')
- FROM organization_memberships m JOIN application_users u ON u.id=m.user_id AND ($6='INACTIVE' OR u.status='ACTIVE')
- WHERE m.organization_id=$1 AND m.status=$6
+	rows, e := s.tx.Query(ctx, `SELECT u.id,u.display_name,u.email,m.role,COALESCE((SELECT array_agg(ml.location_id::text ORDER BY ml.location_id) FROM membership_locations ml WHERE ml.organization_id=$1 AND ml.user_id=u.id),'{}'::text[]) FROM organization_memberships m JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE'
+ WHERE m.organization_id=$1 AND m.status='ACTIVE'
  AND ($2='' OR strpos(lower(u.display_name||' '||u.email),lower($2))>0)
- AND ($4='' OR (u.display_name,u.id)>($3,$4)) ORDER BY u.display_name,u.id LIMIT $5`, org, w.Query, w.After.Key, w.After.ID, w.Size+1, status)
+ AND ($4='' OR (u.display_name,u.id)>($3,$4)) ORDER BY u.display_name,u.id LIMIT $5`, org, w.Query, w.After.Key, w.After.ID, w.Size+1)
 	if e != nil {
 		return nil, e
 	}
@@ -67,7 +60,7 @@ func (s *store) MembersPageByStatus(ctx context.Context, org, status string, w p
 	out := []domain.Member{}
 	for rows.Next() {
 		var v domain.Member
-		if e = rows.Scan(&v.ID, &v.Name, &v.Email, &v.Role, &v.LocationIDs, &v.Status, &v.RowVersion, &v.AccountActive); e != nil {
+		if e = rows.Scan(&v.ID, &v.Name, &v.Email, &v.Role, &v.LocationIDs); e != nil {
 			return nil, e
 		}
 		out = append(out, v)
@@ -98,7 +91,7 @@ func (s *store) WorkspacePage(ctx context.Context, a domain.Actor, org, role str
 	out.NextTokens = map[string]string{}
 	out.Totals = map[string]int{}
 	out.Members = []domain.Member{}
-	err = s.tx.QueryRow(ctx, `SELECT `+orgColumns+` FROM organizations o WHERE o.id=$1`, org).Scan(&out.Organization.ID, &out.Organization.LegalName, &out.Organization.TradeName, &out.Organization.TaxID, &out.Organization.BusinessType, &out.Organization.ContactName, &out.Organization.ContactPhone, &out.Organization.ContactEmail, &out.Organization.RowVersion)
+	err = s.tx.QueryRow(ctx, `SELECT `+orgColumns+` FROM organizations o WHERE o.id=$1`, org).Scan(&out.Organization.ID, &out.Organization.LegalName, &out.Organization.TradeName, &out.Organization.TaxID, &out.Organization.BusinessType, &out.Organization.ContactName, &out.Organization.ContactPhone, &out.Organization.ContactEmail)
 	if err != nil {
 		return
 	}

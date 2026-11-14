@@ -63,11 +63,11 @@ func (s *store) Plans(ctx context.Context, org, site string, w pagination.Window
 	return out, rows.Err()
 }
 
-const executionFields = `e.id::text,e.location_id::text,e.cleaning_plan_id::text,p.area,p.task,e.responsible_user_id,u.display_name,e.executed_at,e.result,COALESCE(e.observation,''),e.client_operation_id::text,e.client_created_at,e.created_at,COALESCE(e.request_hash,''),COALESCE(e.shift_id::text,''),COALESCE(sh.name,'')`
-const executionJoins = ` FROM cleaning_executions e JOIN cleaning_plans p ON p.organization_id=e.organization_id AND p.id=e.cleaning_plan_id JOIN application_users u ON u.id=e.responsible_user_id LEFT JOIN location_shifts sh ON sh.organization_id=e.organization_id AND sh.id=e.shift_id `
+const executionFields = `e.id::text,e.location_id::text,e.cleaning_plan_id::text,p.area,p.task,e.responsible_user_id,u.display_name,e.executed_at,e.result,COALESCE(e.observation,''),e.client_operation_id::text,e.client_created_at,e.created_at,COALESCE(e.request_hash,'')`
+const executionJoins = ` FROM cleaning_executions e JOIN cleaning_plans p ON p.organization_id=e.organization_id AND p.id=e.cleaning_plan_id JOIN application_users u ON u.id=e.responsible_user_id `
 
 func scanExecution(row pgx.Row) (v domain.CleaningExecution, e error) {
-	e = row.Scan(&v.ID, &v.LocationID, &v.CleaningPlanID, &v.Area, &v.Task, &v.ResponsibleUserID, &v.ResponsibleName, &v.ExecutedAt, &v.Result, &v.Observation, &v.ClientOperationID, &v.ClientCreatedAt, &v.CreatedAt, &v.RequestHash, &v.ShiftID, &v.ShiftName)
+	e = row.Scan(&v.ID, &v.LocationID, &v.CleaningPlanID, &v.Area, &v.Task, &v.ResponsibleUserID, &v.ResponsibleName, &v.ExecutedAt, &v.Result, &v.Observation, &v.ClientOperationID, &v.ClientCreatedAt, &v.CreatedAt, &v.RequestHash)
 	v.ExecutedAt = v.ExecutedAt.UTC()
 	v.ClientCreatedAt = v.ClientCreatedAt.UTC()
 	v.CreatedAt = v.CreatedAt.UTC()
@@ -80,7 +80,7 @@ func (s *store) CreateExecution(ctx context.Context, a domain.Actor, org string,
 	if !hashPattern.MatchString(v.RequestHash) {
 		return v, domain.ErrConflict
 	}
-	tag, e := s.tx.Exec(ctx, `INSERT INTO cleaning_executions(id,organization_id,location_id,cleaning_plan_id,responsible_user_id,executed_at,result,observation,client_operation_id,client_created_at,request_hash,shift_id,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),$9,$10,$11,NULLIF($12,'')::uuid,$5,$5) ON CONFLICT DO NOTHING`, v.ID, org, v.LocationID, v.CleaningPlanID, a.ID, v.ExecutedAt, v.Result, v.Observation, v.ClientOperationID, v.ClientCreatedAt, v.RequestHash, v.ShiftID)
+	tag, e := s.tx.Exec(ctx, `INSERT INTO cleaning_executions(id,organization_id,location_id,cleaning_plan_id,responsible_user_id,executed_at,result,observation,client_operation_id,client_created_at,request_hash,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),$9,$10,$11,$5,$5) ON CONFLICT DO NOTHING`, v.ID, org, v.LocationID, v.CleaningPlanID, a.ID, v.ExecutedAt, v.Result, v.Observation, v.ClientOperationID, v.ClientCreatedAt, v.RequestHash)
 	if e != nil {
 		return v, conflict(e)
 	}
