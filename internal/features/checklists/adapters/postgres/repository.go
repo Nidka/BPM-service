@@ -178,11 +178,11 @@ func (s *store) CreateTemplate(ctx context.Context, a domain.Actor, org string, 
 }
 
 func (s *store) CreateRun(ctx context.Context, a domain.Actor, v domain.Run) (domain.Run, error) {
-	tag, err := s.tx.Exec(ctx, `INSERT INTO checklist_runs(id,organization_id,location_id,template_version_id,performed_by,client_operation_id,client_created_at,created_by,updated_by,assignment_id,created_at)
-		SELECT $1::uuid,$2::varchar(64),$3::uuid,v.id,$4::varchar(128),$5::uuid,$6::timestamptz,$4::varchar(128),$4::varchar(128),NULLIF($8,'')::uuid,$9::timestamptz FROM checklist_template_versions v
+	tag, err := s.tx.Exec(ctx, `INSERT INTO checklist_runs(id,organization_id,location_id,template_version_id,performed_by,client_operation_id,client_created_at,created_by,updated_by,assignment_id,created_at,shift_id)
+		SELECT $1::uuid,$2::varchar(64),$3::uuid,v.id,$4::varchar(128),$5::uuid,$6::timestamptz,$4::varchar(128),$4::varchar(128),NULLIF($8,'')::uuid,$9::timestamptz,NULLIF($10,'')::uuid FROM checklist_template_versions v
 		JOIN checklist_templates t ON t.organization_id=v.organization_id AND t.id=v.template_id
 		WHERE v.organization_id=$2::varchar(64) AND v.id=$7::uuid AND v.status='PUBLISHED' AND t.status='ACTIVE'
-		ON CONFLICT(id) DO NOTHING`, v.ID, v.OrganizationID, v.LocationID, a.ID, v.ClientOperationID, v.ClientCreatedAt, v.TemplateVersionID, v.AssignmentID, v.CreatedAt)
+		ON CONFLICT(id) DO NOTHING`, v.ID, v.OrganizationID, v.LocationID, a.ID, v.ClientOperationID, v.ClientCreatedAt, v.TemplateVersionID, v.AssignmentID, v.CreatedAt, v.ShiftID)
 	if err != nil {
 		return domain.Run{}, pgConflict(err)
 	}
@@ -212,10 +212,10 @@ func (s *store) Run(ctx context.Context, a domain.Actor, org, runID string, lock
 	}
 	var score *string
 	err = s.tx.QueryRow(ctx, `SELECT id::text,organization_id,location_id::text,template_version_id::text,performed_by,
-		client_operation_id::text,client_created_at,status,row_version,compliance_percent::text,submitted_at,created_at,COALESCE(assignment_id::text,'')
+		client_operation_id::text,client_created_at,status,row_version,compliance_percent::text,submitted_at,created_at,COALESCE(assignment_id::text,''),COALESCE(shift_id::text,'')
 		FROM checklist_runs WHERE organization_id=$1 AND id=$2`+lockClause, org, runID).Scan(
 		&v.ID, &v.OrganizationID, &v.LocationID, &v.TemplateVersionID, &v.PerformedBy,
-		&v.ClientOperationID, &v.ClientCreatedAt, &v.Status, &v.RowVersion, &score, &v.SubmittedAt, &v.CreatedAt, &v.AssignmentID)
+		&v.ClientOperationID, &v.ClientCreatedAt, &v.Status, &v.RowVersion, &score, &v.SubmittedAt, &v.CreatedAt, &v.AssignmentID, &v.ShiftID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}
@@ -233,11 +233,11 @@ func (s *store) Run(ctx context.Context, a domain.Actor, org, runID string, lock
 	if a.ID != v.PerformedBy && a.Role != "ADMIN" && a.Role != "CHEF" && a.Role != "SUPER_ADMIN" {
 		return v, domain.ErrDenied
 	}
-	if err = s.tx.QueryRow(ctx, `SELECT t.name,l.name,u.display_name FROM checklist_template_versions v
+	if err = s.tx.QueryRow(ctx, `SELECT t.name,l.name,u.display_name,v.version_number,COALESCE((SELECT x.name FROM location_shifts x WHERE x.organization_id=$1 AND x.id=NULLIF($5,'')::uuid),'') FROM checklist_template_versions v
  JOIN checklist_templates t ON t.organization_id=v.organization_id AND t.id=v.template_id
  JOIN locations l ON l.organization_id=v.organization_id AND l.id=$3
  JOIN application_users u ON u.id=$4
- WHERE v.organization_id=$1 AND v.id=$2`, org, v.TemplateVersionID, v.LocationID, v.PerformedBy).Scan(&v.TemplateName, &v.LocationName, &v.PerformedByName); err != nil {
+ WHERE v.organization_id=$1 AND v.id=$2`, org, v.TemplateVersionID, v.LocationID, v.PerformedBy, v.ShiftID).Scan(&v.TemplateName, &v.LocationName, &v.PerformedByName, &v.TemplateVersionNumber, &v.ShiftName); err != nil {
 		return v, err
 	}
 	rows, err := s.tx.Query(ctx, `SELECT id::text,section_name,label,response_type,display_order,required,minimum_value::text,maximum_value::text,COALESCE(unit,''),evidence_required_on_failure

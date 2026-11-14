@@ -99,11 +99,18 @@ func (s *store) File(ctx context.Context, org, id string, lock bool) (domain.Fil
 	}
 	file, err := scanFile(s.tx.QueryRow(ctx, `SELECT `+fileFields+` FROM media_files m JOIN checklist_media cm ON cm.organization_id=m.organization_id AND cm.media_file_id=m.id WHERE m.organization_id=$1 AND m.id=$2`+unambiguousFile+clause, org, id))
 	if errors.Is(err, domain.ErrNotFound) {
-		return scanFile(s.tx.QueryRow(ctx, `SELECT `+incidentFileFields+` FROM media_files m JOIN incident_media im ON im.organization_id=m.organization_id AND im.media_file_id=m.id WHERE m.organization_id=$1 AND m.id=$2`+unambiguousFile+clause, org, id))
+		file, err = scanFile(s.tx.QueryRow(ctx, `SELECT `+incidentFileFields+` FROM media_files m JOIN incident_media im ON im.organization_id=m.organization_id AND im.media_file_id=m.id WHERE m.organization_id=$1 AND m.id=$2`+unambiguousFile+clause, org, id))
+		if errors.Is(err, domain.ErrNotFound) {
+			return cleaningFile(scanFile(s.tx.QueryRow(ctx, `SELECT `+cleaningFileFields+` FROM media_files m JOIN cleaning_media cl ON cl.organization_id=m.organization_id AND cl.media_file_id=m.id WHERE m.organization_id=$1 AND m.id=$2`+unambiguousFile+clause, org, id)))
+		}
+		return file, err
 	}
 	return file, err
 }
 func (s *store) List(ctx context.Context, t domain.Target) ([]domain.File, error) {
+	if t.CleaningID != "" {
+		return s.cleaningList(ctx, t)
+	}
 	if t.IncidentID != "" {
 		return s.incidentList(ctx, t)
 	}
@@ -128,14 +135,16 @@ func (s *store) Reserve(ctx context.Context, t domain.Target, f domain.File, max
 		if existing.CreatedBy != t.UserID {
 			return domain.File{}, domain.ErrConflict
 		}
-		err = existing.Match(domain.UploadInput{ID: f.ID, RunID: f.RunID, ItemID: f.ItemID, IncidentID: f.IncidentID, ActionID: f.ActionID, Stage: f.Stage, OriginalName: f.OriginalName, MIMEType: f.MIMEType, SizeBytes: f.SizeBytes, SHA256: f.SHA256})
+		err = existing.Match(domain.UploadInput{ID: f.ID, CleaningID: f.CleaningID, RunID: f.RunID, ItemID: f.ItemID, IncidentID: f.IncidentID, ActionID: f.ActionID, Stage: f.Stage, OriginalName: f.OriginalName, MIMEType: f.MIMEType, SizeBytes: f.SizeBytes, SHA256: f.SHA256})
 		return existing, err
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.File{}, err
 	}
 	var count int
-	if t.IncidentID != "" {
+	if t.CleaningID != "" {
+		err = s.tx.QueryRow(ctx, `SELECT count(*) FROM cleaning_media cl JOIN media_files m ON m.organization_id=cl.organization_id AND m.id=cl.media_file_id WHERE cl.organization_id=$1 AND cl.cleaning_execution_id=$2 AND m.status<>'DELETED'`, t.OrganizationID, t.CleaningID).Scan(&count)
+	} else if t.IncidentID != "" {
 		err = s.tx.QueryRow(ctx, `SELECT count(*) FROM incident_media im JOIN media_files m ON m.organization_id=im.organization_id AND m.id=im.media_file_id WHERE im.organization_id=$1 AND im.incident_id=$2 AND im.stage=$3 AND COALESCE(im.corrective_action_id::text,'')=$4 AND m.status<>'DELETED'`, t.OrganizationID, t.IncidentID, t.Stage, t.ActionID).Scan(&count)
 	} else {
 		err = s.tx.QueryRow(ctx, `SELECT count(*) FROM checklist_media cm JOIN media_files m ON m.organization_id=cm.organization_id AND m.id=cm.media_file_id WHERE cm.organization_id=$1 AND cm.checklist_run_id=$2 AND cm.checklist_item_id=$3 AND m.status<>'DELETED'`, t.OrganizationID, t.RunID, t.ItemID).Scan(&count)
@@ -154,7 +163,9 @@ func (s *store) Reserve(ctx context.Context, t domain.Target, f domain.File, max
 	if tag.RowsAffected() != 1 {
 		return domain.File{}, domain.ErrConflict
 	}
-	if t.IncidentID != "" {
+	if t.CleaningID != "" {
+		_, err = s.tx.Exec(ctx, `INSERT INTO cleaning_media(organization_id,cleaning_execution_id,media_file_id,created_by,updated_by) VALUES($1,$2,$3,$4,$4)`, t.OrganizationID, t.CleaningID, f.ID, t.UserID)
+	} else if t.IncidentID != "" {
 		_, err = s.tx.Exec(ctx, `INSERT INTO incident_media(organization_id,incident_id,corrective_action_id,media_file_id,stage,created_by,updated_by) VALUES($1,$2,NULLIF($3,'')::uuid,$4,$5,$6,$6)`, t.OrganizationID, t.IncidentID, t.ActionID, f.ID, t.Stage, t.UserID)
 	} else {
 		_, err = s.tx.Exec(ctx, `INSERT INTO checklist_media(organization_id,checklist_run_id,checklist_item_id,media_file_id,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$5)`, t.OrganizationID, t.RunID, t.ItemID, f.ID, t.UserID)

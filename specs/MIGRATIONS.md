@@ -79,3 +79,45 @@ aviso y canal; revisar su historial manualmente, sin borrar ni fusionar registro
 La migración no crea reglas, cuentas, contenidos ni asignaciones de prueba.
 V3 local sigue fuera de esta entrega. Ver [ALERTS.md](ALERTS.md) y
 [NOTIFICATIONS.md](NOTIFICATIONS.md); el worker se despliega aparte.
+
+## Academia BPM (V8)
+
+`V8__training_academy.sql` añade `row_version` del borrador, `request_hash` de
+intentos, unicidad de una sola versión DRAFT y una sola PUBLISHED por curso,
+constancia única por (organización, usuario, versión), índices y restricciones de
+contenido (`NOT VALID`). Aplicar después de V7 (o de V2 si V4–V7 ya están) y antes
+de la API que exige este esquema; el arranque falla de forma explícita si falta.
+El preflight se detiene si existen borradores/publicadas o constancias duplicadas;
+revisarlas manualmente, sin borrar ni fusionar. No crea cursos ni datos de prueba.
+V3 local de capacitación sigue reservada y no se usa. Ver [TRAINING.md](TRAINING.md).
+
+## Gestión de cuentas (V12)
+
+`V12__accounts_management.sql` añade `row_version` a organizaciones, sedes y membresías,
+la tabla `organization_invitations` (solo hash del token) y amplía `business_type`
+(`RELATED_SERVICE` pasa a `OTHER_FOOD_SERVICE`). Aplicar después de V8 (V7 es necesaria
+para el outbox) y antes de la API/worker que la exigen. El preflight se detiene ante tipos
+de establecimiento desconocidos. V3 sigue reservada. Ver [ORGANIZATIONS.md](ORGANIZATIONS.md).
+
+## Investigación CAP (V9)
+
+`V9__research_cap.sql` añade bandera CAP, versión de fila del borrador, respuesta correcta,
+puntajes e idempotencia de entregas, unicidad de participante y de código seudónimo,
+documentos de consentimiento, concesiones de acceso de investigación, necesidades
+detectadas y triggers de inmutabilidad. Aplicar después de V8 y antes de la API; el
+arranque falla de forma explícita si falta. El preflight se detiene ante participantes,
+códigos o versiones DRAFT/PUBLISHED duplicados; revisarlos sin borrar ni fusionar. No
+crea datos. Ver [RESEARCH.md](RESEARCH.md).
+
+## Reportes y uso (V10)
+
+`V10__reports_usage.sql` añade la función `bpm_report_timezone`, `report_settings`,
+`compliance_certificates` (inmutable por trigger), `weekly_report_deliveries`, la columna e índice
+único `usage_events.client_event_id` (idempotencia de eventos), restricciones `NOT VALID` de uso e
+índices de lectura. Aplicar después de V8 (y V9 si existe) y antes de la API/worker que lo exige;
+ambos fallan al arrancar si falta. No crea datos de prueba ni toca filas existentes. V3 sigue
+reservada. Ver [REPORTS.md](REPORTS.md).
+
+## Operaciones ampliadas (V13)
+
+`V13__operations_shifts_stock.sql` agrega `location_shifts`, `shift_id` en programaciones, revisiones y limpiezas, `stock_movements` (append-only) y una sola versión vigente por plantilla (`change_note`, `request_hash`). Aplicar después de V5 (y V4) con `ON_ERROR_STOP=1`, antes del backend que la exige. Preflight incluido: aborta si una plantilla tiene más de una versión PUBLISHED. Ver [OPERATIONS.md](OPERATIONS.md) y [CHECKLISTS.md](CHECKLISTS.md).

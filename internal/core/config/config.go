@@ -103,11 +103,15 @@ type R2Config struct {
 	SignedURLTTL     time.Duration
 	MaxUploadBytes   int64
 	AllowedMIMETypes map[string]struct{}
+	// TrainingVideoMaxBytes limita cada video de la Academia BPM (300 MiB por defecto, máximo 1 GiB).
+	TrainingVideoMaxBytes int64
 }
 
 type EmailConfig struct {
 	ResendAPIKey string
 	From         string
+	// InvitationAcceptURL es la página del cliente que recibe ?token= (opcional).
+	InvitationAcceptURL string
 }
 
 type ObservabilityConfig struct {
@@ -247,10 +251,13 @@ func loadFrom(getenv func(string) string) (Config, error) {
 			SignedURLTTL:     duration("R2_SIGNED_URL_TTL", 5*time.Minute),
 			MaxUploadBytes:   integer64("MEDIA_MAX_UPLOAD_BYTES", 10<<20),
 			AllowedMIMETypes: allowedMIMEs,
+
+			TrainingVideoMaxBytes: integer64("TRAINING_VIDEO_MAX_BYTES", 300<<20),
 		},
 		Email: EmailConfig{
-			ResendAPIKey: strings.TrimSpace(getenv("RESEND_API_KEY")),
-			From:         strings.TrimSpace(getenv("RESEND_FROM_EMAIL")),
+			ResendAPIKey:        strings.TrimSpace(getenv("RESEND_API_KEY")),
+			From:                strings.TrimSpace(getenv("RESEND_FROM_EMAIL")),
+			InvitationAcceptURL: strings.TrimSpace(getenv("INVITATION_ACCEPT_URL")),
 		},
 		Observability: ObservabilityConfig{
 			SentryDSN: strings.TrimSpace(getenv("SENTRY_DSN")),
@@ -344,6 +351,9 @@ func (c Config) Validate() error {
 
 	if c.App.IsProductionLike() && !c.R2.Enabled {
 		errs = append(errs, fmt.Errorf("R2_ENABLED must be true in staging and production"))
+	}
+	if c.R2.TrainingVideoMaxBytes < 1<<20 || c.R2.TrainingVideoMaxBytes > 1<<30 {
+		errs = append(errs, fmt.Errorf("TRAINING_VIDEO_MAX_BYTES must be between 1 MiB and 1 GiB"))
 	}
 	if c.R2.Enabled {
 		if c.R2.AccountID == "" || c.R2.AccessKeyID == "" || c.R2.SecretKey == "" || c.R2.Bucket == "" || c.R2.Endpoint == "" {

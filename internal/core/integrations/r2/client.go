@@ -38,6 +38,10 @@ type Client struct {
 	maxBytes     int64
 	allowedMIMEs map[string]struct{}
 	inspections  chan struct{}
+
+	// Videos de capacitación: límite propio y concurrencia de inspección acotada.
+	videoMaxBytes   int64
+	videoInspection chan struct{}
 }
 
 func New(ctx context.Context, cfg config.R2Config) (*Client, error) {
@@ -69,6 +73,9 @@ func New(ctx context.Context, cfg config.R2Config) (*Client, error) {
 		maxBytes:     cfg.MaxUploadBytes,
 		allowedMIMEs: cfg.AllowedMIMETypes,
 		inspections:  make(chan struct{}, 2),
+
+		videoMaxBytes:   cfg.TrainingVideoMaxBytes,
+		videoInspection: make(chan struct{}, 2),
 	}, nil
 }
 

@@ -60,7 +60,7 @@ func database(t *testing.T, beforeV5 ...func(context.Context, *pgxpool.Pool)) (c
 		t.Fatal(e)
 	}
 	t.Cleanup(pool.Close)
-	for _, name := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql"} {
+	for _, name := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V13__operations_shifts_stock.sql"} {
 		if name == "V5__daily_operations.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("operaciones arrancan sin V5")
 		}
