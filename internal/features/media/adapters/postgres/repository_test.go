@@ -47,7 +47,7 @@ func TestPrivateEvidencePostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	for _, name := range []string{"V1__baseline.sql", "V4__checklist_evidence_items.sql"} {
+	for _, name := range []string{"V1__baseline.sql", "V4__checklist_evidence_items.sql", "V13__operations_shifts_stock.sql"} {
 		if name == "V4__checklist_evidence_items.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("arranca sin migración V4")
 		}

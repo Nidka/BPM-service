@@ -57,3 +57,11 @@ La política de 8 horas, inactividad, revocación y publicación está en
 - Sentry tiene `SendDefaultPII=false`.
 - Cualquier credencial expuesta se rota desde el proveedor, no se reutiliza.
 
+
+## Videos de capacitación
+
+Los videos de la Academia BPM (MP4/WebM, hasta `TRAINING_VIDEO_MAX_BYTES`) usan
+claves `organizations/{org}/training/videos/{id}.{mp4|webm}` en el mismo bucket
+privado. PUT firmado sin sobrescritura y GET firmado de 15 minutos; la confirmación
+verifica firma real del formato y SHA-256 en streaming. Las URL firmadas no se
+registran. Ver [TRAINING.md](TRAINING.md).

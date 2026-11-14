@@ -69,6 +69,13 @@ func TestWorkspacePostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, string(baseline)); err != nil {
 		t.Fatal(err)
 	}
+	accounts, err := os.ReadFile("../../../../../migraciones/V12__accounts_management.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, string(accounts)); err != nil {
+		t.Fatal(err)
+	}
 	exec := func(q string, args ...any) {
 		t.Helper()
 		if _, e := pool.Exec(ctx, q, args...); e != nil {

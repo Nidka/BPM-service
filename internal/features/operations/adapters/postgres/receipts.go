@@ -163,7 +163,7 @@ func (s *store) Lots(ctx context.Context, org, site string, w pagination.Window)
 		}
 		receiptItem = tail
 	}
-	rows, e := s.tx.Query(ctx, `SELECT l.id::text,l.location_id::text,l.receipt_item_id::text,i.product_id::text,p.name,p.unit,COALESCE(i.batch_code,''),COALESCE(i.expiration_date::text,''),r.received_at,l.storage_location,COALESCE(l.label,''),l.quantity_available::text,l.status,COALESCE(i.expiration_date < (CURRENT_TIMESTAMP AT TIME ZONE loc.timezone)::date,false)
+	rows, e := s.tx.Query(ctx, `SELECT l.id::text,l.location_id::text,l.receipt_item_id::text,i.product_id::text,p.name,p.unit,COALESCE(i.batch_code,''),COALESCE(i.expiration_date::text,''),r.received_at,l.storage_location,COALESCE(l.label,''),l.quantity_available::text,l.status,COALESCE(i.expiration_date < (CURRENT_TIMESTAMP AT TIME ZONE loc.timezone)::date,false),i.quantity::text
  FROM storage_lots l JOIN supply_receipt_items i ON i.organization_id=l.organization_id AND i.id=l.receipt_item_id JOIN supply_receipts r ON r.organization_id=i.organization_id AND r.id=i.receipt_id JOIN products p ON p.organization_id=i.organization_id AND p.id=i.product_id JOIN locations loc ON loc.organization_id=l.organization_id AND loc.id=l.location_id
  WHERE l.organization_id=$1 AND l.location_id=$2 AND strpos(lower(p.name || ' ' || COALESCE(i.batch_code,'') || ' ' || l.storage_location || ' ' || COALESCE(l.label,'')),lower($3))>0
  AND ($6='' OR (r.received_at,l.receipt_item_id,l.id)>($4,NULLIF($5,'')::uuid,NULLIF($6,'')::uuid)) ORDER BY r.received_at,l.receipt_item_id,l.id LIMIT $7`, org, site, w.Query, after, receiptItem, w.After.ID, limit(w))
@@ -174,7 +174,7 @@ func (s *store) Lots(ctx context.Context, org, site string, w pagination.Window)
 	out := []domain.Lot{}
 	for rows.Next() {
 		var v domain.Lot
-		e = rows.Scan(&v.ID, &v.LocationID, &v.ReceiptItemID, &v.ProductID, &v.ProductName, &v.Unit, &v.BatchCode, &v.ExpirationDate, &v.ReceivedAt, &v.StorageLocation, &v.Label, &v.QuantityAvailable, &v.Status, &v.Expired)
+		e = rows.Scan(&v.ID, &v.LocationID, &v.ReceiptItemID, &v.ProductID, &v.ProductName, &v.Unit, &v.BatchCode, &v.ExpirationDate, &v.ReceivedAt, &v.StorageLocation, &v.Label, &v.QuantityAvailable, &v.Status, &v.Expired, &v.ReceivedQuantity)
 		if e != nil {
 			return nil, e
 		}

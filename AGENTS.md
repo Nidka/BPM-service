@@ -47,9 +47,27 @@ programación por sede/frecuencia; leer `specs/CHECKLISTS.md`.
 `features/media` implementa fotos privadas para controles e incidencias; leer
 `specs/MEDIA.md`. Operación diaria estructurada está en `specs/OPERATIONS.md` y
 el recorrido de incidencias/correcciones en `specs/INCIDENTS.md`.
-Las entregas requieren V4/V5/V6 antes de activar sus APIs; no implican que esas
-migraciones ya estén aplicadas en producción. Turnos, movimientos de stock,
-fotos de limpieza, capacitación y reportes siguen pendientes.
+Las entregas requieren V4/V5/V6 (y V13 para turnos, movimientos de stock, versiones de plantilla y fotos de limpieza) antes de activar sus APIs; no implican que esas
+migraciones ya estén aplicadas en producción. Turnos, movimientos de stock y fotos de limpieza están en OPERATIONS.md, CHECKLISTS.md y MEDIA.md.
+Los reportes siguen pendientes.
 Alertas y notificaciones están implementadas localmente; leer ALERTS.md y
 NOTIFICATIONS.md. Requieren V7 y un worker separado antes de activarlas.
 
+La Academia BPM (cursos versionados con video privado, modo estudio, intentos
+calificados en servidor y constancias) está implementada localmente; leer
+`specs/TRAINING.md`. Requiere V8 y la variable `TRAINING_VIDEO_MAX_BYTES`.
+
+La gestión de cuentas (editar/desactivar miembros, transferir administración, invitaciones por
+correo, dispositivos propios y tipo de establecimiento) está en `specs/ORGANIZATIONS.md`; requiere V12
+e `INVITATION_ACCEPT_URL` opcional.
+
+El módulo de investigación CAP (consentimiento, instrumentos versionados, pretest/postest,
+resultados por empresa, exportación anonimizada y necesidades) está implementado localmente;
+leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas por SUPER_ADMIN.
+
+Asignaciones, rutas, insignias, evaluación por módulo, video de YouTube y catálogo offline
+están en la misma sección de `specs/TRAINING.md` y requieren además V11.
+
+Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de
+cumplimiento y correo semanal del worker) y registro de uso para investigación están
+implementados localmente; leer `specs/REPORTS.md`. Requieren V10.

@@ -116,6 +116,17 @@ func (s *Assignments) Create(ctx context.Context, uid, org string, v domain.Assi
 	default:
 		fields["frequency"] = "Selecciona la frecuencia del control."
 	}
+	if v.ShiftID != "" {
+		if !uuid.MatchString(v.ShiftID) {
+			fields["shiftId"] = "Selecciona un turno válido."
+		}
+		if v.Frequency != "DAILY" {
+			fields["frequency"] = "Un control por turno se repite todos los días."
+		}
+		if v.DueTime != "" {
+			fields["dueTime"] = "El horario lo define el turno."
+		}
+	}
 	if v.DueTime != "" {
 		parsed, e := time.Parse("15:04", v.DueTime)
 		if e != nil || parsed.Format("15:04") != v.DueTime {
@@ -125,7 +136,7 @@ func (s *Assignments) Create(ctx context.Context, uid, org string, v domain.Assi
 	if len(fields) > 0 {
 		return out, &domain.ValidationError{Fields: fields}
 	}
-	v.ID, v.TemplateID, v.LocationID = strings.ToLower(v.ID), strings.ToLower(v.TemplateID), strings.ToLower(v.LocationID)
+	v.ID, v.TemplateID, v.LocationID, v.ShiftID = strings.ToLower(v.ID), strings.ToLower(v.TemplateID), strings.ToLower(v.LocationID), strings.ToLower(v.ShiftID)
 	err = s.work.WithinAssignments(ctx, func(db AssignmentStore) error {
 		a, e := db.Actor(ctx, uid, org)
 		if e != nil {

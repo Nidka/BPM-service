@@ -147,10 +147,11 @@ type lotDTO struct {
 	QuantityAvailable string    `json:"quantityAvailable"`
 	Status            string    `json:"status"`
 	Expired           bool      `json:"expired"`
+	ReceivedQuantity  string    `json:"receivedQuantity"`
 }
 
 func lot(v domain.Lot) lotDTO {
-	return lotDTO{v.ID, v.LocationID, v.ReceiptItemID, v.ProductID, v.ProductName, v.Unit, v.BatchCode, optional(v.ExpirationDate), v.ReceivedAt, v.StorageLocation, v.Label, canonicalQuantity(v.QuantityAvailable), v.Status, v.Expired}
+	return lotDTO{v.ID, v.LocationID, v.ReceiptItemID, v.ProductID, v.ProductName, v.Unit, v.BatchCode, optional(v.ExpirationDate), v.ReceivedAt, v.StorageLocation, v.Label, canonicalQuantity(v.QuantityAvailable), v.Status, v.Expired, canonicalQuantity(v.ReceivedQuantity)}
 }
 
 type planInput struct {
@@ -186,10 +187,11 @@ type executionInput struct {
 	Observation       string    `json:"observation"`
 	ClientOperationID string    `json:"clientOperationId"`
 	ClientCreatedAt   time.Time `json:"clientCreatedAt"`
+	ShiftID           string    `json:"shiftId,omitempty"`
 }
 
 func (v executionInput) domain() domain.CleaningExecution {
-	return domain.CleaningExecution{ID: v.ID, LocationID: v.LocationID, CleaningPlanID: v.CleaningPlanID, ExecutedAt: v.ExecutedAt, Result: v.Result, Observation: v.Observation, ClientOperationID: v.ClientOperationID, ClientCreatedAt: v.ClientCreatedAt}
+	return domain.CleaningExecution{ID: v.ID, LocationID: v.LocationID, CleaningPlanID: v.CleaningPlanID, ExecutedAt: v.ExecutedAt, Result: v.Result, Observation: v.Observation, ClientOperationID: v.ClientOperationID, ClientCreatedAt: v.ClientCreatedAt, ShiftID: v.ShiftID}
 }
 
 type executionDTO struct {
@@ -198,11 +200,12 @@ type executionDTO struct {
 	Task              string    `json:"task"`
 	ResponsibleUserID string    `json:"responsibleUserId"`
 	ResponsibleName   string    `json:"responsibleName"`
+	ShiftName         string    `json:"shiftName,omitempty"`
 	CreatedAt         time.Time `json:"createdAt"`
 }
 
 func execution(v domain.CleaningExecution) executionDTO {
-	return executionDTO{executionInput{v.ID, v.LocationID, v.CleaningPlanID, v.ExecutedAt, v.Result, v.Observation, v.ClientOperationID, v.ClientCreatedAt}, v.Area, v.Task, v.ResponsibleUserID, v.ResponsibleName, v.CreatedAt}
+	return executionDTO{executionInput{v.ID, v.LocationID, v.CleaningPlanID, v.ExecutedAt, v.Result, v.Observation, v.ClientOperationID, v.ClientCreatedAt, v.ShiftID}, v.Area, v.Task, v.ResponsibleUserID, v.ResponsibleName, v.ShiftName, v.CreatedAt}
 }
 func optional(v string) *string {
 	if v == "" {
