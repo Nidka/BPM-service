@@ -2980,6 +2980,7 @@ paths:
     - $ref: "#/components/parameters/OrganizationID"
     - {in: query, name: from, required: true, schema: {type: string, format: date}}
     - {in: query, name: to, required: true, description: "Máximo 92 días.", schema: {type: string, format: date}}
+    - {in: query, name: scope, required: false, description: "operational (por defecto, todos los usuarios) o research (solo usuarios con participación ACTIVE y consentimiento de investigación vigente).", schema: {type: string, enum: [operational, research]}}
     get:
       tags: [Uso]
       operationId: getUsageSummary

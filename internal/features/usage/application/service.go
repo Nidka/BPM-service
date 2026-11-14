@@ -21,6 +21,8 @@ type Store interface {
 	MarkSessionStart(ctx context.Context, org, session string, at time.Time) error
 	MarkSessionEnd(ctx context.Context, org, session string, at time.Time) error
 	Summary(ctx context.Context, org string, p domain.Period) (domain.Summary, error)
+	// ResearchSummary agrega solo usuarios con participación ACTIVE y consentimiento de investigación vigente.
+	ResearchSummary(ctx context.Context, org string, p domain.Period) (domain.Summary, error)
 }
 
 // UnitOfWork ejecuta fn en una transacción.
@@ -113,6 +115,31 @@ func (s *Service) Summary(ctx context.Context, user, org, from, to string) (doma
 			return err
 		}
 		out, err = db.Summary(ctx, org, p)
+		return err
+	})
+	return out, err
+}
+
+// ResearchSummary devuelve el uso agregado destinado a investigación (ADMIN y SUPER_ADMIN),
+// limitado a usuarios con participación y consentimiento de investigación vigentes.
+func (s *Service) ResearchSummary(ctx context.Context, user, org, from, to string) (domain.Summary, error) {
+	var out domain.Summary
+	err := s.work.Within(ctx, func(db Store) error {
+		if !domain.ValidOrganization(org) {
+			return domain.ErrDenied
+		}
+		a, err := db.Actor(ctx, user, org)
+		if err != nil {
+			return err
+		}
+		if !a.CanQuery() {
+			return domain.ErrDenied
+		}
+		p, err := domain.ParsePeriod(from, to)
+		if err != nil {
+			return err
+		}
+		out, err = db.ResearchSummary(ctx, org, p)
 		return err
 	})
 	return out, err

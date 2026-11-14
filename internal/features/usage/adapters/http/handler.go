@@ -100,17 +100,26 @@ func (h *Handler) summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
-	if err != nil || len(q) > 2 || len(q["from"]) > 1 || len(q["to"]) > 1 {
+	if err != nil || len(q) > 3 || len(q["from"]) > 1 || len(q["to"]) > 1 || len(q["scope"]) > 1 {
 		response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Revisa la estructura y el tamaño de la solicitud."})
 		return
 	}
 	for k := range q {
-		if k != "from" && k != "to" {
+		if k != "from" && k != "to" && k != "scope" {
 			response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Revisa la estructura y el tamaño de la solicitud."})
 			return
 		}
 	}
-	s, err := h.service.Summary(r.Context(), user, chi.URLParam(r, "organizationID"), q.Get("from"), q.Get("to"))
+	summarize := h.service.Summary
+	switch q.Get("scope") {
+	case "", "operational":
+	case "research":
+		summarize = h.service.ResearchSummary
+	default:
+		response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Revisa la estructura y el tamaño de la solicitud."})
+		return
+	}
+	s, err := summarize(r.Context(), user, chi.URLParam(r, "organizationID"), q.Get("from"), q.Get("to"))
 	if err != nil {
 		h.fail(w, r, err)
 		return

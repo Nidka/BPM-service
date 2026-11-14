@@ -116,24 +116,49 @@ func (s *store) MarkSessionEnd(ctx context.Context, org, session string, at time
 	return err
 }
 
-// Summary agrega sesiones y eventos del período (días en hora de Lima); sin datos de personas.
+// Summary agrega sesiones y eventos del período (días en hora de Lima) de todos los usuarios; sin datos de personas.
 func (s *store) Summary(ctx context.Context, org string, p domain.Period) (domain.Summary, error) {
+	return s.summary(ctx, org, p, "")
+}
+
+// ResearchSummary agrega solo el uso de usuarios con participación ACTIVE y consentimiento de
+// investigación vigente (último registro aceptado sobre el documento ACTIVE).
+func (s *store) ResearchSummary(ctx context.Context, org string, p domain.Period) (domain.Summary, error) {
+	return s.summary(ctx, org, p, "researchOnly")
+}
+
+// consentFilter devuelve la condición SQL que limita las filas de la tabla t a usuarios con
+// consentimiento de investigación vigente; las tablas son las del módulo research.
+func consentFilter(t string) string {
+	return ` AND EXISTS (SELECT 1 FROM research_participants rp WHERE rp.organization_id=` + t + `.organization_id AND rp.user_id=` + t + `.user_id AND rp.status='ACTIVE'
+  AND EXISTS (SELECT 1 FROM consent_records c WHERE c.organization_id=rp.organization_id AND c.participant_id=rp.id AND c.accepted
+    AND c.document_version=(SELECT d.version FROM research_consent_documents d WHERE d.status='ACTIVE')
+    AND c.id=(SELECT c2.id FROM consent_records c2 WHERE c2.organization_id=rp.organization_id AND c2.participant_id=rp.id ORDER BY c2.accepted_at DESC,c2.created_at DESC,c2.id DESC LIMIT 1)))`
+}
+
+func (s *store) summary(ctx context.Context, org string, p domain.Period, scope string) (domain.Summary, error) {
+	filter := func(t string) string {
+		if scope == "researchOnly" {
+			return consentFilter(t)
+		}
+		return ""
+	}
 	from, to := p.Bounds()
 	out := domain.Summary{From: p.From.Format(domain.DateLayout), To: p.To.Format(domain.DateLayout), Modules: []domain.ModuleStat{}, Days: []domain.DayStat{}}
 	err := s.tx.QueryRow(ctx, `SELECT count(*), count(*) FILTER (WHERE ended_at IS NOT NULL), count(DISTINCT user_id),
   round(avg(LEAST(EXTRACT(EPOCH FROM (ended_at-started_at)),86400)) FILTER (WHERE ended_at IS NOT NULL)::numeric,2)::float8
- FROM usage_sessions WHERE organization_id=$1 AND started_at>=$2 AND started_at<$3`, org, from, to).
+ FROM usage_sessions WHERE organization_id=$1 AND started_at>=$2 AND started_at<$3`+filter("usage_sessions"), org, from, to).
 		Scan(&out.Sessions, &out.EndedSessions, &out.ActiveUsers, &out.AverageSessionSeconds)
 	if err != nil {
 		return out, err
 	}
 	err = s.tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE event_name='ALERT_VIEWED'), count(*) FILTER (WHERE event_name='ALERT_ATTENDED')
- FROM usage_events WHERE organization_id=$1 AND occurred_at>=$2 AND occurred_at<$3`, org, from, to).Scan(&out.AlertsViewed, &out.AlertsAttended)
+ FROM usage_events WHERE organization_id=$1 AND occurred_at>=$2 AND occurred_at<$3`+filter("usage_events"), org, from, to).Scan(&out.AlertsViewed, &out.AlertsAttended)
 	if err != nil {
 		return out, err
 	}
 	rows, err := s.tx.Query(ctx, `SELECT module, count(*), count(DISTINCT user_id), COALESCE(sum(duration_seconds),0)
- FROM usage_events WHERE organization_id=$1 AND event_name='MODULE_VISIT' AND occurred_at>=$2 AND occurred_at<$3 GROUP BY module ORDER BY module`, org, from, to)
+ FROM usage_events WHERE organization_id=$1 AND event_name='MODULE_VISIT' AND occurred_at>=$2 AND occurred_at<$3`+filter("usage_events")+` GROUP BY module ORDER BY module`, org, from, to)
 	if err != nil {
 		return out, err
 	}
@@ -150,7 +175,7 @@ func (s *store) Summary(ctx context.Context, org string, p domain.Period) (domai
 		return out, err
 	}
 	rows, err = s.tx.Query(ctx, `SELECT (started_at AT TIME ZONE 'America/Lima')::date, count(*) FROM usage_sessions
- WHERE organization_id=$1 AND started_at>=$2 AND started_at<$3 GROUP BY 1 ORDER BY 1`, org, from, to)
+ WHERE organization_id=$1 AND started_at>=$2 AND started_at<$3`+filter("usage_sessions")+` GROUP BY 1 ORDER BY 1`, org, from, to)
 	if err != nil {
 		return out, err
 	}

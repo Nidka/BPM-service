@@ -187,8 +187,14 @@ en hora de Lima):
  "days":[{"date":"2026-11-02","sessions":5}]}}
 ```
 
+Con `scope=research` el resumen solo incluye a usuarios con participación `ACTIVE` y consentimiento de investigación
+vigente (último `consent_records` aceptado sobre el documento `ACTIVE` de `research_consent_documents`, tablas del
+módulo research, V9); una revocación o un documento nuevo sin reaceptar excluyen retroactivamente al usuario del
+resumen. Sin `scope` (o `scope=operational`) el resumen operativo para ADMIN cubre a todos los usuarios, como antes.
+Los eventos se siguen registrando para todos; el filtro se aplica al consultar.
+
 Solo agregados (sin personas). `averageSessionSeconds` usa sesiones con fin, con tope de 24 h; `null` si
-no hay. Pendiente: vincular el registro al consentimiento informado de investigación (`consent_records`).
+no hay.
 
 ## Códigos de error propios
 

@@ -48,7 +48,7 @@ func database(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	for _, name := range []string{"V1__baseline.sql", "V10__reports_usage.sql"} {
+	for _, name := range []string{"V1__baseline.sql", "V9__research_cap.sql", "V10__reports_usage.sql"} {
 		if name == "V10__reports_usage.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("el registro de uso arranca sin V10")
 		}
@@ -145,6 +145,49 @@ func TestRegistroDeUsoIdempotenteYAislado(t *testing.T) {
 	}
 	if _, err = svc.Summary(ctx, "worker", "org-a", day, day); !errors.Is(err, domain.ErrDenied) {
 		t.Fatal("worker no consulta")
+	}
+	// Resumen de investigación: solo usuarios con participación ACTIVE y consentimiento vigente.
+	rs, err := svc.ResearchSummary(ctx, "admin", "org-a", day, day)
+	if err != nil || rs.Sessions != 0 || rs.ActiveUsers != 0 || len(rs.Modules) != 0 || rs.AlertsViewed != 0 {
+		t.Fatalf("sin consentimiento no hay datos de investigación: %+v %v", rs, err)
+	}
+	if _, err = svc.ResearchSummary(ctx, "worker", "org-a", day, day); !errors.Is(err, domain.ErrDenied) {
+		t.Fatal("worker no consulta investigación")
+	}
+	for _, q := range []string{
+		`INSERT INTO research_consent_documents(version,title,body_text,responsible_investigator) VALUES('v-old','t','b','i')`,
+		`INSERT INTO research_participants(id,organization_id,user_id,participant_code) VALUES('00000000-0000-0000-0000-0000000000a1','org-a','worker','P-TEST-1')`,
+		`INSERT INTO consent_records(organization_id,participant_id,document_version,accepted,accepted_at,recorded_by) VALUES('org-a','00000000-0000-0000-0000-0000000000a1','v-old',true,NOW(),'worker')`,
+	} {
+		if _, err = pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day)
+	if err != nil || rs.Sessions != 1 || rs.ActiveUsers != 1 || len(rs.Modules) != 1 {
+		t.Fatalf("con consentimiento vigente: %+v %v", rs, err)
+	}
+	// Un documento nuevo sin reaceptar o una revocación excluyen al usuario.
+	if _, err = pool.Exec(ctx, `UPDATE research_consent_documents SET status='ARCHIVED'; INSERT INTO research_consent_documents(version,title,body_text,responsible_investigator) VALUES('v-new','t','b','i')`); err != nil {
+		t.Fatal(err)
+	}
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 0 || rs.ActiveUsers != 0 {
+		t.Fatalf("versión desactualizada: %+v %v", rs, err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO consent_records(organization_id,participant_id,document_version,accepted,accepted_at,recorded_by) VALUES('org-a','00000000-0000-0000-0000-0000000000a1','v-new',true,NOW()+interval '1 second','worker')`); err != nil {
+		t.Fatal(err)
+	}
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 1 {
+		t.Fatalf("reaceptado: %+v %v", rs, err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO consent_records(organization_id,participant_id,document_version,accepted,accepted_at,recorded_by) VALUES('org-a','00000000-0000-0000-0000-0000000000a1','v-new',false,NOW()+interval '2 seconds','worker')`); err != nil {
+		t.Fatal(err)
+	}
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 0 {
+		t.Fatalf("revocado: %+v %v", rs, err)
+	}
+	if all, err := svc.Summary(ctx, "admin", "org-a", day, day); err != nil || all.Sessions != 1 {
+		t.Fatalf("el resumen operativo no cambia: %+v %v", all, err)
 	}
 	other, err := svc.Summary(ctx, "other", "org-b", day, day)
 	if err != nil || other.Sessions != 0 {
