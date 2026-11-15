@@ -10,6 +10,9 @@ type AuthorizationStore interface {
 	Actor(context.Context, string, string) (domain.Actor, error)
 	Location(context.Context, domain.Actor, string, string) error
 	Eligible(context.Context, string, string, string) error
+	// OtherValidator indica si existe otro ADMIN activo, o CHEF activo con acceso a la sede,
+	// distinto de exclude que pueda validar una corrección.
+	OtherValidator(ctx context.Context, org, site, exclude string) (bool, error)
 }
 type CatalogStore interface {
 	Catalog(context.Context, string, string) (domain.Catalog, error)

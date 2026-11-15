@@ -32,9 +32,31 @@ type Store interface {
 type UnitOfWork interface {
 	Within(context.Context, func(Store) error) error
 }
-type Service struct{ work UnitOfWork }
+type Service struct {
+	work UnitOfWork
+	// acceptURL es la página del cliente que recibe ?token= (opcional).
+	acceptURL string
+	// queueMail indica si hay proveedor de correo; sin él no se encola el aviso.
+	queueMail bool
+}
 
-func New(work UnitOfWork) *Service { return &Service{work: work} }
+// Option ajusta la entrega de invitaciones sin cambiar el constructor.
+type Option func(*Service)
+
+// WithInvitationDelivery fija la URL de aceptación y si existe proveedor de correo.
+// Sin proveedor la invitación se crea igual, pero no se encola ningún correo (y por
+// tanto no queda el token en el outbox); el administrador comparte el enlace.
+func WithInvitationDelivery(acceptURL string, mailEnabled bool) Option {
+	return func(s *Service) { s.acceptURL, s.queueMail = strings.TrimSpace(acceptURL), mailEnabled }
+}
+
+func New(work UnitOfWork, opts ...Option) *Service {
+	s := &Service{work: work, queueMail: true}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
 
 func (s *Service) List(ctx context.Context, uid string) (result []domain.Organization, err error) {
 	result = []domain.Organization{}

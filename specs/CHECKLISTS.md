@@ -35,7 +35,7 @@ token con correo verificado y usuario BPM activo.
 | GET | `/checklists` | miembro activo |
 | GET | `/checklists/{templateID}` | miembro activo; última versión publicada completa |
 | POST | `/checklists` | ADMIN o SUPER_ADMIN |
-| GET | `/checklist-runs` | CHEF en sedes asignadas; ADMIN/SUPER_ADMIN supervisan |
+| GET | `/checklist-runs` | CHEF en sedes asignadas; ADMIN (todas las sedes) y SUPER_ADMIN supervisan |
 | POST | `/checklist-runs` | CHEF asignado a sede |
 | GET | `/checklist-runs/{runID}` | CHEF/ADMIN/SUPER_ADMIN con acceso a sede |
 | PUT | `/checklist-runs/{runID}/answers` | ejecutor; `Idempotency-Key` |
@@ -96,8 +96,11 @@ responsable y devuelve estado, fechas, respuestas guardadas y cumplimiento.
 No descarga las respuestas completas hasta abrir el detalle.
 
 CHEF ejecuta y puede retomar sus borradores; solo consulta las sedes asignadas.
-ADMIN/SUPER_ADMIN publican plantillas y supervisan; no crean, responden ni
-finalizan controles por tener rol administrativo. WORKER no accede al historial
+ADMIN con membresía activa también opera: inicia, guarda, responde y envía controles
+en todas las sedes activas de su empresa (sin asignación de sede), con las mismas reglas
+de turno, versión de plantilla, idempotencia y propiedad que un CHEF; el historial y
+los reportes lo atribuyen a su usuario igual que a un CHEF. SUPER_ADMIN sin membresía
+publica y supervisa, pero no ejecuta. WORKER no accede al historial
 ni al detalle. Se revalidan usuario, membresía y sedes en cada página; el cursor
 se liga a actor, organización, búsqueda, scope y estado. Una revocación invalida
 el acceso aunque se conserve un cursor anterior.

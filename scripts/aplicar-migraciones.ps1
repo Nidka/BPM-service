@@ -46,6 +46,7 @@ $migraciones = [ordered]@{
     "V11__training_assignments_paths" = "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='training_lessons' AND column_name='external_video_id')"
     "V12__accounts_management"        = "SELECT to_regclass('organization_invitations') IS NOT NULL"
     "V13__operations_shifts_stock"    = "SELECT to_regclass('location_shifts') IS NOT NULL"
+    "V14__alerts_admin_operates"      = "SELECT position('''CHECKLIST_MISSING'' THEN m.role IN (''ADMIN'',''CHEF'')' in pg_get_functiondef('alert_recipient_authorized(text,uuid,text)'::regprocedure)) > 0"
 }
 
 $pendientes = @()

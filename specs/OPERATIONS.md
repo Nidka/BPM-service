@@ -14,7 +14,8 @@ El rol y responsable salen de esa autorización, nunca del JSON recibido.
 
 | Rol | Catálogos y planes | Recepciones y PEPS | Limpieza realizada |
 |---|---|---|---|
-| SUPER_ADMIN / ADMIN | Crear, consultar y configurar criterio térmico | Supervisar sedes autorizadas; no registrar recepción como chef | Supervisar |
+| SUPER_ADMIN | Crear, consultar y configurar criterio térmico | Supervisar sedes autorizadas; sin membresía no registra | Supervisar |
+| ADMIN | Crear, consultar y configurar criterio térmico | Registrar recepción, consumo y descarte, y consultar todas las sedes activas de su empresa (opera como CHEF) | Ejecutar y consultar todas las sedes activas de su empresa; solo es responsable de sus propias ejecuciones |
 | CHEF | Consultar | Registrar recepción y consultar sedes asignadas | Ejecutar y consultar sedes asignadas |
 | WORKER | Consultar planes de sedes asignadas; sin catálogos de insumos | Sin acceso | Ejecutar y consultar solo sus propias ejecuciones |
 
@@ -186,7 +187,7 @@ Operan sobre `storage_lots` y se escriben en la misma transacción que la audito
 (`quantityAvailable` del lote) se descuenta con aritmética decimal exacta; nunca queda negativo. Un lote
 cuyo saldo llega a 0 pasa a `CONSUMED` (si el último movimiento fue consumo) o `DISCARDED` (descarte) y no admite
 más movimientos. Los movimientos son inmutables (ni se editan ni se borran; una corrección es una recepción
-o un nuevo registro). Roles: registrar = **CHEF** de la sede asignada; consultar historial = ADMIN, SUPER_ADMIN
+o un nuevo registro). Roles: registrar = **CHEF** de la sede asignada o **ADMIN** con membresía activa (todas las sedes de su empresa; SUPER_ADMIN sin membresía no registra); consultar historial = ADMIN, SUPER_ADMIN
 y CHEF de la sede; WORKER sin acceso.
 
 `POST /stock-movements` (200):

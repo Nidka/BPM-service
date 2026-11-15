@@ -2,6 +2,7 @@ package organizationhttp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -248,6 +249,26 @@ func invitation(v domain.Invitation) invitationDTO {
 
 func iso(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 
+// issuedInvitationDTO añade el enlace para compartir; solo lo usan crear y reenviar.
+// AcceptURL "null" (sin URL configurada) o la URL; Token solo viaja sin URL.
+type issuedInvitationDTO struct {
+	invitationDTO
+	AcceptURL json.RawMessage `json:"acceptUrl,omitempty"`
+	Token     string          `json:"token,omitempty"`
+}
+
+func issued(v domain.Invitation, s application.InvitationShare) any {
+	if !s.Issued {
+		return invitation(v)
+	}
+	out := issuedInvitationDTO{invitationDTO: invitation(v), AcceptURL: json.RawMessage("null"), Token: s.Token}
+	if s.AcceptURL != "" {
+		b, _ := json.Marshal(s.AcceptURL)
+		out.AcceptURL = b
+	}
+	return out
+}
+
 func (h *Handler) invite(w http.ResponseWriter, r *http.Request) {
 	uid, ok := h.actor(w, r)
 	if !ok {
@@ -262,7 +283,7 @@ func (h *Handler) invite(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &v) {
 		return
 	}
-	inv, created, e := h.service.Invite(r.Context(), uid, chi.URLParam(r, "organizationID"), application.InvitationInput{ID: v.ID, Email: v.Email, Role: v.Role, LocationIDs: v.LocationIDs})
+	inv, share, created, e := h.service.InviteShared(r.Context(), uid, chi.URLParam(r, "organizationID"), application.InvitationInput{ID: v.ID, Email: v.Email, Role: v.Role, LocationIDs: v.LocationIDs})
 	if e != nil {
 		h.fail(w, r, e)
 		return
@@ -271,7 +292,8 @@ func (h *Handler) invite(w http.ResponseWriter, r *http.Request) {
 	if created {
 		status = 201
 	}
-	response.JSON(w, status, map[string]any{"data": invitation(inv)})
+	w.Header().Set("Cache-Control", "no-store")
+	response.JSON(w, status, map[string]any{"data": issued(inv, share)})
 }
 
 func (h *Handler) invitationsPage(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +314,17 @@ func (h *Handler) invitationsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) resendInvitation(w http.ResponseWriter, r *http.Request) {
-	h.invitationAction(w, r, h.service.ResendInvitation)
+	uid, ok := h.actor(w, r)
+	if !ok {
+		return
+	}
+	inv, share, e := h.service.ResendShared(r.Context(), uid, chi.URLParam(r, "organizationID"), chi.URLParam(r, "invitationID"))
+	if e != nil {
+		h.fail(w, r, e)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	response.JSON(w, 200, map[string]any{"data": issued(inv, share)})
 }
 
 func (h *Handler) revokeInvitation(w http.ResponseWriter, r *http.Request) {

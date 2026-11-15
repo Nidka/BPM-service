@@ -13,7 +13,8 @@ type RunSummary struct {
 
 type HistoryFilter struct{ Scope, Status string }
 
-func CanPerformRuns(role string) bool { return role == "CHEF" }
+// CanPerformRuns permite ejecutar controles al CHEF y al ADMIN con membresía activa.
+func CanPerformRuns(role string) bool { return role == "CHEF" || role == "ADMIN" }
 func CanSuperviseRuns(role string) bool {
 	return role == "ADMIN" || role == "CHEF" || role == "SUPER_ADMIN"
 }

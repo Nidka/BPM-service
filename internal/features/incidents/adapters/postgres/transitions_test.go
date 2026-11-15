@@ -162,7 +162,7 @@ func TestVerifySerializesPhotoMutationOnIncident(t *testing.T) {
 	if _, e := s.Act(ctx, "worker", org, r.ID, "start-key", domain.Command{OperationID: uid(6, 2), RowVersion: 2, ActionType: "START"}); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := s.Act(ctx, "worker", org, r.ID, "resolve-key", domain.Command{OperationID: uid(6, 3), RowVersion: 3, ActionType: "RESOLVE", Note: "Listo"}); e != nil {
+	if _, e := s.Act(ctx, "worker", org, r.ID, "resolve-key", domain.Command{OperationID: uid(6, 3), RowVersion: 3, ActionType: "RESOLVE", Note: "Reparación completa"}); e != nil {
 		t.Fatal(e)
 	}
 	tx, e := pool.Begin(ctx)
@@ -229,5 +229,105 @@ func TestOperationReplayCanonicalizesUUIDPath(t *testing.T) {
 	v, e := s.Act(ctx, "chef", org, "A0000004-0000-0000-0000-000000000002", "replay-letter-key", c)
 	if e != nil || v.Status != "ASSIGNED" || v.RowVersion != 2 {
 		t.Fatal("UUID equivalente cambió hash", v, e)
+	}
+}
+
+// El ADMIN opera en cualquier sede sin membresía de sede, es asignable y nunca
+// valida su propia corrección; otro ADMIN (o el mismo en otra acción) sí valida.
+func TestAdminOperatesInAnySiteAndNeverVerifiesOwnCorrection(t *testing.T) {
+	ctx, pool, s, r := setupIncident(t)
+	execSQL(t, ctx, pool, `INSERT INTO application_users(id,email,display_name,platform_role) VALUES('admin2','admin2@example.invalid','Admin 2','USER'),('admin-foreign','af@example.invalid','Admin ajeno','USER')`)
+	execSQL(t, ctx, pool, `INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'admin2','ADMIN'),($2,'admin-foreign','ADMIN')`, org, foreign)
+	list, e := s.Assignees(ctx, "admin", org, r.ID, pagination.Request{Query: "admin2@example.invalid"})
+	if e != nil || len(list.Items) != 1 || list.Items[0].ID != "admin2" {
+		t.Fatal("el ADMIN debe ser asignable", list, e)
+	}
+	if foreignList, e := s.Assignees(ctx, "admin", org, r.ID, pagination.Request{Query: "af@example.invalid"}); e != nil || len(foreignList.Items) != 0 {
+		t.Fatal("ADMIN de otra empresa asignable", foreignList, e)
+	}
+	// Reporta en una sede sin membresía de sede.
+	rep := domain.Report{ID: uid(4, 9), LocationID: otherSite, CatalogID: catalogID, Description: "Fuga en cocina", ClientOperationID: uid(5, 9), ClientCreatedAt: time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)}
+	if _, e = s.Report(ctx, "admin", org, "admin-report-key", rep); e != nil {
+		t.Fatal("ADMIN no pudo reportar", e)
+	}
+	if _, e = s.Report(ctx, "admin-foreign", org, "foreign-report-key", domain.Report{ID: uid(4, 10), LocationID: site, CatalogID: catalogID, Description: "Intruso", ClientOperationID: uid(5, 10), ClientCreatedAt: time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)}); e == nil {
+		t.Fatal("ADMIN de otra empresa reportó")
+	}
+	act := func(user, key string, c domain.Command) error {
+		_, e := s.Act(ctx, user, org, r.ID, key, c)
+		return e
+	}
+	if e = act("admin", "assign-admin2-key", domain.Command{OperationID: uid(6, 1), RowVersion: 1, ActionType: "ASSIGN", ActionID: uid(7, 1), ResponsibleUserID: "admin2", Description: "Reparar", DueAt: time.Now().Add(time.Hour)}); e != nil {
+		t.Fatal(e)
+	}
+	if e = act("admin2", "start-admin2-key", domain.Command{OperationID: uid(6, 2), RowVersion: 2, ActionType: "START"}); e != nil {
+		t.Fatal(e)
+	}
+	if e = act("admin2", "resolve-admin2-key", domain.Command{OperationID: uid(6, 3), RowVersion: 3, ActionType: "RESOLVE", Note: "Reparación completa"}); e != nil {
+		t.Fatal(e)
+	}
+	for _, c := range []string{"VERIFY", "RETURN"} {
+		if e = act("admin2", "self-"+c, domain.Command{OperationID: uid(6, 4), RowVersion: 4, ActionType: c, Note: "Conforme"}); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("el ADMIN responsable validó su corrección", c, e)
+		}
+	}
+	if e = act("admin", "return-admin-key", domain.Command{OperationID: uid(6, 5), RowVersion: 4, ActionType: "RETURN", Note: "Falta un borde"}); e != nil {
+		t.Fatal("otro ADMIN debe poder devolver", e)
+	}
+}
+
+// Sin otra persona elegible, el dueño (ADMIN) puede validar su propia corrección con nota;
+// si existe otro ADMIN o un CHEF de la sede, sigue prohibido.
+func TestSoleAdminSelfValidatesWithNoteAndIsAudited(t *testing.T) {
+	ctx, pool, s, r := setupIncident(t)
+	act := func(user, key string, c domain.Command) (domain.Incident, error) {
+		return s.Act(ctx, user, org, r.ID, key, c)
+	}
+	if _, e := act("admin", "assign-self-key", domain.Command{OperationID: uid(6, 1), RowVersion: 1, ActionType: "ASSIGN", ActionID: uid(7, 1), ResponsibleUserID: "admin", Description: "Reparar", DueAt: time.Now().Add(time.Hour)}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := act("admin", "start-self-key", domain.Command{OperationID: uid(6, 2), RowVersion: 2, ActionType: "START"}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := act("admin", "resolve-self-key", domain.Command{OperationID: uid(6, 3), RowVersion: 3, ActionType: "RESOLVE", Note: "Reparación completa"}); e != nil {
+		t.Fatal(e)
+	}
+	verify := domain.Command{OperationID: uid(6, 4), RowVersion: 4, ActionType: "VERIFY", Note: "Verificado por el dueño"}
+	// El CHEF de la sede está activo: sigue prohibido y no se ofrece la opción.
+	if _, e := act("admin", "self-verify-chef", verify); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("autovalidó con un CHEF elegible", e)
+	}
+	if d, e := s.Detail(ctx, "admin", org, r.ID); e != nil || len(d.AllowedActions) != 0 {
+		t.Fatal(d.AllowedActions, e)
+	}
+	// Otro ADMIN activo (CHEF desactivado): sigue prohibido.
+	execSQL(t, ctx, pool, `UPDATE organization_memberships SET status='INACTIVE' WHERE organization_id=$1 AND user_id='chef'`, org)
+	execSQL(t, ctx, pool, `INSERT INTO application_users(id,email,display_name,platform_role) VALUES('admin2','a2@example.invalid','Admin 2','USER')`)
+	execSQL(t, ctx, pool, `INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'admin2','ADMIN')`, org)
+	if _, e := act("admin", "self-verify-admin2", verify); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("autovalidó con otro ADMIN elegible", e)
+	}
+	// Un CHEF de otra sede no cuenta como validador de esta sede.
+	execSQL(t, ctx, pool, `UPDATE organization_memberships SET status='INACTIVE' WHERE organization_id=$1 AND user_id='admin2'`, org)
+	d, e := s.Detail(ctx, "admin", org, r.ID)
+	if e != nil || len(d.AllowedActions) != 1 || d.AllowedActions[0] != "VERIFY" {
+		t.Fatal("debe ofrecerse VERIFY", d.AllowedActions, e)
+	}
+	noNote := verify
+	noNote.Note = ""
+	var invalid *domain.ValidationError
+	if _, e = act("admin", "self-verify-nonote", noNote); !errors.As(e, &invalid) {
+		t.Fatal("sin nota debe ser inválido", e)
+	}
+	if _, e = act("admin", "self-return-key", domain.Command{OperationID: uid(6, 5), RowVersion: 4, ActionType: "RETURN", Note: "Falta"}); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("RETURN propio permitido", e)
+	}
+	closed, e := act("admin", "self-verify-ok", verify)
+	if e != nil || closed.Status != "CLOSED" || len(closed.Actions) != 1 || !closed.Actions[0].SelfValidated() {
+		t.Fatal(closed, e)
+	}
+	var n int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='incident.SELF_VERIFY' AND entity_id=$2`, org, r.ID).Scan(&n); e != nil || n != 1 {
+		t.Fatal("auditoría de autovalidación", n, e)
 	}
 }

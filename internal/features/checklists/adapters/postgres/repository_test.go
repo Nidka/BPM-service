@@ -141,5 +141,38 @@ func TestChecklistPostgres(t *testing.T) {
 	testRunHistory(t, ctx, pool, service, org, other, loc, versionID, itemID)
 	testCatalogPagination(t, ctx, pool, service, org, other)
 	testAssignments(t, ctx, pool, service, org, other, loc, templateID, versionID, itemID)
+	testAdminOperates(t, ctx, pool, service, org, loc, versionID, itemID)
+}
 
+// El ADMIN con membresía activa ejecuta controles en cualquier sede de su empresa
+// (sin membresía de sede) y queda como autor; SUPER_ADMIN sin membresía no opera.
+func testAdminOperates(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service *application.Service, org, loc, versionID, itemID string) {
+	t.Helper()
+	site2 := "20000000-0000-0000-0000-0000000000a2"
+	if _, e := pool.Exec(ctx, `INSERT INTO locations(id,organization_id,name,address) VALUES($1,$2,'Sede dos','Av. Dos 456')`, site2, org); e != nil {
+		t.Fatal(e)
+	}
+	mk := func(run, op, site string) domain.Run {
+		return domain.Run{ID: run, LocationID: site, TemplateVersionID: versionID, ClientOperationID: op, ClientCreatedAt: time.Now().UTC().Add(-time.Minute)}
+	}
+	answers := []domain.Answer{{ItemID: itemID, ComplianceResult: "COMPLIANT"}}
+	for _, user := range []string{"super", "outsider"} {
+		if _, e := service.CreateRun(ctx, user, org, mk("60000000-0000-0000-0000-0000000000b9", "70000000-0000-0000-0000-0000000000b9", site2)); !errors.Is(e, domain.ErrDenied) {
+			t.Fatal("operó sin permiso", user, e)
+		}
+	}
+	for i, site := range []string{loc, site2} {
+		run := fmt.Sprintf("60000000-0000-0000-0000-0000000000c%d", i)
+		created, e := service.CreateRun(ctx, "admin", org, mk(run, fmt.Sprintf("70000000-0000-0000-0000-0000000000c%d", i), site))
+		if e != nil || created.PerformedBy != "admin" {
+			t.Fatal("el ADMIN no pudo iniciar el control", site, e)
+		}
+		if _, e = service.SaveAnswers(ctx, "admin", org, run, 1, fmt.Sprintf("admin-save-%d", i), answers); e != nil {
+			t.Fatal(e)
+		}
+		done, e := service.Submit(ctx, "admin", org, run, 2, fmt.Sprintf("admin-submit-%d", i))
+		if e != nil || done.Status != "SUBMITTED" || done.PerformedByName != "Admin" {
+			t.Fatal("el ADMIN no pudo enviar", site, done.PerformedByName, e)
+		}
+	}
 }

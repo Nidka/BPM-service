@@ -170,7 +170,7 @@ func (f *fakeStore) RunHistory(context.Context, domain.Actor, string, pagination
 	return nil, nil
 }
 
-func TestOnlyChefPerformsDailyReviews(t *testing.T) {
+func TestOnlyChefAndAdminPerformDailyReviews(t *testing.T) {
 	for _, role := range []string{"ADMIN", "SUPER_ADMIN", "WORKER", "CHEF"} {
 		t.Run(role, func(t *testing.T) {
 			f := &fakeStore{actor: domain.Actor{ID: "actor", Role: role}, run: domain.Run{ID: testRunID, OrganizationID: "org", PerformedBy: "actor", Status: "DRAFT", RowVersion: 1, Items: []domain.Item{{ID: testItemID, ResponseType: "COMPLIANCE", Required: true}}, Answers: []domain.Answer{{ItemID: testItemID, ComplianceResult: "COMPLIANT"}}}}
@@ -179,7 +179,8 @@ func TestOnlyChefPerformsDailyReviews(t *testing.T) {
 			_, saveErr := service.SaveAnswers(context.Background(), "actor", "org", testRunID, 1, "save-role-test", f.run.Answers)
 			_, submitErr := service.Submit(context.Background(), "actor", "org", testRunID, 1, "submit-role-test")
 			for _, err := range []error{createErr, saveErr, submitErr} {
-				if role == "CHEF" && err != nil || role != "CHEF" && !errors.Is(err, domain.ErrDenied) {
+				operates := role == "CHEF" || role == "ADMIN"
+				if operates && err != nil || !operates && !errors.Is(err, domain.ErrDenied) {
 					t.Fatalf("unexpected permission for %s: %v", role, err)
 				}
 			}

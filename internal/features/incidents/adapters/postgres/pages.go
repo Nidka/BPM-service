@@ -41,7 +41,7 @@ func (s *store) Incidents(ctx context.Context, a domain.Actor, org, site, status
 	return out, rows.Err()
 }
 func (s *store) Assignees(ctx context.Context, org, site string, w pagination.Window) ([]domain.Assignee, error) {
-	rows, e := s.tx.Query(ctx, `SELECT u.id,u.display_name,m.role FROM application_users u JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=$1 JOIN membership_locations ml ON ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2 WHERE u.status='ACTIVE' AND m.status='ACTIVE' AND m.role IN ('CHEF','WORKER') AND ($3='' OR strpos(lower(u.display_name||' '||u.email),lower($3))>0) AND ($4='' OR (lower(u.display_name),u.id)>($4,$5)) ORDER BY lower(u.display_name),u.id LIMIT $6`, org, site, w.Query, w.After.Key, w.After.ID, w.Size+1)
+	rows, e := s.tx.Query(ctx, `SELECT u.id,u.display_name,m.role FROM application_users u JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=$1 WHERE u.status='ACTIVE' AND m.status='ACTIVE' AND (m.role='ADMIN' OR (m.role IN ('CHEF','WORKER') AND EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2))) AND ($3='' OR strpos(lower(u.display_name||' '||u.email),lower($3))>0) AND ($4='' OR (lower(u.display_name),u.id)>($4,$5)) ORDER BY lower(u.display_name),u.id LIMIT $6`, org, site, w.Query, w.After.Key, w.After.ID, w.Size+1)
 	if e != nil {
 		return nil, e
 	}

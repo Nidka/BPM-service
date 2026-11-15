@@ -69,10 +69,10 @@ func TestPackagingAndReasonsAreRequiredForNewRecords(t *testing.T) {
 	}
 }
 func TestRolesSeparateStockFromAssignedCleaningTasks(t *testing.T) {
-	if CanReceive("WORKER") || CanReadStock("WORKER") || CanConfigure("CHEF") || CanExecuteCleaning("ADMIN") {
+	if CanReceive("WORKER") || CanReadStock("WORKER") || CanConfigure("CHEF") || CanExecuteCleaning("SUPER_ADMIN") || CanReceive("SUPER_ADMIN") || CanMoveStock("SUPER_ADMIN") {
 		t.Fatal("privilegio no documentado")
 	}
-	if !CanExecuteCleaning("WORKER") || !CanReceive("CHEF") || !CanConfigure("SUPER_ADMIN") {
+	if !CanExecuteCleaning("WORKER") || !CanReceive("CHEF") || !CanExecuteCleaning("ADMIN") || !CanReceive("ADMIN") || !CanMoveStock("ADMIN") || !CanConfigure("SUPER_ADMIN") {
 		t.Fatal("rol previsto denegado")
 	}
 }

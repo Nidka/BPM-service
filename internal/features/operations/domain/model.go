@@ -71,8 +71,10 @@ type CleaningExecution struct {
 	ShiftName string `json:",omitempty"`
 }
 
-func CanConfigure(role string) bool       { return role == "ADMIN" || role == "SUPER_ADMIN" }
-func CanReadStock(role string) bool       { return CanConfigure(role) || role == "CHEF" }
-func CanReceive(role string) bool         { return role == "CHEF" }
-func CanExecuteCleaning(role string) bool { return role == "CHEF" || role == "WORKER" }
-func CanReadCleaning(role string) bool    { return CanConfigure(role) || CanExecuteCleaning(role) }
+func CanConfigure(role string) bool { return role == "ADMIN" || role == "SUPER_ADMIN" }
+func CanReadStock(role string) bool { return CanConfigure(role) || role == "CHEF" }
+func CanReceive(role string) bool   { return role == "CHEF" || role == "ADMIN" }
+func CanExecuteCleaning(role string) bool {
+	return role == "ADMIN" || role == "CHEF" || role == "WORKER"
+}
+func CanReadCleaning(role string) bool { return CanConfigure(role) || CanExecuteCleaning(role) }

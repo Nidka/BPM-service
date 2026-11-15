@@ -192,7 +192,7 @@ func (r *store) checklists(ctx context.Context, tx pgx.Tx, org string, v domain.
 		if done {
 			continue
 		}
-		users, e := eligible(ctx, tx, org, &i.site, []string{"CHEF"})
+		users, e := eligible(ctx, tx, org, &i.site, []string{"ADMIN", "CHEF"})
 		if e != nil {
 			return e
 		}

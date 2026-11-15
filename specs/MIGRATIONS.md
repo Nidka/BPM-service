@@ -121,3 +121,7 @@ reservada. Ver [REPORTS.md](REPORTS.md).
 ## Operaciones ampliadas (V13)
 
 `V13__operations_shifts_stock.sql` agrega `location_shifts`, `shift_id` en programaciones, revisiones y limpiezas, `stock_movements` (append-only) y una sola versión vigente por plantilla (`change_note`, `request_hash`). Aplicar después de V5 (y V4) con `ON_ERROR_STOP=1`, antes del backend que la exige. Preflight incluido: aborta si una plantilla tiene más de una versión PUBLISHED. Ver [OPERATIONS.md](OPERATIONS.md) y [CHECKLISTS.md](CHECKLISTS.md).
+
+## Avisos para el ADMIN que opera (V14)
+
+`V14__alerts_admin_operates.sql` reemplaza `alert_recipient_authorized` (de V7) para que el aviso `CHECKLIST_MISSING` también sea visible al ADMIN; no agrega tablas ni columnas. Aplicar después de V7 con `ON_ERROR_STOP=1`. La autovalidación de incidencias (`selfValidated`) se calcula y se audita; no requiere migración.

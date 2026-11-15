@@ -110,7 +110,7 @@ type R2Config struct {
 type EmailConfig struct {
 	ResendAPIKey string
 	From         string
-	// InvitationAcceptURL es la página del cliente que recibe ?token= (opcional).
+	// InvitationAcceptURL es la página del cliente que recibe ?token= (opcional). Con ella la API devuelve acceptUrl al crear/reenviar.
 	InvitationAcceptURL string
 }
 
@@ -287,6 +287,11 @@ func (c Config) Validate() error {
 	if c.Email.From != "" {
 		if _, e := mail.ParseAddress(c.Email.From); e != nil || strings.ContainsAny(c.Email.From, "\r\n") {
 			errs = append(errs, errors.New("RESEND_FROM_EMAIL is invalid"))
+		}
+	}
+	if c.Email.InvitationAcceptURL != "" {
+		if u, e := url.Parse(c.Email.InvitationAcceptURL); e != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+			errs = append(errs, errors.New("INVITATION_ACCEPT_URL must be an absolute http(s) URL"))
 		}
 	}
 

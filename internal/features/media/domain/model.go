@@ -119,7 +119,7 @@ func (t Target) CanRead() bool {
 func (t Target) CanWrite() bool {
 	if t.CleaningID != "" {
 		// Solo quien ejecutó la limpieza adjunta o retira fotos, dentro de la ventana de edición.
-		return (t.Role == "CHEF" || t.Role == "WORKER") && t.UserID == t.CleaningOwner && t.CleaningOpen
+		return (t.Role == "ADMIN" || t.Role == "CHEF" || t.Role == "WORKER") && t.UserID == t.CleaningOwner && t.CleaningOpen
 	}
 	if t.IncidentID != "" {
 		if !t.CanRead() {
@@ -128,9 +128,9 @@ func (t Target) CanWrite() bool {
 		if t.Stage == "BEFORE" {
 			return (t.IncidentStatus == "OPEN" || t.IncidentStatus == "ASSIGNED" || t.IncidentStatus == "IN_PROGRESS") && (t.UserID == t.Reporter || t.Role == "CHEF" || t.Role == "ADMIN" || t.Role == "SUPER_ADMIN")
 		}
-		return (t.Role == "CHEF" || t.Role == "WORKER") && t.Stage == "AFTER" && t.IncidentStatus == "IN_PROGRESS" && t.ActionStatus == "IN_PROGRESS" && t.UserID == t.Responsible
+		return (t.Role == "ADMIN" || t.Role == "CHEF" || t.Role == "WORKER") && t.Stage == "AFTER" && t.IncidentStatus == "IN_PROGRESS" && t.ActionStatus == "IN_PROGRESS" && t.UserID == t.Responsible
 	}
-	return t.Role == "CHEF" && t.UserID == t.RunOwner && t.RunStatus == "DRAFT"
+	return (t.Role == "ADMIN" || t.Role == "CHEF") && t.UserID == t.RunOwner && t.RunStatus == "DRAFT"
 }
 
 // ValidIncidentTarget impide mezclar la foto inicial con una acción posterior.

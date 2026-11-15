@@ -55,7 +55,11 @@ func (s *Service) Act(ctx context.Context, user, org, id, key string, input doma
 		}
 		switch c.ActionType {
 		case "ASSIGN", "VERIFY", "RETURN":
-			if !domain.CanSupervise(a.Role) || ((c.ActionType == "VERIFY" || c.ActionType == "RETURN") && len(current.Actions) == 1 && current.Actions[0].ResponsibleUserID == a.ID) {
+			sole, e := withSoleValidator(ctx, db, a, org, current)
+			if e != nil {
+				return e
+			}
+			if !domain.CanSupervise(a.Role) || ((c.ActionType == "VERIFY" || c.ActionType == "RETURN") && len(current.Actions) == 1 && current.Actions[0].ResponsibleUserID == a.ID && !(c.ActionType == "VERIFY" && sole.SoleValidator)) {
 				return domain.ErrDenied
 			}
 		case "START", "RESOLVE":
@@ -70,6 +74,11 @@ func (s *Service) Act(ctx context.Context, user, org, id, key string, input doma
 			if e := db.Eligible(ctx, org, current.LocationID, c.ResponsibleUserID); e != nil {
 				return current, e
 			}
+		}
+		if sole, e := withSoleValidator(ctx, db, a, org, current); e != nil {
+			return current, e
+		} else {
+			a = sole
 		}
 		from := current.Status
 		version := current.RowVersion
@@ -91,6 +100,13 @@ func (s *Service) Act(ctx context.Context, user, org, id, key string, input doma
 		if e = db.Event(ctx, a, org, id, c.OperationID, from, out.Status, c.Note, hash, body); e != nil {
 			return out, e
 		}
-		return out, db.Audit(ctx, a, org, "incident."+c.ActionType, id)
+		if e = db.Audit(ctx, a, org, "incident."+c.ActionType, id); e != nil {
+			return out, e
+		}
+		if c.ActionType == "VERIFY" && len(out.Actions) == 1 && out.Actions[0].SelfValidated() {
+			// Autovalidación del único validador posible: queda distinguida en la auditoría.
+			return out, db.Audit(ctx, a, org, "incident.SELF_VERIFY", id)
+		}
+		return out, nil
 	})
 }

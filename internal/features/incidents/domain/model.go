@@ -16,7 +16,13 @@ type ValidationError struct{ Fields map[string]string }
 
 func (e *ValidationError) Error() string { return "invalid incident input" }
 
-type Actor struct{ ID, Role string }
+// Actor es quien ejecuta la operación. SoleValidator lo calcula la aplicación desde la base:
+// true cuando no existe otro ADMIN activo ni CHEF activo de la sede que pueda validar,
+// lo que permite al responsable (supervisor) validar su propia corrección con nota.
+type Actor struct {
+	ID, Role      string
+	SoleValidator bool
+}
 type Catalog struct {
 	ID, Code, Name, Area, NormativeCriterion, RiskLevel string
 	EvidenceRequired                                    bool
@@ -62,5 +68,11 @@ type Event struct {
 
 func CanConfigure(role string) bool { return role == "ADMIN" || role == "SUPER_ADMIN" }
 func CanSupervise(role string) bool { return CanConfigure(role) || role == "CHEF" }
-func CanReport(role string) bool    { return role == "CHEF" || role == "WORKER" }
+func CanReport(role string) bool    { return role == "ADMIN" || role == "CHEF" || role == "WORKER" }
 func CanRead(role string) bool      { return CanSupervise(role) || role == "WORKER" }
+
+// SelfValidated indica que quien verificó la acción es su propio responsable
+// (único validador posible). Se calcula; no requiere columna.
+func (a Action) SelfValidated() bool {
+	return a.VerifiedBy != nil && *a.VerifiedBy == a.ResponsibleUserID
+}
