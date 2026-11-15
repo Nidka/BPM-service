@@ -163,7 +163,7 @@ func TestShiftsAndStockPostgres(t *testing.T) {
 		move := func(n int, kind, qty, reason, note string) domain.StockMovement {
 			return domain.StockMovement{ID: uid(12, n), LocationID: site, LotID: lotID, Type: kind, Quantity: qty, Reason: reason, Note: note, ClientOperationID: uid(13, n), ClientCreatedAt: now}
 		}
-		for _, user := range []string{"admin", "super", "worker", "outside", "chef2"} {
+		for _, user := range []string{"super", "worker", "outside", "chef2"} {
 			if _, e := s.Move(ctx, user, org, "key-stock-denied", move(1, "CONSUMPTION", "0.125", "", "")); e == nil {
 				t.Fatal("movió stock sin permiso", user)
 			}

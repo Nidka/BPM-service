@@ -723,7 +723,7 @@ paths:
       - Incidencias
       operationId: createIncident
       summary: Reportar incidencia
-      description: CHEF/WORKER reportan en sus sedes; supervisores autorizados según contexto.
+      description: ADMIN (todas las sedes), CHEF y WORKER (sus sedes) reportan; supervisores autorizados según contexto.
         Estado OPEN, rowVersion 1 y criterio inmutable catalogId. Conserva operación/clave/cuerpo
         en reintentos; reautoriza antes de replay.
       security:
@@ -1101,7 +1101,7 @@ paths:
       tags: [Checklists]
       summary: Iniciar ejecución desde un cliente online u offline
       operationId: createChecklistRun
-      description: Solo CHEF con sede activa asignada y versión publicada del mismo tenant. Si existe programación activa exige assignmentId (409 ASSIGNMENT_REQUIRED si se omite); una segunda revisión de la programación en el período devuelve 409 ASSIGNMENT_ALREADY_STARTED. Período determinado por fecha del servidor y zona de la sede; clientCreatedAt no lo modifica. Reintento con mismo ID y contenido recupera la ejecución aun si cambió el período o se detuvo la programación. Sin programación se permite revisión libre.
+      description: Solo CHEF con sede activa asignada, o ADMIN con membresía activa en cualquier sede activa de su empresa (SUPER_ADMIN sin membresía no), y versión publicada del mismo tenant. Si existe programación activa exige assignmentId (409 ASSIGNMENT_REQUIRED si se omite); una segunda revisión de la programación en el período devuelve 409 ASSIGNMENT_ALREADY_STARTED. Período determinado por fecha del servidor y zona de la sede; clientCreatedAt no lo modifica. Reintento con mismo ID y contenido recupera la ejecución aun si cambió el período o se detuvo la programación. Sin programación se permite revisión libre.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -1224,7 +1224,7 @@ paths:
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
         CHEF consulta sedes asignadas; ADMIN y SUPER_ADMIN supervisan.
-        Escribir exige CHEF autor de revisión DRAFT. No admite query adicional.
+        Escribir exige CHEF o ADMIN autor de revisión DRAFT. No admite query adicional.
       security: [{FirebaseBearer: []}]
       responses:
         "200":
@@ -1246,7 +1246,7 @@ paths:
       summary: Reservar una foto para carga directa privada
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        Para controles escribe CHEF o ADMIN autor de revisión DRAFT. Para incidencias BEFORE
         escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
         responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
         y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
@@ -1281,7 +1281,7 @@ paths:
       summary: Comprobar bytes y confirmar la foto
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        Para controles escribe CHEF o ADMIN autor de revisión DRAFT. Para incidencias BEFORE
         escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
         responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
         y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
@@ -1316,7 +1316,7 @@ paths:
       summary: Autorizar lectura privada temporal
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        Para controles escribe CHEF o ADMIN autor de revisión DRAFT. Para incidencias BEFORE
         escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
         responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
         y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
@@ -1351,7 +1351,7 @@ paths:
       summary: Retirar lógicamente una foto de un borrador propio
       description: >-
         Requiere usuario y correo verificados, membresía y sede activas.
-        Para controles escribe CHEF autor de revisión DRAFT. Para incidencias BEFORE
+        Para controles escribe CHEF o ADMIN autor de revisión DRAFT. Para incidencias BEFORE
         escribe reportero/supervisor mientras OPEN, ASSIGNED o IN_PROGRESS; AFTER solo
         responsable con incidencia y acción IN_PROGRESS. Cerrar o resolver impide cargar
         y retirar. Lectura privada por supervisor, reportero o responsable autorizado.
@@ -1382,7 +1382,7 @@ paths:
         - {$ref: "#/components/parameters/SearchQuery"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1419,7 +1419,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationSupplier"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1448,7 +1448,7 @@ paths:
         - {$ref: "#/components/parameters/SearchQuery"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1485,7 +1485,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationProductInput"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1518,7 +1518,7 @@ paths:
           schema: {type: string, format: uuid}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1555,7 +1555,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationReceiptInput"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1588,7 +1588,7 @@ paths:
           schema: {type: string, format: uuid}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1629,7 +1629,7 @@ paths:
           schema: {type: string, format: uuid}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1666,7 +1666,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationPlanInput"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1699,7 +1699,7 @@ paths:
           schema: {type: string, format: uuid}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1736,7 +1736,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationExecutionInput"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1772,7 +1772,7 @@ paths:
             schema: {$ref: "#/components/schemas/OperationTemperaturePolicy"}
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1801,7 +1801,7 @@ paths:
       security: [{FirebaseBearer: []}]
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -1830,7 +1830,7 @@ paths:
       security: [{FirebaseBearer: []}]
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
-        configuran y consultan; CHEF recibe insumos de sedes asignadas; CHEF/WORKER
+        configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
         registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
         la identidad del reintento. No admite parámetros ni campos desconocidos.
@@ -2188,14 +2188,14 @@ paths:
       tags: [Organizaciones]
       summary: Invitar a una persona por correo
       operationId: createInvitation
-      description: Token aleatorio de un solo uso (solo se guarda su hash), vigencia 7 días; el correo sale por outbox/Resend. Mismo id y contenido repite 200 sin duplicar.
+      description: "Token aleatorio de un solo uso (solo se guarda su hash), vigencia 7 días. Devuelve `acceptUrl` (URL de aceptación con el token, de INVITATION_ACCEPT_URL) para compartir por WhatsApp; sin esa variable `acceptUrl` es null y se devuelve `token`. Solo esta respuesta y el reenvío lo incluyen; nunca la lista. El correo sale por outbox/Resend solo si hay proveedor configurado; sin él la invitación se crea igual. Mismo id y contenido repite 200 sin duplicar y sin enlace."
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
         content: {application/json: {schema: {type: object, additionalProperties: false, required: [id, email, role], properties: {id: {type: string, format: uuid}, email: {type: string, format: email, maxLength: 320}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, locationIds: {type: array, maxItems: 100, items: {type: string, format: uuid}}}}}}
       responses:
         "200": {description: Repetición idéntica, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
-        "201": {description: Invitación creada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        "201": {description: Invitación creada con enlace compartible, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/InvitationIssued"}}}}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
   /api/v1/organizations/{organizationID}/invitations/{invitationID}/resend:
     parameters:
@@ -2205,10 +2205,10 @@ paths:
       tags: [Organizaciones]
       summary: Reenviar una invitación con un token nuevo
       operationId: resendInvitation
-      description: Invalida el token anterior. 429 INVITATION_RESEND_TOO_SOON dentro del minuto siguiente al último envío.
+      description: "Invalida el token anterior y devuelve `acceptUrl` (o `acceptUrl: null` y `token` sin INVITATION_ACCEPT_URL). 429 INVITATION_RESEND_TOO_SOON dentro del minuto siguiente al último envío."
       security: [{FirebaseBearer: []}]
       responses:
-        "200": {description: Invitación reenviada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/Invitation"}}}}}}
+        "200": {description: Invitación reenviada con enlace compartible, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/InvitationIssued"}}}}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
   /api/v1/organizations/{organizationID}/invitations/{invitationID}/revoke:
     parameters:
@@ -5448,6 +5448,15 @@ components:
         createdAt: {type: string, format: date-time}
         sendCount: {type: integer, minimum: 1}
         rowVersion: {type: integer, minimum: 1}
+    InvitationIssued:
+      description: Invitación recién emitida; solo en crear y reenviar. Nunca en GET de la lista.
+      allOf:
+        - $ref: "#/components/schemas/Invitation"
+        - type: object
+          required: [acceptUrl]
+          properties:
+            acceptUrl: {type: string, nullable: true, description: "URL de aceptación con el token en texto plano; null si INVITATION_ACCEPT_URL no está configurada."}
+            token: {type: string, description: "Código para pegar en la app; solo se devuelve cuando acceptUrl es null."}
     AccountDevice:
       type: object
       required: [id, organizationId, organizationName, platform, status, lastSeenAt, createdAt]

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
 	"strings"
 
 	"github.com/Nidka/BPM-service/internal/core/outbox"
@@ -59,12 +58,9 @@ func (m *InvitationMailer) Handle(ctx context.Context, ev outbox.Event) error {
 	if !ok {
 		return m.store.Scrub(ctx, ev.OrganizationID, ev.AggregateID)
 	}
-	link := p.Token
-	if u, e := url.Parse(m.baseURL); m.baseURL != "" && e == nil {
-		q := u.Query()
-		q.Set("token", p.Token)
-		u.RawQuery = q.Encode()
-		link = u.String()
+	link := InvitationLink(m.baseURL, p.Token)
+	if link == "" {
+		link = p.Token
 	}
 	text := "Te invitaron a unirte a " + p.OrganizationName + " en BPM.\n\n" +
 		"Inicia sesión con este correo (" + p.Email + ") y acepta la invitación aquí:\n" + link + "\n\n" +

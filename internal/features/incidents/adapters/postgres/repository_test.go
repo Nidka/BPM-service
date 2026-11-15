@@ -131,9 +131,9 @@ func TestIncidentPostgresLifecyclePrivacyAndRecovery(t *testing.T) {
 	if _, e = s.Act(ctx, "chef", org, v.ID, "bad-site-key", bad); !errors.Is(e, domain.ErrDenied) {
 		t.Fatal("asignó sede ajena", e)
 	}
-	bad.ResponsibleUserID = "admin"
+	bad.ResponsibleUserID = "outside"
 	if _, e = s.Act(ctx, "chef", org, v.ID, "bad-admin-key", bad); !errors.Is(e, domain.ErrDenied) {
-		t.Fatal("asignó admin", e)
+		t.Fatal("asignó persona de otra empresa", e)
 	}
 	if _, e = pool.Exec(ctx, `UPDATE application_users SET status='INACTIVE' WHERE id='worker2'`); e != nil {
 		t.Fatal(e)

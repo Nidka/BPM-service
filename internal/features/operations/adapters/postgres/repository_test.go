@@ -122,7 +122,7 @@ func TestDailyOperationsPostgres(t *testing.T) {
 	catalog(t, ctx, s)
 	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 	t.Run("permisos y contextos vigentes", func(t *testing.T) {
-		for _, user := range []string{"admin", "super", "worker", "outside", "chef2"} {
+		for _, user := range []string{"super", "worker", "outside", "chef2"} {
 			if _, e := s.Receive(ctx, user, org, "denied-receipt", receipt(1, now)); e == nil {
 				t.Fatal("recibió sin permiso", user)
 			}
@@ -250,7 +250,7 @@ func TestDailyOperationsPostgres(t *testing.T) {
 		if _, e = s.Execution(ctx, "worker", org, uid(9, 2)); !errors.Is(e, domain.ErrDenied) {
 			t.Fatal("leyó ejecución ajena", e)
 		}
-		for _, user := range []string{"admin", "super", "chef2"} {
+		for _, user := range []string{"super", "chef2"} {
 			if _, e = s.Execute(ctx, user, org, "wrong-executor", execution(9, now)); e == nil {
 				t.Fatal("ejecutó sin permiso", user)
 			}
@@ -635,5 +635,57 @@ func TestReceiptOutboxAtomicAndReplay(t *testing.T) {
 	}
 	if e = pool.QueryRow(ctx, `SELECT count(*) FROM supply_receipts WHERE id=$1`, bad.ID).Scan(&count); e != nil || count != 0 {
 		t.Fatal("no revirtió recepción", count, e)
+	}
+}
+
+// El ADMIN con membresía activa opera como un CHEF en cualquier sede; SUPER_ADMIN
+// sin membresía y el ADMIN de otra empresa siguen sin poder operar.
+func TestAdminOperatesReceiptsStockAndCleaningInAnySite(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	s := application.New(New(pool))
+	catalog(t, ctx, s)
+	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
+	if _, e := pool.Exec(ctx, `INSERT INTO application_users(id,email,display_name,platform_role) VALUES('admin-foreign','af@example.invalid','Admin ajeno','USER')`); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := pool.Exec(ctx, `INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'admin-foreign','ADMIN')`, foreign); e != nil {
+		t.Fatal(e)
+	}
+	for _, user := range []string{"super", "admin-foreign"} {
+		if _, e := s.Receive(ctx, user, org, "denied-"+user, receipt(1, now)); e == nil {
+			t.Fatal("recibió sin permiso", user)
+		}
+		if _, e := s.Execute(ctx, user, org, "denied-exec-"+user, execution(1, now)); e == nil {
+			t.Fatal("limpió sin permiso", user)
+		}
+	}
+	got, e := s.Receive(ctx, "admin", org, "admin-receipt", receipt(1, now))
+	if e != nil || got.ReceivedByName != "Admin" {
+		t.Fatal("el ADMIN debe registrar y quedar atribuido", got.ReceivedByName, e)
+	}
+	// Sede sin membresía de sede para el ADMIN.
+	other := receipt(2, now)
+	other.LocationID = otherSite
+	if _, e = s.Receive(ctx, "admin", org, "admin-receipt-other", other); e != nil {
+		t.Fatal("el ADMIN debe operar en todas las sedes", e)
+	}
+	run, e := s.Execute(ctx, "admin", org, "admin-exec", execution(1, now))
+	if e != nil || run.ResponsibleUserID != "admin" {
+		t.Fatal("limpieza del ADMIN", run, e)
+	}
+	lots, e := s.Lots(ctx, "admin", org, site, pagination.Request{Size: 10})
+	if e != nil || len(lots.Items) != 1 {
+		t.Fatal(lots, e)
+	}
+	mv := domain.StockMovement{ID: uid(12, 1), LocationID: site, LotID: lots.Items[0].ID, Type: "CONSUMPTION", Quantity: "0.125", ClientOperationID: uid(13, 1), ClientCreatedAt: now}
+	if _, e = s.Move(ctx, "admin", org, "admin-move", mv); e != nil {
+		t.Fatal("el ADMIN debe mover stock", e)
+	}
+	mv.ID, mv.ClientOperationID = uid(12, 2), uid(13, 2)
+	for _, user := range []string{"super", "admin-foreign"} {
+		if _, e = s.Move(ctx, user, org, "denied-move-"+user, mv); e == nil {
+			t.Fatal("movió stock sin permiso", user)
+		}
 	}
 }

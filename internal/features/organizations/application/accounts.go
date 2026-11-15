@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -524,9 +525,47 @@ type InvitationInput struct {
 	LocationIDs     []string
 }
 
-// Invite crea la invitación y encola el correo en la misma transacción.
-// created es false cuando se repite una solicitud idéntica ya registrada.
-func (s *Service) Invite(ctx context.Context, uid, org string, in InvitationInput) (out domain.Invitation, created bool, err error) {
+// InvitationShare es el material para compartir una invitación recién emitida.
+// Solo existe en la respuesta de crear y reenviar; nunca se guarda ni se registra.
+type InvitationShare struct {
+	// Issued es false cuando no hay token (repetición idempotente).
+	Issued bool
+	// AcceptURL es la URL con el token; vacía si INVITATION_ACCEPT_URL no está configurada.
+	AcceptURL string
+	// Token solo se rellena sin AcceptURL, para pegarlo en la app.
+	Token string
+}
+
+// InvitationLink construye la URL de aceptación con el token como parámetro.
+// Devuelve "" si base está vacía o no es una URL válida.
+func InvitationLink(base, token string) string {
+	u, e := url.Parse(base)
+	if base == "" || e != nil {
+		return ""
+	}
+	q := u.Query()
+	q.Set("token", token)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func (s *Service) share(token string) InvitationShare {
+	if link := InvitationLink(s.acceptURL, token); link != "" {
+		return InvitationShare{Issued: true, AcceptURL: link}
+	}
+	return InvitationShare{Issued: true, Token: token}
+}
+
+// Invite crea la invitación; ver InviteShared.
+func (s *Service) Invite(ctx context.Context, uid, org string, in InvitationInput) (domain.Invitation, bool, error) {
+	out, _, created, err := s.InviteShared(ctx, uid, org, in)
+	return out, created, err
+}
+
+// InviteShared crea la invitación y, si hay proveedor de correo, encola el aviso en la
+// misma transacción. created es false cuando se repite una solicitud idéntica ya
+// registrada; en ese caso no hay token que compartir (solo se guarda su hash).
+func (s *Service) InviteShared(ctx context.Context, uid, org string, in InvitationInput) (out domain.Invitation, share InvitationShare, created bool, err error) {
 	fields := map[string]string{}
 	if !uuid.MatchString(in.ID) {
 		fields["id"] = "Identificador de operación inválido."
@@ -539,11 +578,11 @@ func (s *Service) Invite(ctx context.Context, uid, org string, in InvitationInpu
 	}
 	locations := validLocations(fields, in.Role, in.LocationIDs)
 	if len(fields) > 0 {
-		return out, false, &domain.ValidationError{Fields: fields}
+		return out, share, false, &domain.ValidationError{Fields: fields}
 	}
 	token, hash, err := NewInvitationToken()
 	if err != nil {
-		return out, false, err
+		return out, share, false, err
 	}
 	inv := domain.Invitation{ID: strings.ToLower(in.ID), Email: strings.ToLower(strings.TrimSpace(in.Email)), Role: in.Role, LocationIDs: locations, TokenHash: hash}
 	err = s.manage(ctx, uid, org, func(db Store, actor domain.Actor) error {
@@ -554,6 +593,10 @@ func (s *Service) Invite(ctx context.Context, uid, org string, in InvitationInpu
 		out, created, e = db.CreateInvitation(ctx, actor, org, inv)
 		if e != nil || !created {
 			return e
+		}
+		share = s.share(token)
+		if !s.queueMail {
+			return nil
 		}
 		return db.QueueInvitationEmail(ctx, actor, out, token)
 	})
@@ -594,14 +637,21 @@ func (s *Service) InvitationsPage(ctx context.Context, uid, org, status string, 
 	return
 }
 
-// ResendInvitation emite un token nuevo (invalida el anterior) y encola otro correo.
-func (s *Service) ResendInvitation(ctx context.Context, uid, org, id string) (out domain.Invitation, err error) {
+// ResendInvitation reenvía la invitación; ver ResendShared.
+func (s *Service) ResendInvitation(ctx context.Context, uid, org, id string) (domain.Invitation, error) {
+	out, _, err := s.ResendShared(ctx, uid, org, id)
+	return out, err
+}
+
+// ResendShared emite un token nuevo (invalida el anterior) y, si hay proveedor de
+// correo, encola otro aviso. Devuelve el material para compartir el enlace.
+func (s *Service) ResendShared(ctx context.Context, uid, org, id string) (out domain.Invitation, share InvitationShare, err error) {
 	if !uuid.MatchString(id) {
-		return out, domain.ErrInvitationNotFound
+		return out, share, domain.ErrInvitationNotFound
 	}
 	token, hash, err := NewInvitationToken()
 	if err != nil {
-		return out, err
+		return out, share, err
 	}
 	err = s.manage(ctx, uid, org, func(db Store, actor domain.Actor) error {
 		cur, e := db.LockInvitation(ctx, org, strings.ToLower(id))
@@ -617,6 +667,10 @@ func (s *Service) ResendInvitation(ctx context.Context, uid, org, id string) (ou
 		out, e = db.ResendInvitation(ctx, actor, org, cur.ID, hash)
 		if e != nil {
 			return e
+		}
+		share = s.share(token)
+		if !s.queueMail {
+			return nil
 		}
 		return db.QueueInvitationEmail(ctx, actor, out, token)
 	})

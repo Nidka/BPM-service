@@ -62,5 +62,5 @@ type Event struct {
 
 func CanConfigure(role string) bool { return role == "ADMIN" || role == "SUPER_ADMIN" }
 func CanSupervise(role string) bool { return CanConfigure(role) || role == "CHEF" }
-func CanReport(role string) bool    { return role == "CHEF" || role == "WORKER" }
+func CanReport(role string) bool    { return role == "ADMIN" || role == "CHEF" || role == "WORKER" }
 func CanRead(role string) bool      { return CanSupervise(role) || role == "WORKER" }

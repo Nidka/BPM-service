@@ -106,7 +106,7 @@ func (s *store) Location(ctx context.Context, a domain.Actor, org, id string) er
 }
 func (s *store) Eligible(ctx context.Context, org, site, user string) error {
 	var found string
-	e := s.tx.QueryRow(ctx, `SELECT u.id FROM application_users u JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=$1 JOIN membership_locations ml ON ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2 WHERE u.id=$3 AND u.status='ACTIVE' AND m.status='ACTIVE' AND m.role IN ('CHEF','WORKER') FOR SHARE OF u,m,ml`, org, site, user).Scan(&found)
+	e := s.tx.QueryRow(ctx, `SELECT u.id FROM application_users u JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=$1 WHERE u.id=$3 AND u.status='ACTIVE' AND m.status='ACTIVE' AND (m.role='ADMIN' OR (m.role IN ('CHEF','WORKER') AND EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2))) FOR SHARE OF u,m`, org, site, user).Scan(&found)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return domain.ErrDenied
 	}

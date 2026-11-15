@@ -41,3 +41,14 @@ func TestWorkerCannotConfigureOrReceive(t *testing.T) {
 		t.Fatal("permiso incorrecto", err)
 	}
 }
+
+func TestAdminRolePassesOperationalRoleChecksButSuperAdminDoesNot(t *testing.T) {
+	for role, want := range map[string]bool{"ADMIN": true, "CHEF": true, "SUPER_ADMIN": false, "WORKER": false} {
+		if domain.CanReceive(role) != want || domain.CanMoveStock(role) != want {
+			t.Fatal("recepción/stock", role)
+		}
+	}
+	if !domain.CanExecuteCleaning("ADMIN") || domain.CanExecuteCleaning("SUPER_ADMIN") {
+		t.Fatal("limpieza")
+	}
+}

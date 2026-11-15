@@ -299,10 +299,17 @@ reasigna a nadie: deja de listarse como activa y no puede asignarse a miembros.
 
 Crear: `{id (UUID cliente), email, role, locationIds}` (mismas reglas que PATCH de miembro).
 201 `{"data": <invitación>}`; el mismo `id` con el mismo contenido repite 200 sin duplicar
-ni reenviar el correo; mismo `id` con otro contenido: 409 `RESOURCE_CONFLICT`.
+ni reenviar el correo (y sin `acceptUrl`/`token`: solo se guarda el hash, así que no hay token que devolver; usar reenviar); mismo `id` con otro contenido: 409 `RESOURCE_CONFLICT`.
 Invitación: `{id, email (minúsculas), role, locationIds[], status, expiresAt, lastSentAt,
 createdAt, sendCount, rowVersion}`; `status` = `PENDING|ACCEPTED|REVOKED|EXPIRED`
-(`EXPIRED` es el estado efectivo de una pendiente vencida). Nunca se devuelve el token.
+(`EXPIRED` es el estado efectivo de una pendiente vencida). `GET` de la lista nunca devuelve el token ni la URL.
+
+**Enlace compartible (WhatsApp).** Crear (201) y reenviar (200) devuelven además, solo en esas dos respuestas, el material para compartir la invitación sin depender del correo:
+
+- Con `INVITATION_ACCEPT_URL` configurada: `{"data": {...invitación, "acceptUrl": "https://appbpm.com/cuenta/invitacion?token=<token>"}}`.
+- Sin ella: `{"data": {...invitación, "acceptUrl": null, "token": "<43 caracteres>"}}` (código para pegar en la app).
+
+La respuesta lleva `Cache-Control: no-store`. El token en texto plano no se guarda, no se registra ni se audita; en la base sigue solo su SHA-256. Quien comparte el enlace no cede acceso: la cuenta que acepta debe tener el mismo correo verificado de la invitación (403 `INVITATION_EMAIL_MISMATCH`), así que otra persona no puede usarlo.
 Vigencia 7 días. Errores: 409 `MEMBER_ALREADY_EXISTS` (ya hay membresía, incluso inactiva;
 usar reactivar), 409 `INVITATION_ALREADY_PENDING`, 403, 422.
 
@@ -323,10 +330,12 @@ Errores: 404 `INVITATION_NOT_FOUND` (token inexistente o mal formado, o sustitui
 reenvío), 409 `INVITATION_EXPIRED`, `INVITATION_ALREADY_USED`, `INVITATION_REVOKED`,
 `MEMBER_ALREADY_EXISTS`, `INVITATION_NOT_PENDING` (todas las sedes se desactivaron).
 El cliente abre el enlace `INVITATION_ACCEPT_URL?token=...`, autentica y llama a este endpoint.
+La aceptación no cambió: token de un solo uso, vigencia de 7 días y correo verificado coincidente.
 
 Seguridad: token de 256 bits aleatorios; solo se guarda su SHA-256. El token sin cifrar viaja
 únicamente en el evento de outbox `organizations.invitation.requested.v1` (misma transacción
 que la invitación) y se borra del payload al enviarse, reenviarse, revocarse o aceptarse.
+**Sin proveedor de correo** (sin `RESEND_API_KEY`/`RESEND_FROM_EMAIL`, caso actual en producción) crear y reenviar funcionan igual: la API no encola el evento de outbox (así el token no queda guardado sin enviarse) y el enlace se comparte con `acceptUrl`/`token`. Con proveedor, además se encola el correo.
 El worker (`bpm-worker`) envía el correo por Resend (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) con
 clave de idempotencia `bpm-invitation/<dedupKey>`, descarta eventos sustituidos y difiere
 mientras no haya proveedor. Variable opcional `INVITATION_ACCEPT_URL` (página del cliente
@@ -364,3 +373,14 @@ dos degradaciones simultáneas), tenant ajeno, rol insuficiente, concurrencia po
 `rowVersion`, desactivado sin acceso con sesiones y dispositivos retirados, invitación
 vencida/reutilizada/revocada/de otro correo/sustituida, token solo como hash y borrado del
 outbox, tipo de establecimiento y dispositivos ajenos.
+
+## Nota: el ADMIN también opera
+
+Cada persona tiene un único rol por empresa. Para cafetines pequeños, el dueño (`ADMIN`) con
+membresía activa también ejecuta lo operativo que hace un CHEF en **todas** las sedes
+activas de su empresa (sin asignación de sede): controles, recepciones, consumos y descartes,
+limpiezas con sus fotos, y reporte y atención de incidencias; ver CHECKLISTS.md, OPERATIONS.md,
+MEDIA.md e INCIDENTS.md. `SUPER_ADMIN` sin membresía sigue sin operar. Se conserva la
+separación de funciones: nadie valida su propia corrección (el responsable y el validador de una
+acción correctiva son personas distintas). La membresía ya no limita por rol lo que un ADMIN
+puede ser como responsable de incidencia: es elegible en cualquier sede de su empresa.

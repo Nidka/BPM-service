@@ -42,8 +42,8 @@ var DiscardReasons = []string{"EXPIRED", "DETERIORATED", "CONTAMINATION", "OTHER
 
 func CanReadShifts(role string) bool { return CanReadCleaning(role) }
 
-// CanMoveStock limita consumo y descarte al CHEF asignado; administración solo supervisa.
-func CanMoveStock(role string) bool { return role == "CHEF" }
+// CanMoveStock permite consumo y descarte al CHEF y al ADMIN con membresía activa.
+func CanMoveStock(role string) bool { return role == "CHEF" || role == "ADMIN" }
 
 // NormalizeShift valida la creación de un turno; UUID de cliente, nombre y horas locales.
 func NormalizeShift(v Shift) (Shift, error) {

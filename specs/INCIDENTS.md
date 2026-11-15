@@ -9,8 +9,10 @@ conserva la carga, confirmación, descarga y eliminación privada de fotos.
 
 - ADMIN y SUPER_ADMIN publican criterios y nuevas versiones; supervisan cualquier
   sede activa autorizada del tenant. CHEF supervisa sus sedes asignadas.
-- CHEF y WORKER reportan incidencias. Solo CHEF/WORKER activos con membresía y
-  asignación vigentes a la misma sede son responsables elegibles.
+- ADMIN, CHEF y WORKER reportan incidencias. El ADMIN con membresía activa opera en
+  todas las sedes de su empresa y puede ser responsable de una acción correctiva sin
+  asignación de sede. CHEF/WORKER activos son elegibles solo con asignación vigente a
+  la misma sede. SUPER_ADMIN sin membresía no reporta ni ejecuta acciones.
 - WORKER ve únicamente los reportes propios o incidencias con una acción asignada,
   siempre dentro de sus sedes vigentes. La lista filtra esa visibilidad en SQL.
 - ASSIGN exige supervisor, responsable elegible, descripción y plazo futuro.
@@ -19,7 +21,9 @@ conserva la carga, confirmación, descarga y eliminación privada de fotos.
   IN_PROGRESS; RESOLVE exige explicación y cambia a RESOLVED.
 - VERIFY y RETURN requieren supervisor distinto del responsable. RETURN exige
   motivo y vuelve a IN_PROGRESS. VERIFY cierra la incidencia y verifica la acción.
-  El ejecutor nunca valida su propia corrección, aunque sea CHEF o administrador.
+  El ejecutor nunca valida su propia corrección, aunque sea CHEF o administrador:
+  un ADMIN responsable de una acción no puede verificarla ni devolverla (otro ADMIN sí),
+  aunque pueda validar acciones ajenas.
 
 Se autoriza usuario, organización, membresía y sede en cada solicitud. Las
 escrituras conservan esos registros mediante `FOR SHARE`, serializan recibos del

@@ -8,8 +8,10 @@ de uso no conocen el SDK S3 ni HTTP. R2 implementa el puerto técnico compartido
 
 - CHEF: consulta revisiones de sus sedes activas; solo carga, confirma o retira
   fotos de una revisión propia en DRAFT.
-- ADMIN y SUPER_ADMIN: consulta y descarga para supervisión, sin responder ni
-  modificar controles ajenos.
+- ADMIN con membresía activa: opera como CHEF en todas las sedes activas de su empresa;
+  solo carga, confirma o retira fotos de sus propias revisiones en DRAFT. En controles
+  ajenos consulta y descarga para supervisión.
+- SUPER_ADMIN: consulta y descarga para supervisión, sin responder ni modificar controles.
 - WORKER: no accede a controles ni a sus evidencias.
 
 Cada operación vuelve a comprobar usuario, empresa, membresía, sede, revisión y
@@ -152,8 +154,8 @@ Cuerpo de reserva para limpieza: `{id, cleaningExecutionId, originalName, mimeTy
 Permisos (se reevalúan en cada llamada, también tras leer R2 antes de confirmar):
 
 - Leer y descargar: ADMIN/SUPER_ADMIN (supervisión), CHEF de una sede asignada, y WORKER solo si es el responsable de esa ejecución.
-- Reservar, confirmar y retirar: únicamente el responsable de la ejecución (CHEF o WORKER) y solo durante las **24 horas siguientes al registro**
-  (`createdAt` de la ejecución); después la evidencia queda de solo lectura (403 `ACCESS_DENIED`). ADMIN supervisa pero no adjunta.
+- Reservar, confirmar y retirar: únicamente el responsable de la ejecución (ADMIN, CHEF o WORKER) y solo durante las **24 horas siguientes al registro**
+  (`createdAt` de la ejecución); después la evidencia queda de solo lectura (403 `ACCESS_DENIED`). El ADMIN responsable adjunta como un CHEF; en ejecuciones ajenas solo supervisa.
 - Ejecución o sede de otra empresa: 403/404 como en controles; la sede debe estar activa.
 
 Un archivo con más de un destino (control, incidencia o limpieza) sigue bloqueado para listar, descargar y mutar.

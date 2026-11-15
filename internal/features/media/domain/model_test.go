@@ -82,14 +82,43 @@ func TestIncidentEvidencePermissionsKeepBeforeAndAfterDistinct(t *testing.T) {
 		t.Fatal("supervisor fabricó evidencia de ejecutor")
 	}
 	target.Responsible = "admin"
-	if target.CanWrite() {
-		t.Fatal("administrador ejecutó corrección asignada antes del cambio de rol")
+	if !target.CanWrite() {
+		t.Fatal("administrador responsable no puede documentar su corrección")
 	}
+	target.Role = "SUPER_ADMIN"
+	if target.CanWrite() {
+		t.Fatal("SUPER_ADMIN sin membresía operó")
+	}
+	target.Role = "ADMIN"
 	target.UserID = "worker"
 	target.Role = "WORKER"
 	target.Responsible = "worker"
 	target.IncidentStatus = "RESOLVED"
 	if target.CanWrite() {
 		t.Fatal("cambió evidencia enviada a validación")
+	}
+}
+
+// El ADMIN sube y retira solo las fotos de sus propias ejecuciones y limpiezas.
+func TestAdminWritesOnlyOwnRunAndCleaningPhotos(t *testing.T) {
+	run := Target{Role: "ADMIN", UserID: "admin", RunOwner: "admin", RunStatus: "DRAFT"}
+	if !run.CanWrite() {
+		t.Fatal("el ADMIN responsable debe adjuntar a su control")
+	}
+	run.RunOwner = "chef"
+	if run.CanWrite() {
+		t.Fatal("el ADMIN no escribe en controles ajenos")
+	}
+	clean := Target{CleaningID: "c", Role: "ADMIN", UserID: "admin", CleaningOwner: "admin", CleaningOpen: true}
+	if !clean.CanWrite() {
+		t.Fatal("el ADMIN responsable debe adjuntar a su limpieza")
+	}
+	clean.CleaningOwner = "chef"
+	if clean.CanWrite() {
+		t.Fatal("el ADMIN no escribe en limpiezas ajenas")
+	}
+	clean.Role, clean.CleaningOwner = "SUPER_ADMIN", "admin"
+	if clean.CanWrite() {
+		t.Fatal("SUPER_ADMIN sin membresía no opera")
 	}
 }
