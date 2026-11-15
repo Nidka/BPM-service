@@ -13,6 +13,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/features/training/application"
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
+	"github.com/Nidka/BPM-service/internal/shared/application/pagination"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -310,5 +311,48 @@ func TestTrainingPostgresVideosAndPublicationGate(t *testing.T) {
 	}
 	if _, err = s.LessonVideo(ctx, "other", foreign, course.ID, uid(3, 1)); !errors.Is(err, domain.ErrCourseNotFound) {
 		t.Fatal("video de otro tenant", err)
+	}
+}
+
+// Un SUPER_ADMIN con membresía activa estudia, rinde y obtiene constancia con
+// el rol de su membresía; sin membresía sigue sin persistir.
+func TestTrainingSuperAdminMemberPersistsWithMembershipRole(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	s := application.New(New(pool), videos{}, domain.VideoPolicy{MaxBytes: 1 << 20})
+	courseID, versionID, _ := publish(t, ctx, s, "M-SA", "")
+	for _, q := range []string{
+		`INSERT INTO application_users(id,email,display_name,platform_role) VALUES('supadm','sa@example.invalid','Super Admin','SUPER_ADMIN')`,
+		`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES('` + org + `','supadm','ADMIN')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view, err := s.Course(ctx, "supadm", org, courseID)
+	if err != nil || len(view.Questions) != 3 {
+		t.Fatal(view, err)
+	}
+	if _, err = s.SaveProgress(ctx, "supadm", org, courseID, uid(3, 1)); err != nil {
+		t.Fatal("SUPER_ADMIN miembro no guardó progreso", err)
+	}
+	if d, err := s.SubmitAttempt(ctx, "supadm", org, courseID, attempt(versionID, uid(7, 11), uid(8, 11), "DIAGNOSTIC", 1, 1, 1)); err != nil || d.Certificate != nil {
+		t.Fatal("DIAGNOSTIC del SUPER_ADMIN miembro", d, err)
+	}
+	final, err := s.SubmitAttempt(ctx, "supadm", org, courseID, attempt(versionID, uid(7, 12), uid(8, 12), "FINAL", 1, 1, 1))
+	if err != nil || !final.Passed || final.Certificate == nil {
+		t.Fatal("el SUPER_ADMIN miembro debe rendir FINAL y recibir constancia", final, err)
+	}
+	if _, err = s.MyAchievements(ctx, "supadm", org); err != nil {
+		t.Fatal("logros", err)
+	}
+	if _, err = s.MyAssignments(ctx, "supadm", org, pagination.Request{}); err != nil {
+		t.Fatal("mis asignaciones", err)
+	}
+	if _, err = s.OfflineCatalog(ctx, "supadm", org); err != nil {
+		t.Fatal("catálogo offline", err)
+	}
+	if _, err = s.SubmitAttempt(ctx, "super", org, courseID, attempt(versionID, uid(7, 13), uid(8, 13), "FINAL", 1, 1, 1)); !errors.Is(err, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN sin membresía persistió", err)
 	}
 }

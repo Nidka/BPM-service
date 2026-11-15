@@ -224,3 +224,6 @@ Pruebas con PostgreSQL real: tenant y sede ajenos, roles, saldo negativo, cero/n
 clave, otra clave, mismo UUID con otro cuerpo), consumo de lote vencido, concurrencia (cuatro descuentos simultáneos de
 0.5 sobre 1.125 dejan exactamente dos éxitos y saldo 0.125), inmutabilidad, auditoría, solape y turnos que cruzan la
 medianoche, zona horaria de Lima con inicio inclusivo y fin excluyente.
+
+## SUPER_ADMIN que también es miembro
+Un SUPER_ADMIN con membresía activa en la empresa opera con el rol de su membresía (ADMIN, CHEF o WORKER), incluidas las limitaciones de sede (un CHEF solo opera y ve sus sedes asignadas). Sin membresía sigue como supervisor y recibe 403 al operar. Ver `ORGANIZATIONS.md`.

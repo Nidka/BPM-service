@@ -167,3 +167,6 @@ aislado y detector de carreras (`-race -count=1`); `go vet` sin errores. El cont
 OpenAPI valida 60 operaciones y 319 referencias. La frontera Node tiene 67 pruebas
 sin fallos. Las pruebas de interfaz no sustituyen la aceptación con R2 real ni
 una prueba en dispositivos físicos.
+
+## SUPER_ADMIN que también es miembro
+Un SUPER_ADMIN con membresía activa en la empresa opera con el rol de su membresía (ADMIN, CHEF o WORKER), incluidas las limitaciones de sede (un CHEF solo opera y ve sus sedes asignadas). Sin membresía sigue como supervisor y recibe 403 al operar. Ver `ORGANIZATIONS.md`.

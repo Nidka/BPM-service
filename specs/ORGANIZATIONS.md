@@ -384,3 +384,7 @@ MEDIA.md e INCIDENTS.md. `SUPER_ADMIN` sin membresía sigue sin operar. Se conse
 separación de funciones: nadie valida su propia corrección (el responsable y el validador de una
 acción correctiva son personas distintas). La membresía ya no limita por rol lo que un ADMIN
 puede ser como responsable de incidencia: es elegible en cualquier sede de su empresa.
+
+## SUPER_ADMIN que también es miembro
+Regla transversal de las features operativas (checklists, operations, incidents, media) y training: si el usuario tiene `platform_role = SUPER_ADMIN` **y** una membresía ACTIVE en la empresa, su rol efectivo es el de la membresía (ADMIN, CHEF o WORKER), con todos sus permisos y limitaciones de sede; opera como cualquier miembro. Sin membresía activa conserva el comportamiento de supervisor (no opera, 403 al operar). La creación de empresas y las concesiones de investigación siguen dependiendo solo de `platform_role`. alerts, reports, research y organizations no cambian. Cada resolvedor de actor consulta primero la membresía y solo recurre a SUPER_ADMIN si no existe.
+Resumen de la regla por feature: checklists, operations, incidents, media y training usan el rol de la membresía cuando existe; ver la sección equivalente en cada spec.

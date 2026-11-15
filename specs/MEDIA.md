@@ -161,3 +161,6 @@ Permisos (se reevalúan en cada llamada, también tras leer R2 antes de confirma
 Un archivo con más de un destino (control, incidencia o limpieza) sigue bloqueado para listar, descargar y mutar.
 Las pruebas cubren responsable, otro worker, CHEF de otra sede, ADMIN, tenant ajeno, ventana de 24 horas, límite de tres, reintento
 idéntico y con metadatos distintos, PDF rechazado, confirmación por otro usuario y retiro.
+
+## SUPER_ADMIN que también es miembro
+Un SUPER_ADMIN con membresía activa en la empresa opera con el rol de su membresía (ADMIN, CHEF o WORKER), incluidas las limitaciones de sede (un CHEF solo opera y ve sus sedes asignadas). Sin membresía sigue como supervisor y recibe 403 al operar. Ver `ORGANIZATIONS.md`.
