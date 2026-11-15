@@ -275,3 +275,59 @@ func TestAdminOperatesInAnySiteAndNeverVerifiesOwnCorrection(t *testing.T) {
 		t.Fatal("otro ADMIN debe poder devolver", e)
 	}
 }
+
+// Sin otra persona elegible, el dueño (ADMIN) puede validar su propia corrección con nota;
+// si existe otro ADMIN o un CHEF de la sede, sigue prohibido.
+func TestSoleAdminSelfValidatesWithNoteAndIsAudited(t *testing.T) {
+	ctx, pool, s, r := setupIncident(t)
+	act := func(user, key string, c domain.Command) (domain.Incident, error) {
+		return s.Act(ctx, user, org, r.ID, key, c)
+	}
+	if _, e := act("admin", "assign-self-key", domain.Command{OperationID: uid(6, 1), RowVersion: 1, ActionType: "ASSIGN", ActionID: uid(7, 1), ResponsibleUserID: "admin", Description: "Reparar", DueAt: time.Now().Add(time.Hour)}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := act("admin", "start-self-key", domain.Command{OperationID: uid(6, 2), RowVersion: 2, ActionType: "START"}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := act("admin", "resolve-self-key", domain.Command{OperationID: uid(6, 3), RowVersion: 3, ActionType: "RESOLVE", Note: "Reparación completa"}); e != nil {
+		t.Fatal(e)
+	}
+	verify := domain.Command{OperationID: uid(6, 4), RowVersion: 4, ActionType: "VERIFY", Note: "Verificado por el dueño"}
+	// El CHEF de la sede está activo: sigue prohibido y no se ofrece la opción.
+	if _, e := act("admin", "self-verify-chef", verify); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("autovalidó con un CHEF elegible", e)
+	}
+	if d, e := s.Detail(ctx, "admin", org, r.ID); e != nil || len(d.AllowedActions) != 0 {
+		t.Fatal(d.AllowedActions, e)
+	}
+	// Otro ADMIN activo (CHEF desactivado): sigue prohibido.
+	execSQL(t, ctx, pool, `UPDATE organization_memberships SET status='INACTIVE' WHERE organization_id=$1 AND user_id='chef'`, org)
+	execSQL(t, ctx, pool, `INSERT INTO application_users(id,email,display_name,platform_role) VALUES('admin2','a2@example.invalid','Admin 2','USER')`)
+	execSQL(t, ctx, pool, `INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'admin2','ADMIN')`, org)
+	if _, e := act("admin", "self-verify-admin2", verify); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("autovalidó con otro ADMIN elegible", e)
+	}
+	// Un CHEF de otra sede no cuenta como validador de esta sede.
+	execSQL(t, ctx, pool, `UPDATE organization_memberships SET status='INACTIVE' WHERE organization_id=$1 AND user_id='admin2'`, org)
+	d, e := s.Detail(ctx, "admin", org, r.ID)
+	if e != nil || len(d.AllowedActions) != 1 || d.AllowedActions[0] != "VERIFY" {
+		t.Fatal("debe ofrecerse VERIFY", d.AllowedActions, e)
+	}
+	noNote := verify
+	noNote.Note = ""
+	var invalid *domain.ValidationError
+	if _, e = act("admin", "self-verify-nonote", noNote); !errors.As(e, &invalid) {
+		t.Fatal("sin nota debe ser inválido", e)
+	}
+	if _, e = act("admin", "self-return-key", domain.Command{OperationID: uid(6, 5), RowVersion: 4, ActionType: "RETURN", Note: "Falta"}); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("RETURN propio permitido", e)
+	}
+	closed, e := act("admin", "self-verify-ok", verify)
+	if e != nil || closed.Status != "CLOSED" || len(closed.Actions) != 1 || !closed.Actions[0].SelfValidated() {
+		t.Fatal(closed, e)
+	}
+	var n int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='incident.SELF_VERIFY' AND entity_id=$2`, org, r.ID).Scan(&n); e != nil || n != 1 {
+		t.Fatal("auditoría de autovalidación", n, e)
+	}
+}

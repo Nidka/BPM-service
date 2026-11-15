@@ -829,7 +829,10 @@ paths:
       summary: Asignar, atender o verificar una incidencia
       description: 'ASSIGN: supervisor, responsable elegible y plazo futuro; START/RESOLVE:
         solo responsable; VERIFY/RETURN: supervisor distinto del ejecutor. RETURN exige
-        motivo. VERIFY exige evidencia AVAILABLE BEFORE y AFTER de la acción si el criterio
+        motivo. Excepción: si el responsable es ADMIN/CHEF supervisor y no existe otro ADMIN
+        activo ni CHEF activo con acceso a la sede, puede hacer VERIFY de su propia acción (con
+        nota obligatoria; sin nota 422); queda `selfValidated: true` y auditoría
+        incident.SELF_VERIFY. RETURN propio sigue prohibido. VERIFY exige evidencia AVAILABLE BEFORE y AFTER de la acción si el criterio
         lo exige. Incidencias con múltiples acciones legadas rechazan comandos que requieren
         acción única. Transición, evento, auditoría e idempotencia son atómicos; conflicto
         de rowVersion devuelve 409.'
@@ -4506,6 +4509,7 @@ components:
       - dueAt
       - status
       - resolutionNote
+      - selfValidated
       properties:
         id:
           type: string
@@ -4546,6 +4550,9 @@ components:
           type: string
           maxLength: 128
           minLength: 1
+        selfValidated:
+          type: boolean
+          description: true si el responsable validó su propia corrección por ser el único validador posible (sin otro ADMIN activo ni CHEF activo de la sede); se audita como incident.SELF_VERIFY.
     IncidentDetail:
       type: object
       additionalProperties: false

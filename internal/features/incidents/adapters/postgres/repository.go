@@ -148,3 +148,14 @@ func (s *store) Audit(ctx context.Context, a domain.Actor, org, action, id strin
 
 var _ application.UnitOfWork = (*Repository)(nil)
 var _ application.Store = (*store)(nil)
+
+// OtherValidator indica si otra persona activa puede validar: un ADMIN de la empresa o un
+// CHEF con acceso vigente a la sede. Se bloquean las filas leídas hasta terminar la transacción.
+func (s *store) OtherValidator(ctx context.Context, org, site, exclude string) (bool, error) {
+	var found string
+	e := s.tx.QueryRow(ctx, `SELECT u.id FROM application_users u JOIN organization_memberships m ON m.user_id=u.id AND m.organization_id=$1 WHERE u.status='ACTIVE' AND m.status='ACTIVE' AND u.id<>$3 AND (m.role='ADMIN' OR (m.role='CHEF' AND EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2))) LIMIT 1 FOR SHARE OF u,m`, org, site, exclude).Scan(&found)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return e == nil, e
+}

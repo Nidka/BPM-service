@@ -90,3 +90,32 @@ func TestAdminReportsAndResolvesButNeverVerifiesOwnCorrection(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Autovalidación: solo cuando el actor es el único validador posible (SoleValidator).
+func TestSoleValidatorMaySelfVerifyOnlyWithFlag(t *testing.T) {
+	now := time.Now().UTC()
+	mk := func() Incident {
+		return Incident{Status: "RESOLVED", RowVersion: 4, Actions: []Action{{ResponsibleUserID: "dueño", Status: "RESOLVED"}}}
+	}
+	owner := Actor{ID: "dueño", Role: "ADMIN"}
+	v := mk()
+	if err := Apply(&v, owner, Command{RowVersion: 4, ActionType: "VERIFY", Note: "Conforme"}, now); !errors.Is(err, ErrDenied) {
+		t.Fatal("sin bandera no puede autovalidar", err)
+	}
+	owner.SoleValidator = true
+	if got := Allowed(mk(), owner); len(got) != 1 || got[0] != "VERIFY" {
+		t.Fatal("solo VERIFY permitido", got)
+	}
+	v = mk()
+	if err := Apply(&v, owner, Command{RowVersion: 4, ActionType: "RETURN", Note: "Falta"}, now); !errors.Is(err, ErrDenied) {
+		t.Fatal("RETURN propio sigue prohibido", err)
+	}
+	if err := Apply(&v, owner, Command{RowVersion: 4, ActionType: "VERIFY", Note: "Conforme"}, now); err != nil || v.Status != "CLOSED" || !v.Actions[0].SelfValidated() {
+		t.Fatal(v, err)
+	}
+	worker := Actor{ID: "dueño", Role: "WORKER", SoleValidator: true}
+	v = mk()
+	if err := Apply(&v, worker, Command{RowVersion: 4, ActionType: "VERIFY", Note: "Conforme"}, now); !errors.Is(err, ErrDenied) {
+		t.Fatal("un WORKER nunca valida", err)
+	}
+}

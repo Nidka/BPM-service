@@ -134,6 +134,8 @@ type actionDTO struct {
 	ResolvedAt        *time.Time `json:"resolvedAt,omitempty"`
 	VerifiedAt        *time.Time `json:"verifiedAt,omitempty"`
 	VerifiedBy        *string    `json:"verifiedBy,omitempty"`
+	// SelfValidated es true si el responsable validó su propia corrección por ser el único validador posible.
+	SelfValidated bool `json:"selfValidated"`
 }
 type detailDTO struct {
 	summaryDTO
@@ -151,7 +153,7 @@ type detailDTO struct {
 func detail(v domain.Incident) detailDTO {
 	actions := make([]actionDTO, 0, len(v.Actions))
 	for _, a := range v.Actions {
-		actions = append(actions, actionDTO{a.ID, a.ResponsibleUserID, a.ResponsibleName, a.Description, a.DueAt, a.Status, a.ResolutionNote, a.ResolvedAt, a.VerifiedAt, a.VerifiedBy})
+		actions = append(actions, actionDTO{a.ID, a.ResponsibleUserID, a.ResponsibleName, a.Description, a.DueAt, a.Status, a.ResolutionNote, a.ResolvedAt, a.VerifiedAt, a.VerifiedBy, a.SelfValidated()})
 	}
 	allowed := v.AllowedActions
 	if allowed == nil {

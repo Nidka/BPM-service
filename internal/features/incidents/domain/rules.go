@@ -20,8 +20,13 @@ func Allowed(v Incident, a Actor) []string {
 			out = append(out, "RESOLVE")
 		}
 	}
-	if v.Status == "RESOLVED" && x.Status == "RESOLVED" && CanSupervise(a.Role) && x.ResponsibleUserID != a.ID {
-		out = append(out, "VERIFY", "RETURN")
+	if v.Status == "RESOLVED" && x.Status == "RESOLVED" && CanSupervise(a.Role) {
+		if x.ResponsibleUserID != a.ID {
+			out = append(out, "VERIFY", "RETURN")
+		} else if a.SoleValidator {
+			// Autovalidación: único validador posible de la empresa; exige nota y se audita.
+			out = append(out, "VERIFY")
+		}
 	}
 	return out
 }
@@ -38,7 +43,7 @@ func Apply(v *Incident, a Actor, c Command, now time.Time) error {
 		}
 	}
 	if c.ActionType == "VERIFY" || c.ActionType == "RETURN" {
-		if !CanSupervise(a.Role) || (len(v.Actions) == 1 && v.Actions[0].ResponsibleUserID == a.ID) {
+		if !CanSupervise(a.Role) || (len(v.Actions) == 1 && v.Actions[0].ResponsibleUserID == a.ID && !(c.ActionType == "VERIFY" && a.SoleValidator)) {
 			return ErrDenied
 		}
 	}

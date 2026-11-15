@@ -24,6 +24,14 @@ conserva la carga, confirmación, descarga y eliminación privada de fotos.
   El ejecutor nunca valida su propia corrección, aunque sea CHEF o administrador:
   un ADMIN responsable de una acción no puede verificarla ni devolverla (otro ADMIN sí),
   aunque pueda validar acciones ajenas.
+  **Excepción de autovalidación:** si el responsable es ADMIN o CHEF (supervisor) y en la
+  empresa no existe otro ADMIN activo ni CHEF activo con acceso vigente a esa sede, puede
+  hacer VERIFY de su propia acción. Exige nota obligatoria (sin nota: 422), RETURN propio
+  sigue prohibido, y se evalúa en cada lectura/comando (`allowedActions` ofrece VERIFY solo
+  entonces). Si existe otra persona elegible, la regla general se mantiene. La acción queda
+  con `selfValidated: true` (campo calculado: `verifiedBy` igual al responsable, sin columna
+  nueva) y la auditoría registra además `incident.SELF_VERIFY` para que los reportes la
+  distingan. Un CHEF de otra sede no cuenta como validador de esta.
 
 Se autoriza usuario, organización, membresía y sede en cada solicitud. Las
 escrituras conservan esos registros mediante `FOR SHARE`, serializan recibos del

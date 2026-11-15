@@ -45,7 +45,7 @@ func fixture(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(e)
 	}
 	t.Cleanup(p.Close)
-	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql"} {
+	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V14__alerts_admin_operates.sql"} {
 		b, e := os.ReadFile("../../../../../migraciones/" + n)
 		if e != nil {
 			t.Fatal(e)

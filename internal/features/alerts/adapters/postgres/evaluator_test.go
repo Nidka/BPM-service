@@ -122,6 +122,15 @@ func TestScheduledChecklistDSTDraftAndCompletion(t *testing.T) {
 	if e != nil || len(page.Items) != 1 {
 		t.Fatal(page, e)
 	}
+	// El ADMIN activo también recibe el aviso (todas las sedes) sin duplicarlo y puede abrirlo.
+	adminPage, e := s.Inbox(ctx, "admin", org, "ALL", pagination.Request{})
+	if e != nil || len(adminPage.Items) != 1 {
+		t.Fatal("el ADMIN debe recibir el aviso de control pendiente", adminPage, e)
+	}
+	var adminOK bool
+	if e = p.QueryRow(ctx, `SELECT alert_recipient_authorized($1,$2,'admin')`, org, adminPage.Items[0].ID).Scan(&adminOK); e != nil || !adminOK {
+		t.Fatal("aviso del ADMIN no autorizado", adminOK, e)
+	}
 	var start, end time.Time
 	if e = p.QueryRow(ctx, `SELECT(context_snapshot->>'periodStart')::timestamptz,(context_snapshot->>'periodEnd')::timestamptz FROM alerts`).Scan(&start, &end); e != nil || end.Sub(start) != 25*time.Hour {
 		t.Fatal(start, end, e)
