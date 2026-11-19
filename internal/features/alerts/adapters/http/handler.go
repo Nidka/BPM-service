@@ -15,8 +15,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 	"net/url"
+	"strings"
 )
 
 type Handler struct {
@@ -74,6 +74,7 @@ func (h *Handler) actor(w http.ResponseWriter, r *http.Request) (u, o string, ok
 func invalid(w http.ResponseWriter, r *http.Request) {
 	response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Revisa la estructura de la solicitud."})
 }
+
 // noBody exige que la solicitud no traiga datos. Acepta un cuerpo vacío o un
 // objeto JSON vacío (`{}`), que es lo que envían la app y el proxy web.
 func noBody(w http.ResponseWriter, r *http.Request) bool {
