@@ -689,3 +689,54 @@ func TestAdminOperatesReceiptsStockAndCleaningInAnySite(t *testing.T) {
 		}
 	}
 }
+
+// Un SUPER_ADMIN con membresía opera con el rol de su membresía; el CHEF queda
+// limitado a sus sedes y el SUPER_ADMIN sin membresía no opera.
+func TestSuperAdminMemberOperatesWithMembershipRole(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	s := application.New(New(pool))
+	catalog(t, ctx, s)
+	now := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
+	for _, q := range []string{
+		`INSERT INTO application_users(id,email,display_name,platform_role) VALUES('supadm','sa@example.invalid','Super Admin','SUPER_ADMIN'),('supchef','sc@example.invalid','Super Chef','SUPER_ADMIN')`,
+		`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES('` + org + `','supadm','ADMIN'),('` + org + `','supchef','CHEF')`,
+		`INSERT INTO membership_locations(organization_id,user_id,location_id) VALUES('` + org + `','supchef','` + site + `')`,
+	} {
+		if _, e := pool.Exec(ctx, q); e != nil {
+			t.Fatal(e)
+		}
+	}
+	got, e := s.Receive(ctx, "supadm", org, "sa-receipt", receipt(1, now))
+	if e != nil || got.ReceivedByName != "Super Admin" {
+		t.Fatal("SUPER_ADMIN miembro ADMIN debe registrar recepción", got.ReceivedByName, e)
+	}
+	other := receipt(2, now)
+	other.LocationID = otherSite
+	if _, e = s.Receive(ctx, "supadm", org, "sa-receipt-other", other); e != nil {
+		t.Fatal("SUPER_ADMIN miembro ADMIN debe operar en todas las sedes", e)
+	}
+	run, e := s.Execute(ctx, "supadm", org, "sa-exec-key", execution(1, now))
+	if e != nil || run.ResponsibleUserID != "supadm" {
+		t.Fatal("limpieza del SUPER_ADMIN miembro", run, e)
+	}
+	lots, e := s.Lots(ctx, "supadm", org, site, pagination.Request{Size: 10})
+	if e != nil || len(lots.Items) == 0 {
+		t.Fatal(lots, e)
+	}
+	mv := domain.StockMovement{ID: uid(12, 1), LocationID: site, LotID: lots.Items[0].ID, Type: "CONSUMPTION", Quantity: "0.125", ClientOperationID: uid(13, 1), ClientCreatedAt: now}
+	if _, e = s.Move(ctx, "supadm", org, "sa-move-key", mv); e != nil {
+		t.Fatal("SUPER_ADMIN miembro ADMIN debe mover stock", e)
+	}
+	if _, e = s.Receive(ctx, "supchef", org, "sc-receipt", receipt(3, now)); e != nil {
+		t.Fatal("SUPER_ADMIN miembro CHEF debe operar en su sede", e)
+	}
+	denied := receipt(4, now)
+	denied.LocationID = otherSite
+	if _, e = s.Receive(ctx, "supchef", org, "sc-receipt-other", denied); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN miembro CHEF operó fuera de sus sedes", e)
+	}
+	if _, e = s.Receive(ctx, "super", org, "super-receipt", receipt(5, now)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN sin membresía operó", e)
+	}
+}

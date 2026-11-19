@@ -514,3 +514,6 @@ YouTube; **como máximo uno de los dos** (`videoMediaId` o `externalVideo`, ambo
 - **Pruebas:** asignación a otra empresa, rol sin permiso, vencimiento, logros una sola
   vez ante reintentos, MODULE con lección ajena, verificación pública inexistente/revocada,
   rutas, catálogo offline y video externo (HTTP con memoria y PostgreSQL real).
+
+## SUPER_ADMIN que también es miembro
+Un SUPER_ADMIN con membresía activa usa el rol de su membresía para progreso, intentos (DIAGNOSTIC, MODULE y FINAL), constancias, logros, `me/assignments` y `me/offline-catalog`; por eso estos endpoints ya no devuelven 403 en ese caso (las notas anteriores sobre SUPER_ADMIN aplican solo a quien no tiene membresía). Sin membresía mantiene el comportamiento anterior. Ver `ORGANIZATIONS.md`.

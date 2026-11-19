@@ -235,3 +235,6 @@ devuelve la misma versión (idempotente). `POST /checklist-runs` con una versió
 Pruebas: roles y tenant ajeno, versión base obsoleta, reintento idempotente y mismo UUID con otro contenido, archivado de la
 anterior, ejecución antigua que conserva versión y se envía, inicio con versión archivada, asignación que apunta a la vigente,
 turno fuera de horario, turno abierto/próximo, unicidad por turno y zona horaria distinta (Lima/Tokio).
+
+## SUPER_ADMIN que también es miembro
+Un SUPER_ADMIN con membresía activa en la empresa opera con el rol de su membresía (ADMIN, CHEF o WORKER), incluidas las limitaciones de sede (un CHEF solo opera y ve sus sedes asignadas). Sin membresía sigue como supervisor y recibe 403 al operar. Ver `ORGANIZATIONS.md`.

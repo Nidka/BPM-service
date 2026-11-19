@@ -87,12 +87,13 @@ func (s *store) Actor(ctx context.Context, user, org string) (domain.Actor, erro
 	if err != nil {
 		return a, err
 	}
-	if platform == "SUPER_ADMIN" {
-		a.Role = platform
-		return a, nil
-	}
+	// Un SUPER_ADMIN con membresía activa opera con el rol de su membresía.
 	err = s.tx.QueryRow(ctx, `SELECT role FROM organization_memberships WHERE organization_id=$1 AND user_id=$2 AND status='ACTIVE' FOR SHARE`, org, user).Scan(&a.Role)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if platform == "SUPER_ADMIN" {
+			a.Role = platform
+			return a, nil
+		}
 		return a, domain.ErrDenied
 	}
 	return a, err

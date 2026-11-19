@@ -331,3 +331,40 @@ func TestSoleAdminSelfValidatesWithNoteAndIsAudited(t *testing.T) {
 		t.Fatal("auditoría de autovalidación", n, e)
 	}
 }
+
+// Un SUPER_ADMIN con membresía reporta y gestiona con el rol de su membresía;
+// sin membresía solo supervisa.
+func TestSuperAdminMemberReportsWithMembershipRole(t *testing.T) {
+	ctx, pool, s, _ := setupIncident(t)
+	for _, q := range []string{
+		`INSERT INTO application_users(id,email,display_name,platform_role) VALUES('supadm','sa@example.invalid','Super Admin','SUPER_ADMIN'),('supchef','sc@example.invalid','Super Chef','SUPER_ADMIN')`,
+		`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES('` + org + `','supadm','ADMIN'),('` + org + `','supchef','CHEF')`,
+		`INSERT INTO membership_locations(organization_id,user_id,location_id) VALUES('` + org + `','supchef','` + site + `')`,
+	} {
+		if _, e := pool.Exec(ctx, q); e != nil {
+			t.Fatal(e)
+		}
+	}
+	now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+	rep := func(n int, loc string) domain.Report {
+		return domain.Report{ID: uid(4, n), LocationID: loc, CatalogID: catalogID, Description: "Reporte de prueba", ClientOperationID: uid(5, n), ClientCreatedAt: now}
+	}
+	if v, e := s.Report(ctx, "supadm", org, "sa-key-2", rep(2, otherSite)); e != nil || v.ReportedBy != "supadm" {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no reportó en cualquier sede", e)
+	}
+	if _, e := s.Report(ctx, "supchef", org, "sc-key-3", rep(3, site)); e != nil {
+		t.Fatal("SUPER_ADMIN miembro CHEF no reportó en su sede", e)
+	}
+	if _, e := s.Report(ctx, "supchef", org, "sc-key-4", rep(4, otherSite)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN miembro CHEF reportó fuera de sus sedes", e)
+	}
+	if _, e := s.Report(ctx, "super", org, "super-key-5", rep(5, site)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN sin membresía reportó", e)
+	}
+	if _, e := s.Detail(ctx, "supchef", org, uid(4, 2)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN miembro CHEF leyó incidencia de otra sede", e)
+	}
+	if _, e := s.Detail(ctx, "super", org, uid(4, 1)); e != nil {
+		t.Fatal("SUPER_ADMIN sin membresía debe supervisar", e)
+	}
+}

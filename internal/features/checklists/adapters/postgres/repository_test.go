@@ -142,6 +142,48 @@ func TestChecklistPostgres(t *testing.T) {
 	testCatalogPagination(t, ctx, pool, service, org, other)
 	testAssignments(t, ctx, pool, service, org, other, loc, templateID, versionID, itemID)
 	testAdminOperates(t, ctx, pool, service, org, loc, versionID, itemID)
+	testSuperAdminMember(t, ctx, pool, service, org, loc, versionID, itemID)
+}
+
+// Un SUPER_ADMIN con membresía activa opera con el rol de su membresía; sin
+// membresía solo supervisa.
+func testSuperAdminMember(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service *application.Service, org, loc, versionID, itemID string) {
+	t.Helper()
+	site2 := "20000000-0000-0000-0000-0000000000a3"
+	for _, q := range []string{
+		`INSERT INTO application_users(id,email,display_name,platform_role) VALUES('supadm','supadm@example.invalid','Super Admin','SUPER_ADMIN'),('supchef','supchef@example.invalid','Super Chef','SUPER_ADMIN')`,
+		`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES('` + org + `','supadm','ADMIN'),('` + org + `','supchef','CHEF')`,
+		`INSERT INTO locations(id,organization_id,name,address) VALUES('` + site2 + `','` + org + `','Sede tres','Av. Tres 789')`,
+		`INSERT INTO membership_locations(organization_id,user_id,location_id) VALUES('` + org + `','supchef','` + loc + `')`,
+	} {
+		if _, e := pool.Exec(ctx, q); e != nil {
+			t.Fatal(e)
+		}
+	}
+	mk := func(run, op, site string) domain.Run {
+		return domain.Run{ID: run, LocationID: site, TemplateVersionID: versionID, ClientOperationID: op, ClientCreatedAt: time.Now().UTC().Add(-time.Minute)}
+	}
+	answers := []domain.Answer{{ItemID: itemID, ComplianceResult: "COMPLIANT"}}
+	run := "60000000-0000-0000-0000-0000000000d1"
+	created, e := service.CreateRun(ctx, "supadm", org, mk(run, "70000000-0000-0000-0000-0000000000d1", site2))
+	if e != nil || created.PerformedBy != "supadm" {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no inició el control", e)
+	}
+	if _, e = service.SaveAnswers(ctx, "supadm", org, run, 1, "supadm-save", answers); e != nil {
+		t.Fatal(e)
+	}
+	if done, e := service.Submit(ctx, "supadm", org, run, 2, "supadm-submit"); e != nil || done.Status != "SUBMITTED" {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no envió", e)
+	}
+	if _, e = service.CreateRun(ctx, "supchef", org, mk("60000000-0000-0000-0000-0000000000d2", "70000000-0000-0000-0000-0000000000d2", site2)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN miembro CHEF operó fuera de sus sedes", e)
+	}
+	if _, e = service.CreateRun(ctx, "supchef", org, mk("60000000-0000-0000-0000-0000000000d3", "70000000-0000-0000-0000-0000000000d3", loc)); e != nil {
+		t.Fatal("SUPER_ADMIN miembro CHEF no operó en su sede", e)
+	}
+	if _, e = service.CreateRun(ctx, "super", org, mk("60000000-0000-0000-0000-0000000000d4", "70000000-0000-0000-0000-0000000000d4", loc)); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN sin membresía operó", e)
+	}
 }
 
 // El ADMIN con membresía activa ejecuta controles en cualquier sede de su empresa

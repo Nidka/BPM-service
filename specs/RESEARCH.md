@@ -220,3 +220,6 @@ del participante lo genera el servidor.
 - Los accesos denegados no se auditan (solo los exitosos).
 - No se aplica un tamaño mínimo de celda a los resultados por empresa; los
   investigadores concedidos pueden ver agregados de empresas con pocos participantes.
+
+## SUPER_ADMIN que también es miembro
+La participación en la encuesta CAP exige membresía ACTIVE y no consulta `platform_role`, por lo que un SUPER_ADMIN miembro participa sin cambios. Las concesiones de investigador siguen dependiendo de `platform_role = SUPER_ADMIN`.

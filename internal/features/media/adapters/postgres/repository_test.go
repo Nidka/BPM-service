@@ -147,6 +147,24 @@ func TestPrivateEvidencePostgres(t *testing.T) {
 	if _, err = files.Download(ctx, "chef2", org, in.ID); err != nil {
 		t.Fatal("chef no pudo supervisar sede asignada", err)
 	}
+	// Un SUPER_ADMIN con membresía opera con el rol de su membresía.
+	exec(`INSERT INTO application_users(id,email,display_name,platform_role) VALUES('supadm','sa@example.invalid','Super Admin','SUPER_ADMIN'),('supchef','sc@example.invalid','Super Chef','SUPER_ADMIN')`)
+	exec(`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'supadm','ADMIN'),($1,'supchef','CHEF')`, org)
+	exec(`INSERT INTO membership_locations(organization_id,user_id,location_id) VALUES($1,'supchef',$2)`, org, otherLoc)
+	if _, e := files.List(ctx, "supchef", org, run, item); !errors.Is(e, domain.ErrDenied) {
+		t.Fatal("SUPER_ADMIN miembro CHEF leyó sede ajena", e)
+	}
+	if _, e := files.List(ctx, "supadm", org, run, item); e != nil {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no supervisó", e)
+	}
+	adminRun := "60000000-0000-0000-0000-0000000000a1"
+	if _, e := controls.CreateRun(ctx, "supadm", org, checkdomain.Run{ID: adminRun, LocationID: loc, TemplateVersionID: version, ClientOperationID: "70000000-0000-0000-0000-0000000000a1", ClientCreatedAt: time.Now().UTC()}); e != nil {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no inició control", e)
+	}
+	adminIn := domain.UploadInput{ID: "80000000-0000-0000-0000-0000000000a1", RunID: adminRun, ItemID: item, OriginalName: "foto.png", MIMEType: "image/png", SizeBytes: 20, SHA256: strings.Repeat("b", 64)}
+	if _, e := files.Reserve(ctx, "supadm", org, adminIn); e != nil {
+		t.Fatal("SUPER_ADMIN miembro ADMIN no adjuntó evidencia a su control", e)
+	}
 	// Altas concurrentes respetan el límite bajo el mismo bloqueo de la revisión.
 	var wg sync.WaitGroup
 	out := make(chan error, 3)
@@ -201,7 +219,7 @@ func TestPrivateEvidencePostgres(t *testing.T) {
 		t.Fatal("membresía revocada", err)
 	}
 	var reservations int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='media.upload.reserved'`, org).Scan(&reservations); err != nil || reservations != 4 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE organization_id=$1 AND action='media.upload.reserved'`, org).Scan(&reservations); err != nil || reservations != 5 {
 		t.Fatal("auditoría duplicada", reservations, err)
 	}
 
