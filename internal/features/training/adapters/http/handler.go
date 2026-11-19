@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/request"
@@ -128,20 +129,34 @@ func invalidRequest(w http.ResponseWriter, r *http.Request) {
 	response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Revisa la estructura y el tamaño de la solicitud."})
 }
 
-// emptyRequest exige una solicitud sin query ni cuerpo (GET y POST sin payload).
+// emptyRequest exige una solicitud sin query ni datos (GET y POST sin payload).
+// Acepta un cuerpo vacío o un objeto JSON vacío (`{}`), que es lo que envían los
+// clientes KMP y el proxy web; cualquier otro contenido se rechaza.
 func emptyRequest(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.RawQuery != "" {
 		invalidRequest(w, r)
 		return false
 	}
 	if r.Body != nil {
-		b, err := io.ReadAll(io.LimitReader(r.Body, 1))
-		if err != nil || len(b) > 0 {
+		b, err := io.ReadAll(io.LimitReader(r.Body, 65))
+		if err != nil || len(b) > 64 || !emptyPayload(b) {
 			invalidRequest(w, r)
 			return false
 		}
 	}
 	return true
+}
+
+// emptyPayload indica si el cuerpo no trae datos: vacío, solo espacios o `{}`.
+func emptyPayload(b []byte) bool {
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return true
+	}
+	if !strings.HasPrefix(s, "{") || !strings.HasSuffix(s, "}") {
+		return false
+	}
+	return strings.TrimSpace(s[1:len(s)-1]) == ""
 }
 
 func data(w http.ResponseWriter, status int, value any) {
