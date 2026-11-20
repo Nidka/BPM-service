@@ -81,7 +81,7 @@ Los planes pertenecen a una sede y admiten frecuencia diaria, semanal o mensual,
 instrucciones, producto y hora de referencia. La ejecución exige un plan activo en
 esa misma sede. Una observación o tarea no completada requiere explicación. Cada
 ejecución registra un hecho; la frecuencia no impone artificialmente un único evento
-por día ni introduce turnos que todavía no están implementados.
+por día. Los turnos (`PER_SHIFT`) y la vista de tareas de hoy se describen en las secciones V13 más abajo.
 
 Las escrituras exigen `Idempotency-Key` de 8 a 100 caracteres visibles y un UUID
 estable. La transacción bloquea la operación de empresa, compara el hash normalizado,
@@ -180,6 +180,37 @@ Un turno desactivado no se reactiva: se crea otro (su nombre puede reutilizarse)
 sede (si no, 404); la hora `executedAt` convertida a la zona de la sede debe caer en su horario, si no 422
 `SHIFT_OUT_OF_HOURS` con `fields.shiftId`; un plan `PER_SHIFT` exige `shiftId` (422 `fields.shiftId`).
 La respuesta de la ejecución añade `shiftId` y `shiftName` cuando existen (se omiten si no hay turno).
+
+### Tareas de hoy (`GET /cleaning-plans?locationId=&view=today`)
+
+Parámetro opcional `view` (único valor `today`; vacío, repetido u otro valor = 400 `INVALID_PAGINATION`). Sin `view` la
+respuesta es exactamente la de siempre (todos los planes, activos e inactivos, sin `today`). Con `view=today` se
+listan **solo los planes activos** de la sede (mismo orden y filtro `query`) y cada plan añade el objeto `today`; el
+cursor queda vinculado a la vista (un `pageToken` de una vista no vale en la otra). Roles y sedes: los mismos de la lista
+de planes; un WORKER solo consulta sedes asignadas (403 `ACCESS_DENIED` si no).
+
+```json
+{"today":{"periodStartsAt":"2026-11-20T05:00:00Z","periodEndsAt":"2026-11-21T05:00:00Z","timezone":"America/Lima",
+ "done":true,"doneByMe":false,"lastExecutionId":null,"lastResult":null,"lastExecutedAt":null,"overdue":false,"shift":null}}
+```
+
+- **Período** (zona IANA de la sede, nunca la del dispositivo; `[inicio, fin)` en UTC): `DAILY` el día local, `WEEKLY` la semana
+  que empieza el lunes, `MONTHLY` el mes calendario. Usa el mismo cálculo que los checklists programados
+  (`shared/domain/calendarperiod`) y razona con fechas locales, por lo que respeta los cambios de horario (un día puede durar 23 o 25 horas).
+  Si la zona guardada no es válida se usa `America/Lima`.
+- **`done`**: existe una ejecución del plan dentro del período con resultado `COMPLETED` u `OBSERVED` de **cualquier persona de
+  la sede** (`NOT_COMPLETED` no cuenta). Es solo un booleano: no se expone quién la hizo.
+- **`doneByMe`, `lastExecutionId`, `lastResult`, `lastExecutedAt`**: salen únicamente de las ejecuciones **propias** dentro del
+  período (`lastResult` puede ser `NOT_COMPLETED`); son `null` si no hay. Nunca incluyen datos de otras personas.
+- **`overdue`**: el plan no está hecho y la hora local de la sede es estrictamente posterior a `dueTime`. Solo `DAILY` y `PER_SHIFT`
+  con `dueTime`; `WEEKLY` y `MONTHLY` nunca vencen. Un turno que aún no empieza tampoco vence.
+- **`PER_SHIFT`**: el plan no apunta a un turno; se evalúa el turno activo de la sede que está **abierto**; si no hay, el **próximo**
+  por empezar; si ya cerraron todos, el que cerró más tarde. `shift` es `{id, name, state}` con `state` `OPEN|UPCOMING|CLOSED`
+  y el período es la ocurrencia de ese turno; `done` exige una ejecución registrada con ese turno dentro de su ventana. Sin turnos
+  activos `shift` es `null`, `done` y `overdue` son `false` y el período es el día local. En frecuencias distintas `shift` es `null`.
+- **Rendimiento**: una consulta para los planes de la página y otra para los turnos (solo si hay planes `PER_SHIFT`); la actividad se
+  agrega en SQL para toda la página, sin una consulta por plan. Usa el índice `cleaning_executions_plan_idx` de V15 (solo rendimiento;
+  sin V15 el resultado es el mismo).
 
 ### Movimientos de stock (consumo y descarte)
 

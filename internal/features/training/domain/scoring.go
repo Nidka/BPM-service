@@ -178,6 +178,31 @@ func (p Progress) WithLesson(lessonID string) Progress {
 	return p
 }
 
+// Orígenes de una lección completada.
+const (
+	LessonViewed       = "VIEWED"
+	LessonModulePassed = "MODULE_PASSED"
+)
+
+// WithLessons completa el progreso por lección con las lecciones de la versión publicada
+// (en orden de temario) y las que la persona completó. Las marcas de lecciones que ya no
+// pertenecen a la versión se ignoran; con el curso COMPLETED todas cuentan como completadas,
+// de modo que una versión nueva (con IDs de lección nuevos) no reinicia un curso aprobado.
+func (p Progress) WithLessons(lessonIDs, completedIDs []string) Progress {
+	done := make(map[string]bool, len(completedIDs))
+	for _, id := range completedIDs {
+		done[id] = true
+	}
+	p.TotalLessons = len(lessonIDs)
+	p.CompletedLessonIDs = make([]string, 0, len(lessonIDs))
+	for _, id := range lessonIDs {
+		if p.Status == ProgressCompleted || done[id] {
+			p.CompletedLessonIDs = append(p.CompletedLessonIDs, id)
+		}
+	}
+	return p
+}
+
 // AfterAttempt aplica el efecto de un intento ya calificado en el servidor.
 // DIAGNOSTIC solo mueve NOT_STARTED a IN_PROGRESS. FINAL actualiza la mejor nota;
 // un FINAL aprobado completa el curso y acumula XP = 10 x correctas, conservando

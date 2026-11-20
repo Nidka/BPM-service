@@ -25,6 +25,8 @@ func (b courseBody) domain() domain.NewCourse {
 
 type progressBody struct {
 	LastLessonID string `json:"lastLessonId"`
+	// CompletedLessonID es opcional: marca esa lección como completada (idempotente).
+	CompletedLessonID string `json:"completedLessonId"`
 }
 
 type studyBody struct {
@@ -76,6 +78,8 @@ type draftLessonBody struct {
 	VideoMediaID *string `json:"videoMediaId"`
 	// ExternalVideo acepta una URL de YouTube (texto) o un objeto {provider, videoId | url}.
 	ExternalVideo json.RawMessage `json:"externalVideo"`
+	// KeyPoints: ausente (o null) conserva los puntos previos de la lección; [] los borra.
+	KeyPoints []string `json:"keyPoints"`
 }
 
 type draftQuestionBody struct {
@@ -145,6 +149,11 @@ type progressDTO struct {
 	BestScore        *int    `json:"bestScore"`
 	ExperiencePoints int     `json:"experiencePoints"`
 	CompletedAt      *string `json:"completedAt"`
+	// Avance por lección de la versión publicada; con COMPLETED, percent=100 y todas completadas.
+	CompletedLessonIDs []string `json:"completedLessonIds"`
+	CompletedLessons   int      `json:"completedLessons"`
+	TotalLessons       int      `json:"totalLessons"`
+	Percent            int      `json:"percent"`
 }
 
 func progress(p domain.Progress) progressDTO {
@@ -152,7 +161,21 @@ func progress(p domain.Progress) progressDTO {
 	if status == "" {
 		status = domain.ProgressNotStarted
 	}
-	return progressDTO{Status: status, LastLessonID: nullable(p.LastLessonID), BestScore: p.BestScore, ExperiencePoints: p.ExperiencePoints, CompletedAt: stampPtr(p.CompletedAt)}
+	ids := p.CompletedLessonIDs
+	if ids == nil {
+		ids = []string{}
+	}
+	p.Status = status
+	return progressDTO{Status: status, LastLessonID: nullable(p.LastLessonID), BestScore: p.BestScore, ExperiencePoints: p.ExperiencePoints, CompletedAt: stampPtr(p.CompletedAt),
+		CompletedLessonIDs: ids, CompletedLessons: p.CompletedLessons(), TotalLessons: p.TotalLessons, Percent: p.Percent()}
+}
+
+// keyPoints devuelve siempre un arreglo (vacío si la lección no tiene puntos clave).
+func keyPoints(points []string) []string {
+	if points == nil {
+		return []string{}
+	}
+	return points
 }
 
 type certificateDTO struct {
@@ -188,6 +211,8 @@ type learnLessonDTO struct {
 	Video        *videoDTO `json:"video"`
 	// ExternalVideo: el cliente arma https://www.youtube-nocookie.com/embed/{videoId}.
 	ExternalVideo *externalVideoDTO `json:"externalVideo"`
+	// KeyPoints es "Lo esencial" de la lección (siempre un arreglo).
+	KeyPoints []string `json:"keyPoints"`
 }
 
 // learnQuestionDTO no tiene campos para la respuesta correcta ni la explicación,
@@ -214,7 +239,7 @@ func courseView(v domain.CourseView) courseViewDTO {
 		Lessons: make([]learnLessonDTO, 0, len(v.Lessons)), Questions: make([]learnQuestionDTO, 0, len(v.Questions)),
 		Progress: progress(v.Progress), Certificate: certificate(v.Certificate)}
 	for _, l := range v.Lessons {
-		item := learnLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder}
+		item := learnLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, KeyPoints: keyPoints(l.KeyPoints)}
 		if l.Video != nil {
 			item.Video = &videoDTO{MediaID: l.Video.MediaID, MIMEType: l.Video.MIMEType, SizeBytes: l.Video.SizeBytes}
 		}
@@ -249,6 +274,8 @@ type attemptDTO struct {
 	Score       int    `json:"score"`
 	Passed      bool   `json:"passed"`
 	CompletedAt string `json:"completedAt"`
+	// XPEarned es el XP del intento (curso + módulo + insignias); se omite en intentos anteriores a V15.
+	XPEarned *int `json:"xpEarned,omitempty"`
 }
 
 type resultDTO struct {
@@ -266,11 +293,32 @@ type outcomeDTO struct {
 	Certificate *certificateDTO `json:"certificate"`
 	// Achievements son las insignias otorgadas por este intento.
 	Achievements []achievementDTO `json:"achievements"`
+	// NextCourse es el curso sugerido tras aprobar un FINAL; null en otro caso.
+	NextCourse *nextCourseDTO `json:"nextCourse"`
+}
+
+// nextCourseDTO sugiere el siguiente curso; pathId y pathTitle son null si viene de una asignación.
+type nextCourseDTO struct {
+	PathID      *string `json:"pathId"`
+	PathTitle   *string `json:"pathTitle"`
+	CourseID    string  `json:"courseId"`
+	CourseTitle string  `json:"courseTitle"`
+}
+
+func nextCourse(n *domain.NextCourse) *nextCourseDTO {
+	if n == nil {
+		return nil
+	}
+	out := &nextCourseDTO{CourseID: n.CourseID, CourseTitle: n.CourseTitle}
+	if n.PathID != "" {
+		out.PathID, out.PathTitle = &n.PathID, &n.PathTitle
+	}
+	return out
 }
 
 func outcome(o application.AttemptOutcome) outcomeDTO {
-	out := outcomeDTO{Attempt: attemptDTO{ID: o.ID, AttemptType: o.AttemptType, Score: o.Score, Passed: o.Passed, CompletedAt: stamp(o.CompletedAt)},
-		Results: make([]resultDTO, 0, len(o.Results)), Progress: progress(o.Progress), Certificate: certificate(o.Certificate), Achievements: achievementList(o.Achievements)}
+	out := outcomeDTO{Attempt: attemptDTO{ID: o.ID, AttemptType: o.AttemptType, Score: o.Score, Passed: o.Passed, CompletedAt: stamp(o.CompletedAt), XPEarned: o.XPEarned},
+		Results: make([]resultDTO, 0, len(o.Results)), Progress: progress(o.Progress), Certificate: certificate(o.Certificate), Achievements: achievementList(o.Achievements), NextCourse: nextCourse(o.NextCourse)}
 	for _, r := range o.Results {
 		out.Results = append(out.Results, resultDTO{QuestionID: r.QuestionID, SelectedOption: r.SelectedOption, Correct: r.Correct, CorrectOption: r.CorrectOption, Explanation: r.Explanation})
 	}
@@ -300,6 +348,7 @@ type draftLessonDTO struct {
 	DisplayOrder  int               `json:"displayOrder"`
 	VideoMediaID  *string           `json:"videoMediaId"`
 	ExternalVideo *externalVideoDTO `json:"externalVideo"`
+	KeyPoints     []string          `json:"keyPoints"`
 }
 
 type draftQuestionDTO struct {
@@ -324,7 +373,7 @@ func draft(d domain.Draft) draftDTO {
 		Version: draftVersionDTO{ID: d.Version.ID, VersionNumber: d.Version.Number, PassingScore: d.Version.PassingScore, RowVersion: strconv.Itoa(d.Version.RowVersion)},
 		Lessons: make([]draftLessonDTO, 0, len(d.Lessons)), Questions: make([]draftQuestionDTO, 0, len(d.Questions))}
 	for _, l := range d.Lessons {
-		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo)})
+		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo), KeyPoints: keyPoints(l.KeyPoints)})
 	}
 	for _, q := range d.Questions {
 		out.Questions = append(out.Questions, draftQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, CorrectOption: q.CorrectOption, Explanation: q.Explanation, DisplayOrder: q.DisplayOrder})

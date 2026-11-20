@@ -191,7 +191,11 @@ func (s *store) MyAssignments(ctx context.Context, org, user string, w paginatio
 		return nil, err
 	}
 	rows, err := s.tx.Query(ctx, `WITH applicable AS (`+applicableAssignments+`)
- SELECT a.id::text,c.id::text,c.code,c.title,COALESCE(c.description,''),c.estimated_duration_minutes,a.due_at,a.created_at,COALESCE(p.status,'NOT_STARTED'),p.completed_at,p.best_score
+ SELECT a.id::text,c.id::text,c.code,c.title,COALESCE(c.description,''),c.estimated_duration_minutes,a.due_at,a.created_at,COALESCE(p.status,'NOT_STARTED'),p.completed_at,p.best_score,
+ CASE WHEN p.status='COMPLETED' THEN 100 ELSE COALESCE((SELECT CASE WHEN count(*)=0 THEN 0 ELSE (count(lp.lesson_id)*200+count(*))/(2*count(*)) END
+  FROM training_course_versions v JOIN training_lessons l ON l.organization_id=v.organization_id AND l.course_version_id=v.id
+  LEFT JOIN training_lesson_progress lp ON lp.organization_id=l.organization_id AND lp.user_id=$2 AND lp.lesson_id=l.id
+  WHERE v.organization_id=$1 AND v.course_id=a.course_id AND v.status='PUBLISHED'),0) END
  FROM applicable a JOIN training_courses c ON c.organization_id=$1 AND c.id=a.course_id AND c.status='PUBLISHED'
  LEFT JOIN training_progress p ON p.organization_id=$1 AND p.user_id=$2 AND p.course_id=a.course_id
  WHERE ($3::timestamptz IS NULL OR (a.created_at,a.id)<($3,$4::uuid)) ORDER BY a.created_at DESC,a.id DESC LIMIT $5`, org, user, ts, id, w.Size+1)
@@ -202,7 +206,7 @@ func (s *store) MyAssignments(ctx context.Context, org, user string, w paginatio
 	out := []domain.MyAssignment{}
 	for rows.Next() {
 		var m domain.MyAssignment
-		if err = rows.Scan(&m.AssignmentID, &m.Course.ID, &m.Course.Code, &m.Course.Title, &m.Course.Description, &m.Course.EstimatedDurationMinutes, &m.DueAt, &m.AssignedAt, &m.ProgressStatus, &m.CompletedAt, &m.BestScore); err != nil {
+		if err = rows.Scan(&m.AssignmentID, &m.Course.ID, &m.Course.Code, &m.Course.Title, &m.Course.Description, &m.Course.EstimatedDurationMinutes, &m.DueAt, &m.AssignedAt, &m.ProgressStatus, &m.CompletedAt, &m.BestScore, &m.Percent); err != nil {
 			return nil, err
 		}
 		m.AssignedAt = m.AssignedAt.UTC()

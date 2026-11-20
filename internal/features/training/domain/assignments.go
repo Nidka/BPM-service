@@ -139,6 +139,8 @@ type MyAssignment struct {
 	CompletedAt    *time.Time
 	BestScore      *int
 	Status         string
+	// Percent es el avance del curso (100 si está completado), calculado por lecciones.
+	Percent int
 }
 
 // LearnStatus calcula el estado visible: COMPLETED si el curso está completado

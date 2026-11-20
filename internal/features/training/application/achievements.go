@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"strings"
+	"time"
+	_ "time/tzdata" // zonas horarias de las sedes aunque el sistema no las incluya
 
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
 )
@@ -42,6 +44,21 @@ func (s *Service) awardAchievements(ctx context.Context, db Store, org, user, at
 type MyAchievements struct {
 	Totals domain.XPTotals
 	Items  []domain.Achievement
+	// Streak es la racha de aprendizaje en la zona de la primera sede activa asignada.
+	Streak domain.Streak
+}
+
+// streakLocation resuelve la zona de la racha; una zona vacía o inválida cae en America/Lima.
+func streakLocation(name string) *time.Location {
+	for _, candidate := range []string{name, domain.DefaultStreakTimezone} {
+		if candidate == "" {
+			continue
+		}
+		if loc, err := time.LoadLocation(candidate); err == nil {
+			return loc
+		}
+	}
+	return time.UTC
 }
 
 // MyAchievements devuelve las insignias activas (con la fecha de obtención si ya
@@ -66,8 +83,20 @@ func (s *Service) MyAchievements(ctx context.Context, user, org string) (out MyA
 				out.Items = append(out.Items, a)
 			}
 		}
-		out.Totals, e = db.XPTotals(ctx, org, user)
-		return e
+		if out.Totals, e = db.XPTotals(ctx, org, user); e != nil {
+			return e
+		}
+		zone, e := db.UserTimezone(ctx, org, user)
+		if e != nil {
+			return e
+		}
+		now := s.now().UTC()
+		activity, e := db.LearningActivity(ctx, org, user, now.AddDate(0, 0, -domain.StreakWindowDays))
+		if e != nil {
+			return e
+		}
+		out.Streak = domain.CurrentStreak(activity, now, streakLocation(zone))
+		return nil
 	})
 	return out, err
 }

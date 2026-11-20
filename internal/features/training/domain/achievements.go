@@ -113,3 +113,20 @@ type XPTotals struct {
 
 // Total es el XP total visible para el usuario.
 func (x XPTotals) Total() int { return x.Course + x.Module + x.Achievements }
+
+// AttemptXP calcula el XP de curso y módulo que concede un intento: solo lo que suma
+// por encima de lo que la persona ya tenía (mejor resultado), nunca negativo. Un FINAL
+// repetido con la misma nota o un MODULE ya superado con ese puntaje conceden 0. before
+// y after son el progreso del curso antes y después del intento; previousModuleXP es el
+// mayor XP que la persona ya había ganado en ese módulo. Las insignias se suman aparte.
+func AttemptXP(attemptType string, g Grade, before, after Progress, previousModuleXP int) int {
+	switch attemptType {
+	case AttemptFinal:
+		return max(0, after.ExperiencePoints-before.ExperiencePoints)
+	case AttemptModule:
+		if g.Passed {
+			return max(0, g.CorrectCount*XPPerCorrectModule-previousModuleXP)
+		}
+	}
+	return 0
+}

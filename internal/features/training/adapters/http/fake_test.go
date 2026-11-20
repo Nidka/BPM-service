@@ -130,6 +130,8 @@ func (f *fakeRepo) CourseView(_ context.Context, org, userID, courseID string) (
 	}
 	if userID != "" {
 		view.Progress, _ = f.Progress(context.Background(), org, userID, courseID)
+		ids, done, _ := f.LessonProgress(context.Background(), org, userID, v.v.ID)
+		view.Progress = view.Progress.WithLessons(ids, done)
 		view.Certificate, _ = f.LatestCertificate(context.Background(), org, userID, courseID)
 	}
 	return view, nil

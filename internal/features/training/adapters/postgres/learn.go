@@ -11,6 +11,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// decodeKeyPoints lee key_points (siempre un arreglo JSON) y nunca devuelve nil.
+func decodeKeyPoints(raw []byte) ([]string, error) {
+	points := []string{}
+	if len(raw) == 0 {
+		return points, nil
+	}
+	if err := json.Unmarshal(raw, &points); err != nil {
+		return nil, err
+	}
+	if points == nil {
+		points = []string{}
+	}
+	return points, nil
+}
+
 func decodeOptions(raw []byte) ([]string, error) {
 	var options []string
 	if err := json.Unmarshal(raw, &options); err != nil {
@@ -34,7 +49,7 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 	if err != nil {
 		return view, err
 	}
-	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,m.id::text,m.mime_type,m.size_bytes,COALESCE(m.sha256,''),l.external_video_provider,l.external_video_id
+	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,m.id::text,m.mime_type,m.size_bytes,COALESCE(m.sha256,''),l.external_video_provider,l.external_video_id,l.key_points
  FROM training_lessons l LEFT JOIN media_files m ON m.organization_id=l.organization_id AND m.id=l.media_file_id AND m.status='AVAILABLE' AND m.location_id IS NULL AND starts_with(m.object_key,$3)
  WHERE l.organization_id=$1 AND l.course_version_id=$2 ORDER BY l.display_order`, org, view.Version.ID, trainingVideoPrefix(org))
 	if err != nil {
@@ -48,7 +63,11 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 		var size *int64
 		var sha string
 		var provider, externalID *string
-		if err = rows.Scan(&lesson.ID, &lesson.Title, &lesson.Content, &lesson.DisplayOrder, &mediaID, &mime, &size, &sha, &provider, &externalID); err != nil {
+		var keyPoints []byte
+		if err = rows.Scan(&lesson.ID, &lesson.Title, &lesson.Content, &lesson.DisplayOrder, &mediaID, &mime, &size, &sha, &provider, &externalID, &keyPoints); err != nil {
+			return view, err
+		}
+		if lesson.KeyPoints, err = decodeKeyPoints(keyPoints); err != nil {
 			return view, err
 		}
 		if mediaID != nil && mime != nil && size != nil {
@@ -89,6 +108,15 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 		if view.Progress, err = s.Progress(ctx, org, userID, courseID); err != nil {
 			return view, err
 		}
+		ids := make([]string, len(view.Lessons))
+		for i, lesson := range view.Lessons {
+			ids[i] = lesson.ID
+		}
+		completed, e := s.completedLessons(ctx, org, userID, view.Version.ID)
+		if e != nil {
+			return view, e
+		}
+		view.Progress = view.Progress.WithLessons(ids, completed)
 		if view.Certificate, err = s.LatestCertificate(ctx, org, userID, courseID); err != nil {
 			return view, err
 		}
@@ -182,6 +210,56 @@ func (s *store) Progress(ctx context.Context, org, user, courseID string) (domai
 	return p, err
 }
 
+// completedLessons lista las lecciones de la versión que el usuario completó.
+func (s *store) completedLessons(ctx context.Context, org, user, versionID string) ([]string, error) {
+	rows, err := s.tx.Query(ctx, `SELECT l.id::text FROM training_lesson_progress lp
+ JOIN training_lessons l ON l.organization_id=lp.organization_id AND l.id=lp.lesson_id
+ WHERE lp.organization_id=$1 AND lp.user_id=$2 AND l.course_version_id=$3 ORDER BY l.display_order`, org, user, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+func (s *store) LessonProgress(ctx context.Context, org, user, versionID string) ([]string, []string, error) {
+	rows, err := s.tx.Query(ctx, `SELECT id::text FROM training_lessons WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, versionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	lessons := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			return nil, nil, err
+		}
+		lessons = append(lessons, id)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	rows.Close()
+	completed, err := s.completedLessons(ctx, org, user, versionID)
+	return lessons, completed, err
+}
+
+func (s *store) CompleteLesson(ctx context.Context, org, user, courseID, lessonID, source string) error {
+	_, err := s.tx.Exec(ctx, `INSERT INTO training_lesson_progress(organization_id,user_id,course_id,lesson_id,source,created_by,updated_by)
+ VALUES($1,$2,$3,$4,$5,$2,$2)
+ ON CONFLICT (organization_id,user_id,lesson_id) DO UPDATE SET source=EXCLUDED.source,updated_by=EXCLUDED.updated_by
+ WHERE training_lesson_progress.source='VIEWED' AND EXCLUDED.source='MODULE_PASSED'`, org, user, courseID, lessonID, source)
+	return err
+}
+
 func (s *store) SaveProgress(ctx context.Context, org, user, courseID string, p domain.Progress) error {
 	_, err := s.tx.Exec(ctx, `INSERT INTO training_progress(organization_id,user_id,course_id,last_lesson_id,status,best_score,experience_points,completed_at,created_by,updated_by)
  VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5,$6,$7,$8,$2,$2)
@@ -191,7 +269,7 @@ func (s *store) SaveProgress(ctx context.Context, org, user, courseID string, p 
 }
 
 func (s *store) FindAttempt(ctx context.Context, org, attemptID, operationID string) ([]application.AttemptRecord, error) {
-	rows, err := s.tx.Query(ctx, `SELECT a.id::text,a.client_operation_id::text,v.course_id::text,a.course_version_id::text,a.user_id,a.attempt_type,COALESCE(a.lesson_id::text,''),COALESCE(a.request_hash,''),COALESCE(a.score,0),COALESCE(a.passed,false),a.started_at,a.client_created_at,COALESCE(a.completed_at,a.created_at)
+	rows, err := s.tx.Query(ctx, `SELECT a.id::text,a.client_operation_id::text,v.course_id::text,a.course_version_id::text,a.user_id,a.attempt_type,COALESCE(a.lesson_id::text,''),COALESCE(a.request_hash,''),COALESCE(a.score,0),COALESCE(a.passed,false),a.started_at,a.client_created_at,COALESCE(a.completed_at,a.created_at),a.xp_awarded
  FROM training_attempts a JOIN training_course_versions v ON v.organization_id=a.organization_id AND v.id=a.course_version_id
  WHERE a.organization_id=$1 AND (a.id=$2 OR a.client_operation_id=$3)`, org, attemptID, operationID)
 	if err != nil {
@@ -201,7 +279,7 @@ func (s *store) FindAttempt(ctx context.Context, org, attemptID, operationID str
 	var out []application.AttemptRecord
 	for rows.Next() {
 		var r application.AttemptRecord
-		if err = rows.Scan(&r.ID, &r.ClientOperationID, &r.CourseID, &r.VersionID, &r.UserID, &r.AttemptType, &r.LessonID, &r.RequestHash, &r.Score, &r.Passed, &r.StartedAt, &r.ClientCreatedAt, &r.CompletedAt); err != nil {
+		if err = rows.Scan(&r.ID, &r.ClientOperationID, &r.CourseID, &r.VersionID, &r.UserID, &r.AttemptType, &r.LessonID, &r.RequestHash, &r.Score, &r.Passed, &r.StartedAt, &r.ClientCreatedAt, &r.CompletedAt, &r.XPAwarded); err != nil {
 			return nil, err
 		}
 		r.StartedAt, r.ClientCreatedAt, r.CompletedAt = r.StartedAt.UTC(), r.ClientCreatedAt.UTC(), r.CompletedAt.UTC()
@@ -211,8 +289,8 @@ func (s *store) FindAttempt(ctx context.Context, org, attemptID, operationID str
 }
 
 func (s *store) InsertAttempt(ctx context.Context, org string, r application.AttemptRecord, results []domain.Result) error {
-	_, err := s.tx.Exec(ctx, `INSERT INTO training_attempts(id,organization_id,course_version_id,user_id,attempt_type,score,passed,started_at,completed_at,client_operation_id,client_created_at,request_hash,lesson_id,created_by,updated_by)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULLIF($13,'')::uuid,$4,$4)`, r.ID, org, r.VersionID, r.UserID, r.AttemptType, r.Score, r.Passed, r.StartedAt, r.CompletedAt, r.ClientOperationID, r.ClientCreatedAt, r.RequestHash, r.LessonID)
+	_, err := s.tx.Exec(ctx, `INSERT INTO training_attempts(id,organization_id,course_version_id,user_id,attempt_type,score,passed,started_at,completed_at,client_operation_id,client_created_at,request_hash,lesson_id,xp_awarded,created_by,updated_by)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULLIF($13,'')::uuid,$14,$4,$4)`, r.ID, org, r.VersionID, r.UserID, r.AttemptType, r.Score, r.Passed, r.StartedAt, r.CompletedAt, r.ClientOperationID, r.ClientCreatedAt, r.RequestHash, r.LessonID, r.XPAwarded)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return domain.ErrIdempotencyConflict

@@ -125,3 +125,42 @@ func (s *store) SaveModuleResult(ctx context.Context, org, user, courseID, lesso
 		org, user, courseID, lessonID, score, passed, xp)
 	return err
 }
+
+func (s *store) ModuleXP(ctx context.Context, org, user, lessonID string) (int, error) {
+	var xp int
+	err := s.tx.QueryRow(ctx, `SELECT experience_points FROM training_module_results WHERE organization_id=$1 AND user_id=$2 AND lesson_id=$3`, org, user, lessonID).Scan(&xp)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return xp, err
+}
+
+// LearningActivity une los intentos calificados y las lecciones completadas; UNION descarta instantes repetidos.
+func (s *store) LearningActivity(ctx context.Context, org, user string, since time.Time) ([]time.Time, error) {
+	rows, err := s.tx.Query(ctx, `SELECT completed_at FROM training_attempts WHERE organization_id=$1 AND user_id=$2 AND completed_at IS NOT NULL AND completed_at>=$3
+ UNION SELECT completed_at FROM training_lesson_progress WHERE organization_id=$1 AND user_id=$2 AND completed_at>=$3`, org, user, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []time.Time{}
+	for rows.Next() {
+		var at time.Time
+		if err = rows.Scan(&at); err != nil {
+			return nil, err
+		}
+		out = append(out, at.UTC())
+	}
+	return out, rows.Err()
+}
+
+func (s *store) UserTimezone(ctx context.Context, org, user string) (string, error) {
+	var zone string
+	err := s.tx.QueryRow(ctx, `SELECT l.timezone FROM membership_locations ml
+ JOIN locations l ON l.organization_id=ml.organization_id AND l.id=ml.location_id AND l.status='ACTIVE'
+ WHERE ml.organization_id=$1 AND ml.user_id=$2 ORDER BY ml.created_at,l.name,l.id LIMIT 1`, org, user).Scan(&zone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return zone, err
+}

@@ -111,12 +111,34 @@ func (s *Service) SaveDraft(ctx context.Context, user, org, courseID string, in 
 		if e = s.checkVideos(ctx, db, org, in.Lessons); e != nil {
 			return e
 		}
+		in.Lessons = keepKeyPoints(draft.Lessons, in.Lessons)
 		if out, e = db.ReplaceDraft(ctx, org, user, draft, in); e != nil {
 			return e
 		}
 		return db.Audit(ctx, org, user, "training.draft.saved", "training_course", courseID)
 	})
 	return out, err
+}
+
+// keepKeyPoints conserva "Lo esencial" de las lecciones que el cliente no envió (KeyPoints nil,
+// por ejemplo una app anterior que no conoce el campo); un arreglo vacío sí lo borra. Las
+// lecciones nuevas quedan con un arreglo vacío. No modifica la lista recibida.
+func keepKeyPoints(previous, next []domain.Lesson) []domain.Lesson {
+	before := make(map[string][]string, len(previous))
+	for _, l := range previous {
+		before[l.ID] = l.KeyPoints
+	}
+	out := make([]domain.Lesson, len(next))
+	copy(out, next)
+	for i := range out {
+		if out[i].KeyPoints == nil {
+			out[i].KeyPoints = before[out[i].ID]
+		}
+		if out[i].KeyPoints == nil {
+			out[i].KeyPoints = []string{}
+		}
+	}
+	return out
 }
 
 // checkVideos exige que cada video referenciado sea un video de capacitación

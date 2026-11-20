@@ -39,6 +39,8 @@ const (
 	MaxOptionLength   = 300
 	MaxTitleLength    = 200
 	MaxContentLength  = 20000
+	MaxKeyPoints      = 5
+	MaxKeyPointLength = 200
 	DefaultPassScore  = 80
 	XPPerCorrectFinal = 10
 )
@@ -100,6 +102,10 @@ type Lesson struct {
 	VideoMediaID       string
 	// ExternalVideo es un video de YouTube; excluyente con VideoMediaID.
 	ExternalVideo *ExternalVideo
+	// KeyPoints es "Lo esencial": hasta 5 puntos clave. En la entrada de autoría nil
+	// significa "no enviado" (se conservan los previos) y un arreglo vacío los borra;
+	// en toda salida es un arreglo (puede estar vacío).
+	KeyPoints []string
 }
 
 // Video describe el video disponible de una lección publicada.
@@ -139,6 +145,23 @@ type Progress struct {
 	BestScore        *int
 	ExperiencePoints int
 	CompletedAt      *time.Time
+	// CompletedLessonIDs son las lecciones completadas de la versión publicada, en el orden
+	// del temario; con el curso COMPLETED son todas. TotalLessons cuenta las de esa versión.
+	// Quedan vacíos cuando el contenido no es de una persona (catálogo offline).
+	CompletedLessonIDs []string
+	TotalLessons       int
+}
+
+// CompletedLessons cuenta las lecciones completadas.
+func (p Progress) CompletedLessons() int { return len(p.CompletedLessonIDs) }
+
+// Percent es el avance del curso: 100 si está COMPLETED y, si no, el porcentaje de lecciones
+// completadas (redondeo de .5 hacia arriba; 0 si la versión no tiene lecciones).
+func (p Progress) Percent() int {
+	if p.Status == ProgressCompleted {
+		return 100
+	}
+	return ScorePercent(p.CompletedLessons(), p.TotalLessons)
 }
 
 // Certificate es una constancia interna verificable.

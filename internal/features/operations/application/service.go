@@ -275,7 +275,8 @@ func (s *Service) Execution(ctx context.Context, user, org, id string) (out doma
 }
 
 // list vincula la continuación a identidad, recurso y sede, sin sustituir permisos.
-func list[T any](ctx context.Context, s *Service, user, org, resource, site string, request pagination.Request, allowed func(string) bool, fetch func(Store, domain.Actor, pagination.Window) ([]T, error), position func(T) pagination.Position) (out pagination.Page[T], err error) {
+// Las partes extra (p. ej. la vista) se añaden al ámbito del cursor.
+func list[T any](ctx context.Context, s *Service, user, org, resource, site string, request pagination.Request, allowed func(string) bool, fetch func(Store, domain.Actor, pagination.Window) ([]T, error), position func(T) pagination.Position, extraScope ...string) (out pagination.Page[T], err error) {
 	if site != "" && !domain.ValidID(site) {
 		return out, pagination.ErrInvalid
 	}
@@ -283,7 +284,7 @@ func list[T any](ctx context.Context, s *Service, user, org, resource, site stri
 	if e != nil {
 		return out, e
 	}
-	scope := []string{user, org, "operations", resource, site}
+	scope := append([]string{user, org, "operations", resource, site}, extraScope...)
 	window, e := pagination.Open(request, scope...)
 	if e != nil {
 		return out, e
@@ -358,4 +359,60 @@ func (s *Service) Executions(ctx context.Context, user, org, site string, r pagi
 	}, func(v domain.CleaningExecution) pagination.Position {
 		return pagination.Position{Key: v.ExecutedAt.UTC().Format(time.RFC3339Nano), ID: v.ID}
 	})
+}
+
+// TodayPlans lista los planes activos de la sede con su estado en el período actual (zona de la sede,
+// reloj del servidor). Una sola consulta de ejecuciones cubre toda la página. `done` considera a
+// cualquier persona de la sede; el resto del estado solo las ejecuciones de quien consulta.
+func (s *Service) TodayPlans(ctx context.Context, user, org, site string, r pagination.Request) (pagination.Page[domain.TodayPlan], error) {
+	if site == "" {
+		return pagination.Page[domain.TodayPlan]{}, pagination.ErrInvalid
+	}
+	return list(ctx, s, user, org, "plans", site, r, domain.CanReadCleaning, func(db Store, a domain.Actor, w pagination.Window) ([]domain.TodayPlan, error) {
+		zoneName, e := db.Location(ctx, a, org, site)
+		if e != nil {
+			return nil, e
+		}
+		plans, e := db.ActivePlans(ctx, org, site, w)
+		if e != nil {
+			return nil, e
+		}
+		zone, zoneName := domain.ResolveTimezone(zoneName)
+		now := s.now()
+		var shifts []domain.Shift
+		for _, p := range plans {
+			if p.Frequency == "PER_SHIFT" {
+				if shifts, e = db.ActiveShifts(ctx, org, site); e != nil {
+					return nil, e
+				}
+				break
+			}
+		}
+		out := make([]domain.TodayPlan, len(plans))
+		periods := make([]domain.PlanPeriod, 0, len(plans))
+		resolved := make([]domain.PlanPeriod, len(plans))
+		shiftOf := make([]*domain.TodayShift, len(plans))
+		for i, p := range plans {
+			period, shift, e := domain.TodayPlanPeriod(p, now, zone, shifts)
+			if e != nil {
+				return nil, e
+			}
+			resolved[i], shiftOf[i] = period, shift
+			if domain.NeedsActivity(p, shift) {
+				periods = append(periods, period)
+			}
+		}
+		activity := map[string]domain.PlanActivity{}
+		if len(periods) > 0 {
+			if activity, e = db.PlanActivity(ctx, org, site, a.ID, periods); e != nil {
+				return nil, e
+			}
+		}
+		for i, p := range plans {
+			out[i] = domain.TodayPlan{CleaningPlan: p, Today: domain.BuildToday(p, resolved[i], shiftOf[i], activity[p.ID], now, zone, zoneName)}
+		}
+		return out, nil
+	}, func(v domain.TodayPlan) pagination.Position {
+		return pagination.Position{Key: strings.ToLower(v.Area + " " + v.Task), ID: v.ID}
+	}, "view="+domain.ViewToday)
 }

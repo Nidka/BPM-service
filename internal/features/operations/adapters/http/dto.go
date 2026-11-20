@@ -178,6 +178,42 @@ func plan(v domain.CleaningPlan) planDTO {
 	return planDTO{planInput{v.ID, v.LocationID, v.Area, v.Task, v.Instructions, v.ProductName, v.Frequency, v.DueTime}, v.Active}
 }
 
+// todayShiftDTO es el turno que se evalúa en un plan PER_SHIFT.
+type todayShiftDTO struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	State string `json:"state"`
+}
+
+// planTodayDTO es el estado del plan en su período actual; solo existe con view=today.
+type planTodayDTO struct {
+	PeriodStartsAt  time.Time      `json:"periodStartsAt"`
+	PeriodEndsAt    time.Time      `json:"periodEndsAt"`
+	Timezone        string         `json:"timezone"`
+	Done            bool           `json:"done"`
+	DoneByMe        bool           `json:"doneByMe"`
+	LastExecutionID *string        `json:"lastExecutionId"`
+	LastResult      *string        `json:"lastResult"`
+	LastExecutedAt  *time.Time     `json:"lastExecutedAt"`
+	Overdue         bool           `json:"overdue"`
+	Shift           *todayShiftDTO `json:"shift"`
+}
+
+// todayPlanDTO extiende planDTO sin alterarlo: la respuesta sin view conserva su forma anterior.
+type todayPlanDTO struct {
+	planDTO
+	Today planTodayDTO `json:"today"`
+}
+
+func todayPlan(v domain.TodayPlan) todayPlanDTO {
+	t := v.Today
+	out := planTodayDTO{PeriodStartsAt: t.PeriodStartsAt, PeriodEndsAt: t.PeriodEndsAt, Timezone: t.Timezone, Done: t.Done, DoneByMe: t.DoneByMe, LastExecutionID: optional(t.LastExecutionID), LastResult: optional(t.LastResult), LastExecutedAt: t.LastExecutedAt, Overdue: t.Overdue}
+	if t.Shift != nil {
+		out.Shift = &todayShiftDTO{t.Shift.ID, t.Shift.Name, t.Shift.State}
+	}
+	return todayPlanDTO{plan(v.CleaningPlan), out}
+}
+
 type executionInput struct {
 	ID                string    `json:"id"`
 	LocationID        string    `json:"locationId"`

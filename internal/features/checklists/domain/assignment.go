@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Nidka/BPM-service/internal/shared/domain/calendarperiod"
 	"github.com/Nidka/BPM-service/internal/shared/domain/shiftwindow"
 	_ "time/tzdata" // Mantiene zonas IANA disponibles también en la imagen mínima de producción.
 )
@@ -56,24 +57,12 @@ func (a Assignment) PeriodAt(now time.Time) (AssignmentPeriod, error) {
 	if err != nil {
 		return p, err
 	}
-	local := now.In(zone)
-	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, zone)
-	var end time.Time
-	switch a.Frequency {
-	case "DAILY":
-		end = start.AddDate(0, 0, 1)
-	case "WEEKLY":
-		start = start.AddDate(0, 0, -(int(start.Weekday())+6)%7)
-		end = start.AddDate(0, 0, 7)
-	case "MONTHLY":
-		start = time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, zone)
-		end = start.AddDate(0, 1, 0)
-	default:
-		return p, errors.New("invalid assignment frequency")
+	start, end, err := calendarperiod.Bounds(a.Frequency, now, zone)
+	if err != nil {
+		return p, err
 	}
-	p.StartsAt = start.UTC()
-	utcEnd := end.UTC()
-	p.EndsAt = &utcEnd
+	p.StartsAt = start
+	p.EndsAt = &end
 	return p, nil
 }
 

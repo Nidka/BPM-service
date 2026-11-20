@@ -50,8 +50,9 @@ explícita si falta (`RequireSchema`). No ejecuta migraciones automáticamente.
    `Cache-Control: no-store`. La URL no se registra. 404
    `TRAINING_VIDEO_NOT_FOUND` si la lección no es de la versión publicada o no
    tiene video AVAILABLE.
-3. `PUT /training/courses/{courseId}/progress` `{"lastLessonId"}` → 200
-   `{progress}`. La lección debe ser de la versión publicada
+3. `PUT /training/courses/{courseId}/progress` `{"lastLessonId","completedLessonId"?}` → 200
+   `{progress}`. `completedLessonId` (opcional, V15) marca esa lección como completada
+   de forma idempotente y también debe ser de la versión publicada. La lección debe ser de la versión publicada
    (`TRAINING_LESSON_NOT_FOUND`). NOT_STARTED→IN_PROGRESS; COMPLETED nunca
    retrocede. Idempotente por naturaleza.
 4. `POST /training/courses/{courseId}/study/answers`
@@ -368,6 +369,7 @@ otorgadas por ese intento (también en su repetición idéntica).
 
 `experiencePoints` = curso + módulos + puntos de insignias obtenidas. `achievements` incluye las
 activas de la empresa; `awardedAt` es `null` si aún no se logró.
+Además trae `streak` (racha de aprendizaje; ver «Racha, XP por intento y siguiente curso (B2)»).
 
 ### GET `/achievements` (ADMIN, SUPER_ADMIN)
 `{"data":{"items":[<achievement>...]}}` con todas (activas o no).
@@ -517,3 +519,69 @@ YouTube; **como máximo uno de los dos** (`videoMediaId` o `externalVideo`, ambo
 
 ## SUPER_ADMIN que también es miembro
 Un SUPER_ADMIN con membresía activa usa el rol de su membresía para progreso, intentos (DIAGNOSTIC, MODULE y FINAL), constancias, logros, `me/assignments` y `me/offline-catalog`; por eso estos endpoints ya no devuelven 403 en ese caso (las notas anteriores sobre SUPER_ADMIN aplican solo a quien no tiene membresía). Sin membresía mantiene el comportamiento anterior. Ver `ORGANIZATIONS.md`.
+
+## Progreso por lección y "Lo esencial" (V15)
+
+Requiere `V15__training_lesson_progress.sql`; el arranque falla de forma explícita si falta. Todo es
+aditivo: la app anterior sigue funcionando sin enviar ni leer los campos nuevos.
+
+- **Completar una lección.** `PUT /courses/{id}/progress` acepta `completedLessonId` además de
+  `lastLessonId` (que sigue siendo obligatorio). Se guarda en `training_lesson_progress` con origen
+  `VIEWED`; repetir la marca no cambia nada. Un intento `MODULE` aprobado marca su lección con origen
+  `MODULE_PASSED` (un `VIEWED` previo se mejora a `MODULE_PASSED`; un módulo reprobado no marca nada).
+  Una lección ajena a la versión publicada responde 404 `TRAINING_LESSON_NOT_FOUND` y un UUID mal
+  formado 422 `fields.completedLessonId`.
+- **Forma de `progress`** (curso, `PUT progress` y resultado de intentos, incluida la repetición):
+  `completedLessonIds` (arreglo, en orden de temario), `completedLessons`, `totalLessons` y `percent`.
+  Si `status=COMPLETED`, `percent=100` y todas las lecciones cuentan como completadas, de modo que
+  publicar una versión nueva (lecciones con IDs nuevos) no reinicia un curso aprobado; el avance parcial
+  de una versión anterior no migra. El catálogo offline nunca incluye progreso (el `etag` no depende de la persona).
+- **`GET /me/assignments`** agrega `percent` por curso (mismo cálculo).
+- **Lo esencial.** Cada lección admite `keyPoints`: hasta 5 textos de 1 a 200 caracteres en una sola
+  línea, sin repetirse (sin distinguir mayúsculas); error 422 en `lessons[i].keyPoints`. En
+  `PUT /courses/{id}/draft`, ausente (o `null`) conserva los puntos previos de la lección con el mismo
+  `id` y `[]` los borra. La salida (`GET course`, borrador y catálogo offline) siempre trae el arreglo.
+  El contenido ya publicado queda con `keyPoints: []` hasta una nueva publicación, y el `etag` offline
+  cambia una vez.
+- **Pruebas:** `domain` (límites de `keyPoints`, porcentaje y redondeo), HTTP con repositorio en memoria
+  (idempotencia, lección ajena/de otra versión, MODULE aprobado/reprobado, COMPLETED → 100, `percent` en
+  mis asignaciones, ausente conserva y `[]` borra) y PostgreSQL real (CHECK de 5 puntos, origen
+  `MODULE_PASSED`, porcentaje SQL).
+
+## Racha, XP por intento y siguiente curso (B2)
+
+Todo es aditivo y usa V15 (`training_attempts.xp_awarded`, `training_lesson_progress.completed_at`); la
+app anterior ignora los campos nuevos.
+
+- **Racha en `GET /me/achievements`.** Agrega `streak {currentDays, longestDays, lastActivityDate,
+  activeToday, timezone}`. Un día es un día calendario con algún intento calificado
+  (`training_attempts.completed_at`) o lección completada (`training_lesson_progress.completed_at`; la
+  fecha no cambia al repetir la marca), contado una sola vez. La zona es `locations.timezone` de la
+  primera sede activa asignada a la persona (orden de asignación, nombre, id); sin sede activa, o con
+  una zona inválida, `America/Lima`. La racha vigente (`currentDays`) son los días consecutivos que
+  terminan hoy o ayer; si la última actividad fue antes de ayer vale 0. `lastActivityDate` (AAAA-MM-DD en
+  esa zona, `null` sin actividad) es el último día con actividad aunque la racha esté rota y `activeToday`
+  indica que es hoy. Se consultan los últimos 400 días: ni `currentDays` ni `longestDays` pasan de ahí.
+  Cálculo puro en `domain.CurrentStreak` (con pruebas de frontera de zona y cambio de hora). **No cambia**
+  la evaluación de la insignia `STREAK_3`, que sigue contando días UTC con intentos: la racha visible y la
+  insignia pueden diferir por la zona; el otorgamiento de insignias es permanente.
+- **XP por intento.** El servidor guarda en `training_attempts.xp_awarded` el XP de curso y módulo que
+  sumó ese intento, calculado en `domain.AttemptXP`: un FINAL suma la diferencia con el mayor XP de curso
+  que ya tenía, un MODULE aprobado la diferencia con el mayor XP de ese módulo y DIAGNOSTIC o un intento
+  reprobado suman 0 (nunca negativo; un FINAL repetido con la misma nota suma 0). `attempt.xpEarned` =
+  `xp_awarded` + puntos de las insignias otorgadas por el intento (los puntos vigentes del catálogo);
+  la repetición idéntica devuelve el mismo valor. En los intentos anteriores a V15 (`xp_awarded` NULL)
+  `xpEarned` se omite. Con esto la suma de `xpEarned` de una persona coincide con su XP total.
+- **`outcome.nextCourse`.** La respuesta de un intento trae siempre `nextCourse`: un objeto
+  `{pathId, pathTitle, courseId, courseTitle}` tras un FINAL aprobado (también en su repetición, calculado
+  con el estado actual) o `null`. Reglas: (1) rutas PUBLISHED que contienen el curso aprobado cuyo
+  próximo curso pendiente (`nextCourseId` de la ruta, solo cursos publicados) es otro curso; si varias, la
+  publicada más recientemente; las rutas completas o en borrador no cuentan; (2) si ninguna propone, el
+  primer curso PENDING u OVERDUE de `me/assignments` (en su orden, el más recientemente asignado primero)
+  distinto del aprobado, con `pathId` y `pathTitle` en `null`; (3) si no hay nada, `null`. DIAGNOSTIC,
+  MODULE y FINAL reprobado devuelven `null`.
+- **Pruebas:** `domain` (racha con frontera de zona y cambio de hora, `AttemptXP`, `SelectNextCourse`),
+  HTTP con repositorio en memoria (XP con insignias, repetido en 0, replay, histórico sin `xpEarned`,
+  siguiente curso con ninguna/una/varias rutas, ruta completa con fallback a asignaciones y nada, racha
+  vigente/rota, unión de lecciones e intentos, zona de la sede) y PostgreSQL real (`xp_awarded`
+  persistido, zona de la primera sede activa y unión de ambas tablas, selección de siguiente curso).

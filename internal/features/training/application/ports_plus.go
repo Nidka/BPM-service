@@ -44,6 +44,13 @@ type AchievementStore interface {
 	XPTotals(ctx context.Context, org, user string) (domain.XPTotals, error)
 	// SaveModuleResult conserva el mejor puntaje y el mayor XP de un módulo.
 	SaveModuleResult(ctx context.Context, org, user, courseID, lessonID string, score int, passed bool, xp int) error
+	// ModuleXP devuelve el mayor XP que el usuario ya ganó en el módulo (0 si no hay resultado).
+	ModuleXP(ctx context.Context, org, user, lessonID string) (int, error)
+	// LearningActivity lista los instantes de actividad de aprendizaje del usuario desde since:
+	// intentos calificados y lecciones completadas.
+	LearningActivity(ctx context.Context, org, user string, since time.Time) ([]time.Time, error)
+	// UserTimezone devuelve la zona de la primera sede activa asignada al usuario ("" si no tiene).
+	UserTimezone(ctx context.Context, org, user string) (string, error)
 }
 
 // PathStore agrupa las rutas de aprendizaje (RF-40).
@@ -55,6 +62,9 @@ type PathStore interface {
 	// ReplacePath exige la rowVersion vigente (ErrPathConflict) y reemplaza los cursos.
 	ReplacePath(ctx context.Context, org, user, id string, rowVersion int, in domain.PathInput) error
 	SetPathStatus(ctx context.Context, org, user, id, status string, now time.Time) error
+	// PublishedPathsWithCourse lista las rutas PUBLISHED que contienen el curso, con el progreso
+	// del usuario, de la publicada más recientemente a la más antigua.
+	PublishedPathsWithCourse(ctx context.Context, org, userID, courseID string) ([]domain.Path, error)
 	// CourseStatuses devuelve el estado de los cursos de la organización (los ajenos no aparecen).
 	CourseStatuses(ctx context.Context, org string, ids []string) (map[string]string, error)
 }

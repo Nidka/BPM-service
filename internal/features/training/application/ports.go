@@ -17,6 +17,8 @@ type AttemptRecord struct {
 	Score                                                                        int
 	Passed                                                                       bool
 	StartedAt, ClientCreatedAt, CompletedAt                                      time.Time
+	// XPAwarded es el XP de curso y módulo que concedió el intento (sin insignias); nil si es anterior a V15.
+	XPAwarded *int
 }
 
 // AuthorizationStore resuelve el rol real del usuario en la organización.
@@ -40,6 +42,12 @@ type LearnStore interface {
 	LockLearner(ctx context.Context, org, user, courseID string) error
 	Progress(ctx context.Context, org, user, courseID string) (domain.Progress, error)
 	SaveProgress(ctx context.Context, org, user, courseID string, progress domain.Progress) error
+	// LessonProgress devuelve los IDs de las lecciones de la versión (en orden de temario) y los
+	// de las que el usuario completó en ella.
+	LessonProgress(ctx context.Context, org, user, versionID string) (lessonIDs, completedIDs []string, err error)
+	// CompleteLesson marca la lección como completada; es idempotente (conserva la fecha original)
+	// y solo mejora el origen de VIEWED a MODULE_PASSED.
+	CompleteLesson(ctx context.Context, org, user, courseID, lessonID, source string) error
 	// FindAttempt devuelve los intentos con el mismo id o la misma clientOperationId.
 	FindAttempt(ctx context.Context, org, attemptID, operationID string) ([]AttemptRecord, error)
 	InsertAttempt(ctx context.Context, org string, record AttemptRecord, results []domain.Result) error

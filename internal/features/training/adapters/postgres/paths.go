@@ -127,6 +127,38 @@ func (s *store) ListPaths(ctx context.Context, org, userID, status string, w pag
 	return out, nil
 }
 
+func (s *store) PublishedPathsWithCourse(ctx context.Context, org, userID, courseID string) ([]domain.Path, error) {
+	rows, err := s.tx.Query(ctx, `SELECT `+pathColumns+` FROM learning_paths p WHERE p.organization_id=$1 AND p.status='PUBLISHED'
+ AND EXISTS (SELECT 1 FROM learning_path_courses pc WHERE pc.organization_id=p.organization_id AND pc.path_id=p.id AND pc.course_id=$2)
+ ORDER BY p.published_at DESC NULLS LAST,p.id::text`, org, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.Path{}
+	for rows.Next() {
+		p, e := scanPath(rows)
+		if e != nil {
+			return nil, e
+		}
+		out = append(out, p)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	index := make(map[string]*domain.Path, len(out))
+	for i := range out {
+		index[out[i].ID] = &out[i]
+	}
+	if len(index) > 0 {
+		if err = s.pathCourses(ctx, org, userID, index); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 func (s *store) ReplacePath(ctx context.Context, org, user, id string, rowVersion int, in domain.PathInput) error {
 	tag, err := s.tx.Exec(ctx, `UPDATE learning_paths SET title=$4,description=NULLIF($5,''),row_version=row_version+1,updated_by=$6 WHERE organization_id=$1 AND id=$2 AND row_version=$3 AND status<>'ARCHIVED'`,
 		org, id, rowVersion, in.Title, in.Description, user)

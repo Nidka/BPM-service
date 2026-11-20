@@ -7,6 +7,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/shared/application/pagination"
 	"github.com/jackc/pgx/v5"
 	"reflect"
+	"time"
 )
 
 const planFields = `id::text,location_id::text,area,task,COALESCE(instructions,''),COALESCE(product_name,''),frequency,COALESCE(left(due_time::text,5),''),active`
@@ -44,10 +45,18 @@ func (s *store) CreatePlan(ctx context.Context, a domain.Actor, org string, v do
 	return saved, s.Audit(ctx, a, org, "cleaning_plan.created", v.ID)
 }
 func (s *store) Plans(ctx context.Context, org, site string, w pagination.Window) ([]domain.CleaningPlan, error) {
+	return s.plans(ctx, org, site, w, false)
+}
+
+// ActivePlans es Plans restringido a planes activos, con el mismo orden y condición de cursor.
+func (s *store) ActivePlans(ctx context.Context, org, site string, w pagination.Window) ([]domain.CleaningPlan, error) {
+	return s.plans(ctx, org, site, w, true)
+}
+func (s *store) plans(ctx context.Context, org, site string, w pagination.Window, activeOnly bool) ([]domain.CleaningPlan, error) {
 	if e := catalogWindow(w); e != nil {
 		return nil, e
 	}
-	rows, e := s.tx.Query(ctx, `SELECT `+planFields+` FROM cleaning_plans WHERE organization_id=$1 AND location_id=$2 AND strpos(lower(area || ' ' || task || ' ' || COALESCE(product_name,'')),lower($3))>0 AND ($5='' OR (lower(area || ' ' || task) COLLATE "C",id)>($4 COLLATE "C",NULLIF($5,'')::uuid)) ORDER BY lower(area || ' ' || task) COLLATE "C",id LIMIT $6`, org, site, w.Query, w.After.Key, w.After.ID, limit(w))
+	rows, e := s.tx.Query(ctx, `SELECT `+planFields+` FROM cleaning_plans WHERE organization_id=$1 AND location_id=$2 AND (NOT $7 OR active) AND strpos(lower(area || ' ' || task || ' ' || COALESCE(product_name,'')),lower($3))>0 AND ($5='' OR (lower(area || ' ' || task) COLLATE "C",id)>($4 COLLATE "C",NULLIF($5,'')::uuid)) ORDER BY lower(area || ' ' || task) COLLATE "C",id LIMIT $6`, org, site, w.Query, w.After.Key, w.After.ID, limit(w), activeOnly)
 	if e != nil {
 		return nil, e
 	}
@@ -59,6 +68,49 @@ func (s *store) Plans(ctx context.Context, org, site string, w pagination.Window
 			return nil, e
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// PlanActivity agrega en SQL las ejecuciones de todos los planes de la página (sin N+1). Done mira a
+// cualquier persona de la sede pero solo devuelve un booleano; DoneByMe y la última ejecución salen
+// únicamente de las del usuario. Los períodos usan [inicio, fin) y, para PER_SHIFT, el turno elegido.
+func (s *store) PlanActivity(ctx context.Context, org, site, user string, periods []domain.PlanPeriod) (map[string]domain.PlanActivity, error) {
+	out := map[string]domain.PlanActivity{}
+	if len(periods) == 0 {
+		return out, nil
+	}
+	ids, starts, ends, shifts := make([]string, len(periods)), make([]time.Time, len(periods)), make([]time.Time, len(periods)), make([]string, len(periods))
+	for i, p := range periods {
+		ids[i], starts[i], ends[i], shifts[i] = p.PlanID, p.StartsAt, p.EndsAt, p.ShiftID
+	}
+	rows, e := s.tx.Query(ctx, `WITH q AS (SELECT * FROM unnest($3::uuid[],$4::timestamptz[],$5::timestamptz[],$6::text[]) AS t(plan_id,starts_at,ends_at,shift_id))
+SELECT q.plan_id::text,
+ bool_or(e.result IN ('COMPLETED','OBSERVED')),
+ COALESCE(bool_or(e.result IN ('COMPLETED','OBSERVED')) FILTER (WHERE e.responsible_user_id=$7),false),
+ (array_agg(e.id::text ORDER BY e.executed_at DESC,e.id DESC) FILTER (WHERE e.responsible_user_id=$7))[1],
+ (array_agg(e.result ORDER BY e.executed_at DESC,e.id DESC) FILTER (WHERE e.responsible_user_id=$7))[1],
+ (array_agg(e.executed_at ORDER BY e.executed_at DESC,e.id DESC) FILTER (WHERE e.responsible_user_id=$7))[1]
+FROM q JOIN cleaning_executions e ON e.organization_id=$1 AND e.location_id=$2 AND e.cleaning_plan_id=q.plan_id AND e.executed_at>=q.starts_at AND e.executed_at<q.ends_at AND (q.shift_id='' OR e.shift_id=q.shift_id::uuid)
+GROUP BY q.plan_id`, org, site, ids, starts, ends, shifts, user)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var done, mine bool
+		var last, result *string
+		var at *time.Time
+		if e = rows.Scan(&id, &done, &mine, &last, &result, &at); e != nil {
+			return nil, e
+		}
+		v := domain.PlanActivity{Done: done, DoneByMe: mine}
+		if last != nil && result != nil && at != nil {
+			utc := at.UTC()
+			v.LastExecutionID, v.LastResult, v.LastExecutedAt = *last, *result, &utc
+		}
+		out[id] = v
 	}
 	return out, rows.Err()
 }

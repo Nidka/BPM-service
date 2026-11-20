@@ -22,11 +22,15 @@ type plusState struct {
 	revoked       map[string]bool
 	orderedPaths  []string
 	assignmentOrg map[string]string
+	lessonDone    map[string]string // "org|user|lesson" -> origen (VIEWED|MODULE_PASSED)
+	lessonAt      map[string]time.Time
+	zones         map[string]string // "org|user" -> zona de la primera sede activa
+	activityErr   error
 }
 
 func newPlusState() plusState {
 	return plusState{locations: map[string]bool{}, achievements: map[string][]domain.Achievement{}, awards: map[string]time.Time{},
-		awardAttempt: map[string]string{}, modules: map[string]int{}, paths: map[string]*domain.Path{}, revoked: map[string]bool{}, assignmentOrg: map[string]string{}}
+		awardAttempt: map[string]string{}, modules: map[string]int{}, paths: map[string]*domain.Path{}, revoked: map[string]bool{}, assignmentOrg: map[string]string{}, lessonDone: map[string]string{}, lessonAt: map[string]time.Time{}, zones: map[string]string{}}
 }
 
 func (f *fakeRepo) PublishedCourse(_ context.Context, org, courseID string) (domain.Course, error) {
@@ -114,7 +118,7 @@ func (f *fakeRepo) MyAssignments(_ context.Context, org, user string, _ paginati
 			continue
 		}
 		p, _ := f.Progress(context.Background(), org, user, a.CourseID)
-		byCourse[a.CourseID] = domain.MyAssignment{AssignmentID: a.ID, Course: c.c, DueAt: a.DueAt, AssignedAt: a.CreatedAt, ProgressStatus: p.Status, CompletedAt: p.CompletedAt, BestScore: p.BestScore}
+		byCourse[a.CourseID] = domain.MyAssignment{AssignmentID: a.ID, Course: c.c, DueAt: a.DueAt, AssignedAt: a.CreatedAt, ProgressStatus: p.Status, CompletedAt: p.CompletedAt, BestScore: p.BestScore, Percent: f.percentOf(org, user, a.CourseID)}
 	}
 	out := []domain.MyAssignment{}
 	for _, m := range byCourse {
@@ -328,4 +332,95 @@ func (f *fakeRepo) CertificateByCode(_ context.Context, code string) (domain.Pub
 		return out, nil
 	}
 	return domain.PublicCertificate{}, domain.ErrCertificateNotFound
+}
+
+// percentOf replica el porcentaje de MyAssignments: 100 si está completado y, si no, lecciones completadas / totales.
+func (f *fakeRepo) percentOf(org, user, courseID string) int {
+	_, v, err := f.publishedOf(org, courseID)
+	if err != nil {
+		return 0
+	}
+	p, _ := f.Progress(context.Background(), org, user, courseID)
+	ids, done, _ := f.LessonProgress(context.Background(), org, user, v.v.ID)
+	return p.WithLessons(ids, done).Percent()
+}
+
+func (f *fakeRepo) LessonProgress(_ context.Context, org, user, versionID string) ([]string, []string, error) {
+	v := f.versionByID(org, versionID)
+	if v == nil {
+		return []string{}, []string{}, nil
+	}
+	lessons := append([]domain.Lesson(nil), v.lessons...)
+	sort.Slice(lessons, func(i, j int) bool { return lessons[i].DisplayOrder < lessons[j].DisplayOrder })
+	ids, done := []string{}, []string{}
+	for _, l := range lessons {
+		ids = append(ids, l.ID)
+		if _, ok := f.plus.lessonDone[org+"|"+user+"|"+l.ID]; ok {
+			done = append(done, l.ID)
+		}
+	}
+	return ids, done, nil
+}
+
+func (f *fakeRepo) CompleteLesson(_ context.Context, org, user, _, lessonID, source string) error {
+	key := org + "|" + user + "|" + lessonID
+	if current, ok := f.plus.lessonDone[key]; !ok || (current == domain.LessonViewed && source == domain.LessonModulePassed) {
+		f.plus.lessonDone[key] = source
+	}
+	if _, ok := f.plus.lessonAt[key]; !ok {
+		f.plus.lessonAt[key] = time.Now().UTC()
+	}
+	return nil
+}
+
+func (f *fakeRepo) ModuleXP(_ context.Context, org, user, lessonID string) (int, error) {
+	return f.plus.modules[org+"|"+user+"|"+lessonID], nil
+}
+
+func (f *fakeRepo) LearningActivity(_ context.Context, org, user string, since time.Time) ([]time.Time, error) {
+	if f.plus.activityErr != nil {
+		return nil, f.plus.activityErr
+	}
+	out := []time.Time{}
+	for _, a := range f.attempts {
+		if a.UserID == user && !a.CompletedAt.Before(since) {
+			out = append(out, a.CompletedAt)
+		}
+	}
+	prefix := org + "|" + user + "|"
+	for key, at := range f.plus.lessonAt {
+		if len(key) > len(prefix) && key[:len(prefix)] == prefix && !at.Before(since) {
+			out = append(out, at)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) UserTimezone(_ context.Context, org, user string) (string, error) {
+	return f.plus.zones[org+"|"+user], nil
+}
+
+func (f *fakeRepo) PublishedPathsWithCourse(_ context.Context, org, user, courseID string) ([]domain.Path, error) {
+	out := []domain.Path{}
+	for _, key := range f.plus.orderedPaths {
+		if key[:len(org)] != org || key[len(org)] != '|' {
+			continue
+		}
+		p := *f.plus.paths[key[len(org)+1:]]
+		if p.Status != domain.PathPublished {
+			continue
+		}
+		has := false
+		p.Courses = append([]domain.PathCourse(nil), p.Courses...)
+		for i := range p.Courses {
+			has = has || p.Courses[i].CourseID == courseID
+			progress, _ := f.Progress(context.Background(), org, user, p.Courses[i].CourseID)
+			p.Courses[i].Progress = progress.Status
+		}
+		if has {
+			out = append(out, p)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].PublishedAt.After(*out[j].PublishedAt) })
+	return out, nil
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
@@ -22,7 +23,12 @@ type AttemptOutcome struct {
 	Certificate     *domain.Certificate
 	// Achievements son las insignias otorgadas por este intento (también en la repetición idéntica).
 	Achievements []domain.Achievement
-	Replayed     bool
+	// XPEarned es el XP del intento (curso + módulo + puntos de las insignias otorgadas);
+	// nil en intentos anteriores a V15, que no guardaron el XP.
+	XPEarned *int
+	// NextCourse es el siguiente curso sugerido tras aprobar un FINAL; nil en otro caso.
+	NextCourse *domain.NextCourse
+	Replayed   bool
 }
 
 // attemptHash identifica el contenido del intento (sin depender del orden de las
@@ -97,28 +103,42 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 		if e != nil {
 			return e
 		}
-		record := AttemptRecord{ID: in.ID, ClientOperationID: in.ClientOperationID, CourseID: courseID, VersionID: version.ID, UserID: user,
-			AttemptType: in.AttemptType, LessonID: in.LessonID, RequestHash: hash, Score: grade.Score, Passed: grade.Passed,
-			StartedAt: in.StartedAt, ClientCreatedAt: in.ClientCreatedAt, CompletedAt: now.Truncate(time.Microsecond)}
-		if e = db.InsertAttempt(ctx, org, record, grade.Results); e != nil {
-			return e
-		}
 		current, e := db.Progress(ctx, org, user, courseID)
 		if e != nil {
 			return e
 		}
 		updated := current.AfterAttempt(in.AttemptType, grade, now)
+		// El XP del intento es lo que suma sobre lo que la persona ya tenía (mejor resultado).
+		previousModuleXP := 0
+		if in.AttemptType == domain.AttemptModule {
+			if previousModuleXP, e = db.ModuleXP(ctx, org, user, in.LessonID); e != nil {
+				return e
+			}
+		}
+		xp := domain.AttemptXP(in.AttemptType, grade, current, updated, previousModuleXP)
+		record := AttemptRecord{ID: in.ID, ClientOperationID: in.ClientOperationID, CourseID: courseID, VersionID: version.ID, UserID: user,
+			AttemptType: in.AttemptType, LessonID: in.LessonID, RequestHash: hash, Score: grade.Score, Passed: grade.Passed,
+			StartedAt: in.StartedAt, ClientCreatedAt: in.ClientCreatedAt, CompletedAt: now.Truncate(time.Microsecond), XPAwarded: &xp}
+		if e = db.InsertAttempt(ctx, org, record, grade.Results); e != nil {
+			return e
+		}
 		if e = db.SaveProgress(ctx, org, user, courseID, updated); e != nil {
 			return e
 		}
 		if in.AttemptType == domain.AttemptModule {
 			// MODULE no completa el curso ni emite constancia; solo da XP por módulo (mejor resultado).
-			xp := 0
+			moduleXP := 0
 			if grade.Passed {
-				xp = grade.CorrectCount * domain.XPPerCorrectModule
+				moduleXP = grade.CorrectCount * domain.XPPerCorrectModule
 			}
-			if e = db.SaveModuleResult(ctx, org, user, courseID, in.LessonID, grade.Score, grade.Passed, xp); e != nil {
+			if e = db.SaveModuleResult(ctx, org, user, courseID, in.LessonID, grade.Score, grade.Passed, moduleXP); e != nil {
 				return e
+			}
+			if grade.Passed {
+				// Aprobar el módulo completa la lección (idempotente: repetir no cambia la fecha).
+				if e = db.CompleteLesson(ctx, org, user, courseID, in.LessonID, domain.LessonModulePassed); e != nil {
+					return e
+				}
 			}
 		}
 		if in.AttemptType == domain.AttemptFinal && grade.Passed {
@@ -130,6 +150,10 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 				return e
 			}
 		}
+		updated, e = s.withLessons(ctx, db, org, user, version.ID, updated)
+		if e != nil {
+			return e
+		}
 		certificate, e := db.LatestCertificate(ctx, org, user, courseID)
 		if e != nil {
 			return e
@@ -138,8 +162,16 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 		if e != nil {
 			return e
 		}
+		var next *domain.NextCourse
+		if in.AttemptType == domain.AttemptFinal && grade.Passed {
+			if next, e = s.nextCourse(ctx, db, org, user, courseID, now); e != nil {
+				return e
+			}
+		}
+		earned := xp + achievementPoints(awarded)
 		out = AttemptOutcome{ID: in.ID, AttemptType: in.AttemptType, Score: grade.Score, Passed: grade.Passed,
-			CompletedAt: record.CompletedAt, Results: grade.Results, Progress: updated, Certificate: certificate, Achievements: awarded}
+			CompletedAt: record.CompletedAt, Results: grade.Results, Progress: updated, Certificate: certificate, Achievements: awarded,
+			XPEarned: &earned, NextCourse: next}
 		return db.Audit(ctx, org, user, "training.attempt."+in.AttemptType, "training_attempt", in.ID)
 	})
 	return out, err
@@ -161,6 +193,15 @@ func (s *Service) replay(ctx context.Context, db Store, org, user, courseID, has
 	if err != nil {
 		return err
 	}
+	// El avance por lección se calcula contra la versión vigente; si el curso ya no está
+	// publicado se devuelve el progreso básico.
+	if version, e := db.PublishedVersion(ctx, org, courseID); e == nil {
+		if progress, err = s.withLessons(ctx, db, org, user, version.ID, progress); err != nil {
+			return err
+		}
+	} else if !errors.Is(e, domain.ErrCourseNotFound) {
+		return e
+	}
 	certificate, err := db.LatestCertificate(ctx, org, user, courseID)
 	if err != nil {
 		return err
@@ -169,7 +210,28 @@ func (s *Service) replay(ctx context.Context, db Store, org, user, courseID, has
 	if err != nil {
 		return err
 	}
+	var earned *int
+	if record.XPAwarded != nil {
+		total := *record.XPAwarded + achievementPoints(awarded)
+		earned = &total
+	}
+	var next *domain.NextCourse
+	if record.AttemptType == domain.AttemptFinal && record.Passed {
+		if next, err = s.nextCourse(ctx, db, org, user, courseID, s.now().UTC()); err != nil {
+			return err
+		}
+	}
 	*out = AttemptOutcome{ID: record.ID, AttemptType: record.AttemptType, Score: record.Score, Passed: record.Passed,
-		CompletedAt: record.CompletedAt, Results: results, Progress: progress, Certificate: certificate, Achievements: awarded, Replayed: true}
+		CompletedAt: record.CompletedAt, Results: results, Progress: progress, Certificate: certificate, Achievements: awarded,
+		XPEarned: earned, NextCourse: next, Replayed: true}
 	return nil
+}
+
+// achievementPoints suma los puntos de las insignias otorgadas por un intento.
+func achievementPoints(items []domain.Achievement) int {
+	total := 0
+	for _, a := range items {
+		total += a.Points
+	}
+	return total
 }

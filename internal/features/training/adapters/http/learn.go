@@ -47,7 +47,7 @@ func (h *Handler) saveProgress(w http.ResponseWriter, r *http.Request) {
 	if !request.DecodeStrictJSON(w, r, &body, maxBody) {
 		return
 	}
-	saved, err := h.service.SaveProgress(r.Context(), user, org, chi.URLParam(r, "courseID"), body.LastLessonID)
+	saved, err := h.service.SaveProgress(r.Context(), user, org, chi.URLParam(r, "courseID"), body.LastLessonID, body.CompletedLessonID)
 	if err != nil {
 		h.fail(w, r, err)
 		return

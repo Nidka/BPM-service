@@ -47,6 +47,7 @@ $migraciones = [ordered]@{
     "V12__accounts_management"        = "SELECT to_regclass('organization_invitations') IS NOT NULL"
     "V13__operations_shifts_stock"    = "SELECT to_regclass('location_shifts') IS NOT NULL"
     "V14__alerts_admin_operates"      = "SELECT position('''CHECKLIST_MISSING'' THEN m.role IN (''ADMIN'',''CHEF'')' in pg_get_functiondef('alert_recipient_authorized(text,uuid,text)'::regprocedure)) > 0"
+    "V15__training_lesson_progress"   = "SELECT to_regclass('training_lesson_progress') IS NOT NULL"
 }
 
 $pendientes = @()

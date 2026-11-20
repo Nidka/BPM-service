@@ -124,11 +124,13 @@ type myAssignmentDTO struct {
 	ProgressStatus string    `json:"progressStatus"`
 	BestScore      *int      `json:"bestScore"`
 	CompletedAt    *string   `json:"completedAt"`
+	// Percent es el avance del curso (0..100; 100 si está completado).
+	Percent int `json:"percent"`
 }
 
 func myAssignment(m domain.MyAssignment) myAssignmentDTO {
 	return myAssignmentDTO{AssignmentID: m.AssignmentID, Course: course(m.Course, false), DueAt: stampPtr(m.DueAt), AssignedAt: stamp(m.AssignedAt),
-		Status: m.Status, ProgressStatus: m.ProgressStatus, BestScore: m.BestScore, CompletedAt: stampPtr(m.CompletedAt)}
+		Status: m.Status, ProgressStatus: m.ProgressStatus, BestScore: m.BestScore, CompletedAt: stampPtr(m.CompletedAt), Percent: m.Percent}
 }
 
 // ---- Insignias ----
@@ -169,6 +171,24 @@ type achievementUpdateBody struct {
 type myAchievementsDTO struct {
 	Totals       xpDTO            `json:"totals"`
 	Achievements []achievementDTO `json:"achievements"`
+	Streak       streakDTO        `json:"streak"`
+}
+
+// streakDTO es la racha de aprendizaje; lastActivityDate es la fecha local (AAAA-MM-DD) o null.
+type streakDTO struct {
+	CurrentDays      int     `json:"currentDays"`
+	LongestDays      int     `json:"longestDays"`
+	LastActivityDate *string `json:"lastActivityDate"`
+	ActiveToday      bool    `json:"activeToday"`
+	Timezone         string  `json:"timezone"`
+}
+
+func streak(s domain.Streak) streakDTO {
+	out := streakDTO{CurrentDays: s.CurrentDays, LongestDays: s.LongestDays, ActiveToday: s.ActiveToday, Timezone: s.Timezone}
+	if s.LastActivityDate != "" {
+		out.LastActivityDate = &s.LastActivityDate
+	}
+	return out
 }
 
 type xpDTO struct {
@@ -180,7 +200,7 @@ type xpDTO struct {
 
 func myAchievements(m application.MyAchievements) myAchievementsDTO {
 	return myAchievementsDTO{Totals: xpDTO{ExperiencePoints: m.Totals.Total(), CourseExperiencePoints: m.Totals.Course,
-		ModuleExperiencePoints: m.Totals.Module, AchievementPoints: m.Totals.Achievements}, Achievements: achievementList(m.Items)}
+		ModuleExperiencePoints: m.Totals.Module, AchievementPoints: m.Totals.Achievements}, Achievements: achievementList(m.Items), Streak: streak(m.Streak)}
 }
 
 // ---- Rutas ----
@@ -250,6 +270,7 @@ type offlineLessonDTO struct {
 	Video            *offlineVideoDTO  `json:"video"`
 	ExternalVideo    *externalVideoDTO `json:"externalVideo"`
 	OfflineAvailable bool              `json:"offlineAvailable"`
+	KeyPoints        []string          `json:"keyPoints"`
 }
 
 type offlineCourseDTO struct {
@@ -272,7 +293,7 @@ func offlineCatalog(c application.OfflineCatalog) offlineCatalogDTO {
 		item := offlineCourseDTO{Course: base.Course, Version: base.Version, Questions: base.Questions, Lessons: make([]offlineLessonDTO, 0, len(v.Lessons))}
 		for _, l := range v.Lessons {
 			lesson := offlineLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder,
-				ExternalVideo: externalVideo(l.ExternalVideo), OfflineAvailable: l.ExternalVideo == nil}
+				ExternalVideo: externalVideo(l.ExternalVideo), OfflineAvailable: l.ExternalVideo == nil, KeyPoints: keyPoints(l.KeyPoints)}
 			if l.Video != nil {
 				lesson.Video = &offlineVideoDTO{MediaID: l.Video.MediaID, MIMEType: l.Video.MIMEType, SizeBytes: l.Video.SizeBytes, SHA256: l.Video.SHA256}
 			}

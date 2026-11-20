@@ -185,12 +185,42 @@ func (h *Handler) plans(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	view, ok := h.planView(w, r)
+	if !ok {
+		return
+	}
 	site, q, ok := h.query(w, r, true)
 	if !ok {
 		return
 	}
+	if view == domain.ViewToday {
+		v, e := h.service.TodayPlans(r.Context(), u, o, site, q)
+		page(h, w, r, v, e, todayPlan)
+		return
+	}
 	v, e := h.service.Plans(r.Context(), u, o, site, q)
 	page(h, w, r, v, e, plan)
+}
+
+// planView extrae el parámetro opcional view de GET /cleaning-plans y lo retira de la consulta
+// para que el resto de la validación (sede, paginación, parámetros desconocidos) no cambie.
+// Solo se admite view=today una vez; cualquier otro valor es una consulta inválida.
+func (h *Handler) planView(w http.ResponseWriter, r *http.Request) (string, bool) {
+	q, e := url.ParseQuery(r.URL.RawQuery)
+	if e != nil {
+		return "", true // query() informa el formato inválido con el mismo error de siempre.
+	}
+	values, present := q["view"]
+	if !present {
+		return "", true
+	}
+	if len(values) != 1 || values[0] != domain.ViewToday {
+		h.fail(w, r, pagination.ErrInvalid)
+		return "", false
+	}
+	q.Del("view")
+	r.URL.RawQuery = q.Encode()
+	return domain.ViewToday, true
 }
 func (h *Handler) executions(w http.ResponseWriter, r *http.Request) {
 	u, o, ok := h.actor(w, r)

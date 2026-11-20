@@ -1630,12 +1630,26 @@ paths:
           name: locationId
           required: true
           schema: {type: string, format: uuid}
+        - in: query
+          name: view
+          required: false
+          schema: {type: string, enum: [today]}
+          description: >-
+            Opcional. `today` devuelve solo los planes activos de la sede y añade a cada uno el objeto
+            `today` (período en curso según la frecuencia y la zona horaria de la sede, si ya se hizo,
+            si está vencido y el turno evaluado en PER_SHIFT). Cualquier otro valor, vacío o repetido es
+            400 INVALID_PAGINATION. El cursor queda vinculado a la vista. Sin `view` la respuesta no cambia.
       description: >-
         Reautoriza usuario, empresa, membresía y sede activas. ADMIN/SUPER_ADMIN
         configuran y consultan; CHEF (sedes asignadas) y ADMIN (todas las sedes de su empresa) reciben insumos y registran consumos y descartes; CHEF/WORKER
-        registran limpieza propia. WORKER solo consulta planes y sus ejecuciones.
+        registran limpieza propia. WORKER solo consulta planes de sedes asignadas y sus ejecuciones.
         Los hechos confirmados son inmutables; Idempotency-Key y UUID conservan
-        la identidad del reintento. No admite parámetros ni campos desconocidos.
+        la identidad del reintento. No admite otros parámetros ni campos desconocidos.
+        Con `view=today`, `done` considera la ejecución COMPLETED u OBSERVED de cualquier persona
+        de la sede en el período; `doneByMe` y `last*` salen solo de las ejecuciones de quien consulta
+        (nunca se exponen datos de otras personas) y `overdue` aplica a DAILY y PER_SHIFT con `dueTime`.
+        PER_SHIFT evalúa el turno activo abierto de la sede (si no hay, el próximo; si ya cerraron
+        todos, el que cerró más tarde); sin turnos activos `shift` es null y `done` false.
       responses:
         "200":
           description: Registro o página autorizada; sin campos internos ni hash.
@@ -1648,7 +1662,10 @@ paths:
                   data:
                     type: array
                     maxItems: 100
-                    items: {$ref: "#/components/schemas/OperationPlan"}
+                    items:
+                      oneOf:
+                        - {$ref: "#/components/schemas/OperationPlan"}
+                        - {$ref: "#/components/schemas/OperationPlanToday"}
                   pagination:
                     type: object
                     required: [nextPageToken]
@@ -1987,6 +2004,9 @@ paths:
         TRAINING_VERSION_OUTDATED. Idempotente por id y clientOperationId: repetición idéntica devuelve 200 con el
         mismo resultado; contenido distinto responde 409 IDEMPOTENCY_CONFLICT. Un FINAL aprobado completa el curso,
         otorga XP (10 por correcta, conservando el máximo) y emite una constancia única por usuario y versión.
+        attempt.xpEarned es el XP que sumó este intento (curso + módulo + puntos de las insignias otorgadas); un FINAL
+        repetido con la misma nota suma 0. Se omite en intentos anteriores a V15, que no guardaron el XP. outcome
+        nextCourse sugiere el siguiente curso tras un FINAL aprobado (null en otros casos o si no hay uno).
         Requiere membresía (SUPER_ADMIN recibe 403).
       security: [{FirebaseBearer: []}]
       requestBody:
@@ -2652,8 +2672,12 @@ paths:
     get:
       tags: [Academia]
       operationId: getMyTrainingAchievements
-      summary: Mis logros y XP total
-      description: Insignias activas de la empresa con awardedAt (null si aún no se logra) y el desglose de XP. Los criterios los evalúa solo el servidor.
+      summary: Mis logros, XP total y racha
+      description: |
+        Insignias activas de la empresa con awardedAt (null si aún no se logra) y el desglose de XP. Los criterios los evalúa solo el servidor.
+        streak es la racha de aprendizaje: días calendario con algún intento calificado o lección completada, en la zona de la primera
+        sede activa asignada (America/Lima si no tiene), ventana de 400 días. La racha vigente termina hoy o ayer; si no, vale 0. No
+        modifica la evaluación de la insignia STREAK_3, que sigue contando días UTC con intentos.
       security: [{FirebaseBearer: []}]
       responses:
         "200": {description: Logros., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingMyAchievementsResponse"}}}}
@@ -3401,6 +3425,10 @@ components:
         bestScore: {type: integer, nullable: true, minimum: 0, maximum: 100, description: "Mejor puntaje de un intento FINAL."}
         experiencePoints: {type: integer, minimum: 0, description: "10 por cada respuesta correcta del mejor FINAL aprobado; calculado por el servidor."}
         completedAt: {type: string, format: date-time, nullable: true}
+        completedLessonIds: {type: array, items: {type: string, format: uuid}, description: "Lecciones completadas de la versión publicada, en orden de temario; con status COMPLETED son todas. Vacío en el catálogo offline."}
+        completedLessons: {type: integer, minimum: 0}
+        totalLessons: {type: integer, minimum: 0, description: "Lecciones de la versión publicada."}
+        percent: {type: integer, minimum: 0, maximum: 100, description: "100 si status=COMPLETED; si no, lecciones completadas / totales (redondeo .5 hacia arriba)."}
     TrainingCertificate:
       type: object
       nullable: true
@@ -3427,6 +3455,7 @@ components:
         displayOrder: {type: integer, minimum: 1}
         video: {$ref: "#/components/schemas/TrainingLearnVideo"}
         externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
+        keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Lo esencial de la lección (hasta 5 puntos); siempre un arreglo, vacío si no hay."}
     TrainingLearnQuestion:
       type: object
       description: Nunca incluye correctOption ni explanation; la respuesta solo se revela tras responder.
@@ -3475,6 +3504,7 @@ components:
       required: [lastLessonId]
       properties:
         lastLessonId: {type: string, format: uuid}
+        completedLessonId: {type: string, format: uuid, description: "Opcional: marca esa lección como completada (idempotente). Debe ser de la versión publicada (404 TRAINING_LESSON_NOT_FOUND)."}
     TrainingProgressResponse:
       type: object
       required: [data]
@@ -3543,6 +3573,20 @@ components:
                 score: {type: integer, minimum: 0, maximum: 100, description: "round(correctas*100/total), calculado por el servidor."}
                 passed: {type: boolean, description: "score >= passingScore de la versión."}
                 completedAt: {type: string, format: date-time}
+                xpEarned: {type: integer, minimum: 0, description: "XP del intento: curso + módulo + puntos de las insignias otorgadas. Idéntico en la repetición. Se omite en intentos anteriores a V15."}
+            nextCourse:
+              type: object
+              nullable: true
+              description: |
+                Siguiente curso sugerido tras un FINAL aprobado; null en cualquier otro intento o si no hay uno. Primero la ruta
+                PUBLISHED que contiene el curso y propone otro curso (la publicada más recientemente si hay varias); si ninguna, el
+                primer curso PENDING u OVERDUE de las asignaciones de la persona (pathId y pathTitle son null).
+              required: [pathId, pathTitle, courseId, courseTitle]
+              properties:
+                pathId: {type: string, format: uuid, nullable: true}
+                pathTitle: {type: string, nullable: true}
+                courseId: {type: string, format: uuid}
+                courseTitle: {type: string}
             results:
               type: array
               items:
@@ -3606,6 +3650,7 @@ components:
         displayOrder: {type: integer, minimum: 1}
         videoMediaId: {type: string, format: uuid, nullable: true, description: "Video de capacitación AVAILABLE o PENDING_UPLOAD de la organización."}
         externalVideo: {nullable: true, description: "Entrada: URL de YouTube (watch?v=, youtu.be, shorts, youtube-nocookie.com/embed) como texto u objeto {provider: YOUTUBE, videoId | url}; el servidor la normaliza a {provider, videoId}. Otro dominio o formato inválido 422; con videoMediaId a la vez 422. Salida: objeto TrainingExternalVideo o null."}
+        keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Entrada: ausente o null conserva los puntos previos de la lección (misma id); [] los borra; hasta 5 puntos de 1 a 200 caracteres en una línea, sin repetirse (422 en lessons[i].keyPoints). Salida: siempre un arreglo."}
     TrainingDraftQuestion:
       type: object
       additionalProperties: false
@@ -4212,7 +4257,7 @@ components:
         task: {"type": "string", "maxLength": 240, "minLength": 2}
         instructions: {"type": "string", "maxLength": 2000}
         productName: {"type": "string", "maxLength": 160}
-        frequency: {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY"]}
+        frequency: {"type": "string", "enum": ["PER_SHIFT", "DAILY", "WEEKLY", "MONTHLY"]}
         dueTime: {"type": "string", "maxLength": 5, "description": "Vacío o HH:mm, hora local de la sede."}
     OperationExecutionInput:
       type: object
@@ -4289,9 +4334,48 @@ components:
         task: {"type": "string", "maxLength": 240, "minLength": 2}
         instructions: {"type": "string", "maxLength": 2000}
         productName: {"type": "string", "maxLength": 160}
-        frequency: {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY"]}
+        frequency: {"type": "string", "enum": ["PER_SHIFT", "DAILY", "WEEKLY", "MONTHLY"]}
         dueTime: {"type": "string", "maxLength": 5, "description": "Vacío o HH:mm, hora local de la sede."}
         active: {"type": "boolean"}
+    OperationPlanToday:
+      type: object
+      additionalProperties: false
+      description: Plan activo con su estado en el período en curso; solo con `view=today`.
+      required: ["id", "locationId", "area", "task", "instructions", "productName", "frequency", "dueTime", "active", "today"]
+      properties:
+        id: {"type": "string", "format": "uuid"}
+        locationId: {"type": "string", "format": "uuid"}
+        area: {"type": "string", "maxLength": 100, "minLength": 2}
+        task: {"type": "string", "maxLength": 240, "minLength": 2}
+        instructions: {"type": "string", "maxLength": 2000}
+        productName: {"type": "string", "maxLength": 160}
+        frequency: {"type": "string", "enum": ["PER_SHIFT", "DAILY", "WEEKLY", "MONTHLY"]}
+        dueTime: {"type": "string", "maxLength": 5, "description": "Vacío o HH:mm, hora local de la sede."}
+        active: {"type": "boolean", "enum": [true]}
+        today:
+          type: object
+          additionalProperties: false
+          required: [periodStartsAt, periodEndsAt, timezone, done, doneByMe, lastExecutionId, lastResult, lastExecutedAt, overdue, shift]
+          properties:
+            periodStartsAt: {type: string, format: date-time, description: "Inicio (inclusivo) UTC del período: día, semana desde el lunes o mes en la zona de la sede; en PER_SHIFT, la ocurrencia del turno evaluado. Sin turnos, el día local."}
+            periodEndsAt: {type: string, format: date-time, description: "Fin (excluyente) UTC del período."}
+            timezone: {type: string, description: "Zona IANA de la sede (America/Lima si la guardada no es válida)."}
+            done: {type: boolean, description: "Existe una ejecución COMPLETED u OBSERVED del plan en el período, de cualquier persona de la sede (en PER_SHIFT, registrada con el turno evaluado)."}
+            doneByMe: {type: boolean, description: "La ejecución COMPLETED u OBSERVED es de quien consulta."}
+            lastExecutionId: {type: string, nullable: true, format: uuid, description: "Última ejecución propia dentro del período."}
+            lastResult: {type: string, nullable: true, enum: [COMPLETED, NOT_COMPLETED, OBSERVED, null]}
+            lastExecutedAt: {type: string, nullable: true, format: date-time}
+            overdue: {type: boolean, description: "No hecho y la hora local de la sede supera dueTime (solo DAILY y PER_SHIFT con dueTime; un turno que aún no empieza no vence)."}
+            shift:
+              type: object
+              nullable: true
+              additionalProperties: false
+              description: Turno evaluado en PER_SHIFT; null en otras frecuencias o sin turnos activos.
+              required: [id, name, state]
+              properties:
+                id: {type: string, format: uuid}
+                name: {type: string}
+                state: {type: string, enum: [OPEN, UPCOMING, CLOSED]}
     OperationExecution:
       type: object
       additionalProperties: false
@@ -5597,6 +5681,7 @@ components:
         progressStatus: {type: string, enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]}
         bestScore: {type: integer, nullable: true}
         completedAt: {type: string, format: date-time, nullable: true}
+        percent: {type: integer, minimum: 0, maximum: 100, description: "Avance del curso: 100 si está completado; si no, lecciones completadas / totales."}
     TrainingMyAssignmentPage:
       type: object
       required: [data, pagination]
@@ -5637,10 +5722,19 @@ components:
       properties:
         data:
           type: object
-          required: [totals, achievements]
+          required: [totals, achievements, streak]
           properties:
             totals: {type: object, properties: {experiencePoints: {type: integer}, courseExperiencePoints: {type: integer}, moduleExperiencePoints: {type: integer}, achievementPoints: {type: integer}}}
             achievements: {type: array, items: {$ref: "#/components/schemas/TrainingAchievement"}}
+            streak:
+              type: object
+              required: [currentDays, longestDays, lastActivityDate, activeToday, timezone]
+              properties:
+                currentDays: {type: integer, minimum: 0, description: "Días consecutivos que terminan hoy o ayer (0 si la última actividad fue antes de ayer)."}
+                longestDays: {type: integer, minimum: 0, description: "Mayor racha dentro de la ventana de 400 días."}
+                lastActivityDate: {type: string, format: date, nullable: true, description: "Último día con actividad en la zona indicada."}
+                activeToday: {type: boolean}
+                timezone: {type: string, example: America/Lima, description: "Zona IANA con la que se calcularon los días."}
     TrainingPathRequest:
       type: object
       additionalProperties: false
@@ -5905,6 +5999,7 @@ components:
                         video: {type: object, nullable: true, properties: {mediaId: {type: string, format: uuid}, mimeType: {type: string}, sizeBytes: {type: integer}, sha256: {type: string}}}
                         externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
                         offlineAvailable: {type: boolean}
+                        keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Lo esencial de la lección (hasta 5 puntos); siempre un arreglo, vacío si no hay."}
                   questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
     TrainingPublicCertificateResponse:
       type: object

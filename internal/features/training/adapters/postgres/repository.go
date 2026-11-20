@@ -24,7 +24,7 @@ type store struct{ tx pgx.Tx }
 func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
 // RequireSchema evita servir la Academia con un esquema incompatible: exige las
-// columnas y unicidades de V8 y V11. No ejecuta migraciones.
+// columnas y unicidades de V8, V11 y V15. No ejecuta migraciones.
 func (r *Repository) RequireSchema(ctx context.Context) error {
 	rows, err := r.pool.Query(ctx, `SELECT v.row_version, a.request_hash FROM training_course_versions v CROSS JOIN training_attempts a LIMIT 0`)
 	if err != nil {
@@ -59,6 +59,23 @@ func (r *Repository) RequireSchema(ctx context.Context) error {
 	}
 	if !valid {
 		return errors.New("training migration V11 is required")
+	}
+	// V15: progreso por lección, puntos clave, XP por intento e índice de limpieza.
+	rows, err = r.pool.Query(ctx, `SELECT lp.lesson_id, lp.source, lp.completed_at, l.key_points, t.xp_awarded
+ FROM training_lesson_progress lp CROSS JOIN training_lessons l CROSS JOIN training_attempts t LIMIT 0`)
+	if err != nil {
+		return errors.New("training migration V15 is required")
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	err = r.pool.QueryRow(ctx, `SELECT count(*)=1 FROM pg_indexes WHERE schemaname=current_schema() AND indexname='cleaning_executions_plan_idx'`).Scan(&valid)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("training migration V15 is required")
 	}
 	return nil
 }

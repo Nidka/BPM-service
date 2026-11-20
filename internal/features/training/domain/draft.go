@@ -85,6 +85,11 @@ func NormalizeDraft(in DraftInput) (DraftInput, error) {
 			fields[indexed("lessons", i, "displayOrder")] = "El orden debe ser positivo y no repetirse."
 		}
 		orders[l.DisplayOrder] = true
+		points, msg := NormalizeKeyPoints(l.KeyPoints)
+		if msg != "" {
+			fields[indexed("lessons", i, "keyPoints")] = msg
+		}
+		l.KeyPoints = points
 	}
 
 	questions := make([]Question, len(in.Questions))
@@ -138,6 +143,33 @@ func NormalizeDraft(in DraftInput) (DraftInput, error) {
 	}
 	in.Lessons, in.Questions = lessons, questions
 	return in, nil
+}
+
+// NormalizeKeyPoints valida "Lo esencial" de una lección: hasta 5 puntos, cada uno de 1 a
+// 200 caracteres en una sola línea, sin repetirse (sin distinguir mayúsculas). Devuelve los
+// puntos sin espacios sobrantes; nil (no enviado) se conserva como nil y un arreglo vacío como vacío.
+func NormalizeKeyPoints(points []string) ([]string, string) {
+	if points == nil {
+		return nil, ""
+	}
+	if len(points) > MaxKeyPoints {
+		return points, fmt.Sprintf("Lo esencial admite hasta %d puntos.", MaxKeyPoints)
+	}
+	out := make([]string, len(points))
+	seen := map[string]bool{}
+	for i, point := range points {
+		trimmed := strings.TrimSpace(point)
+		if !validText(trimmed, 1, MaxKeyPointLength, false) {
+			return points, fmt.Sprintf("Cada punto debe tener entre 1 y %d caracteres en una sola línea.", MaxKeyPointLength)
+		}
+		key := strings.ToLower(trimmed)
+		if seen[key] {
+			return points, "Los puntos de lo esencial no pueden repetirse."
+		}
+		seen[key] = true
+		out[i] = trimmed
+	}
+	return out, ""
 }
 
 // validateOptions exige de 2 a 6 opciones no vacías, de hasta 300 caracteres y sin repetirse.

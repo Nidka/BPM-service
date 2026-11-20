@@ -67,6 +67,8 @@ leer `specs/RESEARCH.md`. Requiere V9 y concesiones de investigador otorgadas po
 
 Asignaciones, rutas, insignias, evaluación por módulo, video de YouTube y catálogo offline
 están en la misma sección de `specs/TRAINING.md` y requieren además V11.
+El progreso por lección (`completedLessonId`, `percent`) y "Lo esencial" (`keyPoints`) requieren además V15
+(también `xp_awarded` y un índice de limpieza); aplicar V15 antes de desplegar la API.
 
 Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de
 cumplimiento y correo semanal del worker) y registro de uso para investigación están

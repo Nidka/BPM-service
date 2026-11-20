@@ -27,6 +27,12 @@ type CleaningStore interface {
 	CreateExecution(context.Context, domain.Actor, string, domain.CleaningExecution) (domain.CleaningExecution, error)
 	Execution(context.Context, string, string) (domain.CleaningExecution, error)
 	Plans(context.Context, string, string, pagination.Window) ([]domain.CleaningPlan, error)
+	// ActivePlans lista solo los planes activos de la sede, con el mismo orden y cursor que Plans.
+	ActivePlans(context.Context, string, string, pagination.Window) ([]domain.CleaningPlan, error)
+	// PlanActivity resume, en una sola consulta, las ejecuciones de cada plan dentro de su período:
+	// hecho por cualquier persona de la sede y última ejecución del usuario indicado. Los planes sin
+	// ejecuciones no aparecen en el mapa.
+	PlanActivity(ctx context.Context, org, site, user string, periods []domain.PlanPeriod) (map[string]domain.PlanActivity, error)
 	Executions(context.Context, domain.Actor, string, string, pagination.Window) ([]domain.CleaningExecution, error)
 }
 
