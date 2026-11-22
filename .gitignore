@@ -28,3 +28,4 @@ local.properties
 
 # Backups locales de la base (scripts/aplicar-migraciones.ps1).
 *.dump
+backups/

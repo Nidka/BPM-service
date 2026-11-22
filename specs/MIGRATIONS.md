@@ -152,3 +152,10 @@ pierde registros.
 resultado). Aplicar antes de desplegar la API y el worker: ambos fallan al arrancar si falta (`webhooks migration
 V18 is required`), y el evaluador de alertas consulta la tabla al crear cada alerta. Ver [WEBHOOKS.md](WEBHOOKS.md).
 
+## Aplicar desde macOS/Linux
+
+`./scripts/aplicar-migraciones.sh --revisar` muestra qué falta sin cambiar nada; sin `--revisar` pide escribir
+`SI`, hace un backup completo con `pg_dump` en `backups/` (ignorado por git) y aplica las pendientes en orden con
+`ON_ERROR_STOP`. Usa `DATABASE_URL` del entorno o de `.env`. `pg_dump` debe ser de la misma versión principal del
+servidor o superior. Ensayado sobre una copia con V1–V15: aplica V16–V18 y la API y el worker arrancan.
+
