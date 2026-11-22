@@ -144,3 +144,9 @@ SUPER_ADMIN, `ACTIVE`/`ARCHIVED`) y `normative_questions` (registro de consultas
 por hora). Aplicar antes de desplegar la API: el servicio falla al arrancar si falta (`normative migration V17
 is required`). El agente queda apagado (503) hasta configurar `ANTHROPIC_API_KEY`.
 
+## Webhooks salientes (V18)
+
+`V18__webhooks.sql` es aditiva: crea `webhook_endpoints` (URL HTTPS, secreto de firma, tipos de aviso, último
+resultado). Aplicar antes de desplegar la API y el worker: ambos fallan al arrancar si falta (`webhooks migration
+V18 is required`), y el evaluador de alertas consulta la tabla al crear cada alerta. Ver [WEBHOOKS.md](WEBHOOKS.md).
+

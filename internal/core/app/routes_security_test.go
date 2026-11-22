@@ -13,6 +13,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/research"
 	"github.com/Nidka/BPM-service/internal/features/training"
 	"github.com/Nidka/BPM-service/internal/features/usage"
+	"github.com/Nidka/BPM-service/internal/features/webhooks"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"log/slog"
@@ -44,6 +45,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	reports.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	usage.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	research.Routes(nil, validToken{}, logger, expiredSession{})(r)
+	webhooks.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	normative.Routes(nil, config.AssistantConfig{APIKey: "clave-de-prueba", Model: "claude-opus-5-5"}, validToken{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
 		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
@@ -59,6 +61,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 		{"POST", "/organizations/org/usage/events"}, {"GET", "/organizations/org/usage/summary"},
 		{"GET", "/organizations/org/research/participation"}, {"POST", "/organizations/org/research/consent"}, {"POST", "/organizations/org/research/submissions"},
 		{"GET", "/research/access"}, {"GET", "/research/instruments"}, {"GET", "/research/results"},
+		{"GET", "/organizations/org/webhooks"}, {"POST", "/organizations/org/webhooks"}, {"POST", "/organizations/org/webhooks/00000000-0000-0000-0000-000000000001/test"},
 		{"GET", "/normative/status"}, {"POST", "/normative/questions"}, {"GET", "/normative/documents"}, {"POST", "/normative/documents"},
 		{"PUT", "/normative/documents/00000000-0000-0000-0000-000000000001"}, {"POST", "/normative/documents/00000000-0000-0000-0000-000000000001/archive"},
 	} {

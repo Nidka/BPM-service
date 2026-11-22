@@ -9,6 +9,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/observability"
 	"github.com/Nidka/BPM-service/internal/core/outbox"
 	"github.com/Nidka/BPM-service/internal/features/alerts"
+	alertpg "github.com/Nidka/BPM-service/internal/features/alerts/adapters/postgres"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/notifications/adapters/fcm"
 	notificationpg "github.com/Nidka/BPM-service/internal/features/notifications/adapters/postgres"
@@ -18,6 +19,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/organizations"
 	organizationapp "github.com/Nidka/BPM-service/internal/features/organizations/application"
 	"github.com/Nidka/BPM-service/internal/features/reports"
+	"github.com/Nidka/BPM-service/internal/features/webhooks"
 	"net/http"
 	"time"
 )
@@ -44,6 +46,9 @@ func RunWorker(ctx context.Context) error {
 		return e
 	}
 	if e = reports.RequireSchema(ctx, pool); e != nil {
+		return e
+	}
+	if e = webhooks.RequireSchema(ctx, pool); e != nil {
 		return e
 	}
 	providers := map[string]application.Provider{}
@@ -74,6 +79,7 @@ func RunWorker(ctx context.Context) error {
 			return evaluator.EvaluateReceipt(ctx, v.OrganizationID, v.AggregateID, time.Now().UTC())
 		},
 		organizations.InvitationEvent: invitationMailer.Handle,
+		alertpg.WebhookAlertEvent:     webhooks.AlertHandler(pool),
 		"notifications.alert.ready.v1": func(ctx context.Context, v outbox.Event) error {
 			e := dispatcher.Dispatch(ctx, v.OrganizationID, v.AggregateID, time.Now().UTC())
 			if errors.Is(e, application.ErrUnavailable) {

@@ -3393,6 +3393,99 @@ paths:
             application/json:
               schema: {type: object, required: [data], properties: {data: {type: object}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/webhooks:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+    get:
+      tags: [Webhooks]
+      operationId: listWebhooks
+      summary: Webhooks de la empresa (RF-48)
+      security: [{FirebaseBearer: []}]
+      description: "Solo ADMIN o SUPER_ADMIN. Devuelve items (sin secreto), eventTypes y maxEndpoints. Ver specs/WEBHOOKS.md."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Webhooks]
+      operationId: createWebhook
+      summary: Registrar webhook
+      security: [{FirebaseBearer: []}]
+      description: "Cuerpo {url, eventTypes, active}. URL https pública. Devuelve el secreto solo en esta respuesta."
+      responses:
+        "201":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/webhooks/{webhookID}:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: webhookID, required: true, schema: {type: string, format: uuid}}
+    put:
+      tags: [Webhooks]
+      operationId: updateWebhook
+      summary: Editar webhook
+      security: [{FirebaseBearer: []}]
+      description: "Cuerpo {url, eventTypes, active}."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhook
+      summary: Eliminar webhook
+      security: [{FirebaseBearer: []}]
+      description: "Deja de recibir avisos."
+      responses:
+        "204":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/webhooks/{webhookID}/rotate-secret:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: webhookID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Webhooks]
+      operationId: rotateWebhookSecret
+      summary: Rotar secreto
+      security: [{FirebaseBearer: []}]
+      description: "Devuelve el secreto nuevo; el anterior deja de valer."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/organizations/{organizationID}/webhooks/{webhookID}/test:
+    parameters:
+      - {$ref: "#/components/parameters/OrganizationID"}
+      - {in: path, name: webhookID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Webhooks]
+      operationId: testWebhook
+      summary: Probar webhook
+      security: [{FirebaseBearer: []}]
+      description: "Envía un evento TEST firmado y devuelve {delivered, status}."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
 components:
   parameters:
     PageSize:

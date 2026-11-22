@@ -96,7 +96,33 @@ func emit(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, c candidate
 	if e != nil {
 		return e
 	}
-	return outbox.Enqueue(ctx, tx, outbox.Event{OrganizationID: org, Type: "notifications.alert.ready.v1", AggregateType: "alert", AggregateID: id, DedupKey: "alert:" + id, Payload: json.RawMessage(`{}`), CreatedAt: now, ExpiresAt: now.Add(23 * time.Hour)})
+	if e = outbox.Enqueue(ctx, tx, outbox.Event{OrganizationID: org, Type: "notifications.alert.ready.v1", AggregateType: "alert", AggregateID: id, DedupKey: "alert:" + id, Payload: json.RawMessage(`{}`), CreatedAt: now, ExpiresAt: now.Add(23 * time.Hour)}); e != nil {
+		return e
+	}
+	return enqueueWebhook(ctx, tx, org, v, c, id, title, message, now)
+}
+
+// WebhookAlertEvent es el evento del outbox que entrega una alerta a los webhooks de la empresa (RF-48).
+const WebhookAlertEvent = "webhooks.alert.v1"
+
+// enqueueWebhook encola una entrega por episodio (no por destinatario) y solo si la empresa tiene un webhook
+// activo suscrito al tipo de alerta. El cuerpo no lleva datos de la persona que recibe la alerta.
+func enqueueWebhook(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, c candidate, alertID, title, message string, now time.Time) error {
+	var subscribed bool
+	if e := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM webhook_endpoints WHERE organization_id=$1 AND deleted_at IS NULL AND active AND $2=ANY(event_types))`, org, v.Type).Scan(&subscribed); e != nil || !subscribed {
+		return e
+	}
+	location := ""
+	if c.location != nil {
+		location = *c.location
+	}
+	payload, e := json.Marshal(map[string]any{"id": alertID, "type": v.Type, "organizationId": org, "locationId": location, "title": title,
+		"message": message, "sourceType": c.sourceType, "sourceId": c.source, "occurredAt": now.UTC()})
+	if e != nil {
+		return e
+	}
+	return outbox.Enqueue(ctx, tx, outbox.Event{OrganizationID: org, Type: WebhookAlertEvent, AggregateType: "alert", AggregateID: alertID,
+		DedupKey: fmt.Sprintf("webhook:%s:%d:%s:%s", v.ID, v.RowVersion, c.source, c.episode), Payload: payload, CreatedAt: now, ExpiresAt: now.Add(23 * time.Hour)})
 }
 func content(kind string) (string, string) {
 	switch kind {

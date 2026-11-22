@@ -24,6 +24,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/research"
 	"github.com/Nidka/BPM-service/internal/features/training"
 	"github.com/Nidka/BPM-service/internal/features/usage"
+	"github.com/Nidka/BPM-service/internal/features/webhooks"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -99,6 +100,9 @@ func NewContainer(
 	if err := normative.RequireSchema(ctx, pool); err != nil {
 		return fail(err)
 	}
+	if err := webhooks.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
 	if cfg.Firebase.Enabled {
 		container.TokenVerifier, err = firebaseauth.New(ctx, cfg.Firebase)
 		if err != nil {
@@ -144,6 +148,7 @@ func NewContainer(
 			reports.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			usage.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			normative.Routes(container.Database, cfg.Assistant, container.TokenVerifier, logger, identityModule.Sessions),
+			webhooks.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)
