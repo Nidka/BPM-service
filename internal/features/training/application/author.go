@@ -112,6 +112,7 @@ func (s *Service) SaveDraft(ctx context.Context, user, org, courseID string, in 
 			return e
 		}
 		in.Lessons = keepKeyPoints(draft.Lessons, in.Lessons)
+		in.Lessons = keepCaptions(draft.Lessons, in.Lessons)
 		if out, e = db.ReplaceDraft(ctx, org, user, draft, in); e != nil {
 			return e
 		}
@@ -136,6 +137,27 @@ func keepKeyPoints(previous, next []domain.Lesson) []domain.Lesson {
 		}
 		if out[i].KeyPoints == nil {
 			out[i].KeyPoints = []string{}
+		}
+	}
+	return out
+}
+
+// keepCaptions conserva los subtítulos (RF-45) de las lecciones que el cliente no envió (Captions nil,
+// por ejemplo una app anterior que no conoce el campo); "" sí los borra. No modifica la lista recibida.
+func keepCaptions(previous, next []domain.Lesson) []domain.Lesson {
+	before := make(map[string]*string, len(previous))
+	for _, l := range previous {
+		before[l.ID] = l.Captions
+	}
+	out := make([]domain.Lesson, len(next))
+	copy(out, next)
+	empty := ""
+	for i := range out {
+		if out[i].Captions == nil {
+			out[i].Captions = before[out[i].ID]
+		}
+		if out[i].Captions == nil {
+			out[i].Captions = &empty
 		}
 	}
 	return out

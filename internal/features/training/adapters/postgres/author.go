@@ -65,7 +65,7 @@ func (s *store) Draft(ctx context.Context, org string, course domain.Course) (do
 
 // content lee lecciones y preguntas (con respuestas) de una versión de autoría.
 func (s *store) content(ctx context.Context, org, versionID string) ([]domain.Lesson, []domain.Question, error) {
-	rows, err := s.tx.Query(ctx, `SELECT id::text,title,content,display_order,COALESCE(media_file_id::text,''),external_video_provider,external_video_id,key_points FROM training_lessons WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, versionID)
+	rows, err := s.tx.Query(ctx, `SELECT id::text,title,content,display_order,COALESCE(media_file_id::text,''),external_video_provider,external_video_id,key_points,captions_vtt FROM training_lessons WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, versionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,12 +75,14 @@ func (s *store) content(ctx context.Context, org, versionID string) ([]domain.Le
 		var l domain.Lesson
 		var provider, externalID *string
 		var keyPoints []byte
-		if err = rows.Scan(&l.ID, &l.Title, &l.Content, &l.DisplayOrder, &l.VideoMediaID, &provider, &externalID, &keyPoints); err != nil {
+		var captions string
+		if err = rows.Scan(&l.ID, &l.Title, &l.Content, &l.DisplayOrder, &l.VideoMediaID, &provider, &externalID, &keyPoints, &captions); err != nil {
 			return nil, nil, err
 		}
 		if l.KeyPoints, err = decodeKeyPoints(keyPoints); err != nil {
 			return nil, nil, err
 		}
+		l.Captions = &captions
 		if provider != nil && externalID != nil {
 			l.ExternalVideo = &domain.ExternalVideo{Provider: *provider, VideoID: *externalID}
 		}
@@ -159,6 +161,14 @@ func cloneContent(lessons []domain.Lesson, questions []domain.Question) ([]domai
 	return outLessons, outQuestions, nil
 }
 
+// captionText devuelve los subtítulos a guardar ("" si la lección no tiene).
+func captionText(l domain.Lesson) string {
+	if l.Captions == nil {
+		return ""
+	}
+	return *l.Captions
+}
+
 // nonNilPoints garantiza que key_points se guarde como arreglo JSON ([] y no null).
 func nonNilPoints(points []string) []string {
 	if points == nil {
@@ -174,8 +184,8 @@ func (s *store) insertContent(ctx context.Context, org, user, versionID string, 
 		if err != nil {
 			return err
 		}
-		batch.Queue(`INSERT INTO training_lessons(id,organization_id,course_version_id,title,content,display_order,media_file_id,external_video_provider,external_video_id,key_points,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10::jsonb,$11,$11)`,
-			l.ID, org, versionID, l.Title, l.Content, l.DisplayOrder, l.VideoMediaID, externalProvider(l), externalID(l), string(points), user)
+		batch.Queue(`INSERT INTO training_lessons(id,organization_id,course_version_id,title,content,display_order,media_file_id,external_video_provider,external_video_id,key_points,captions_vtt,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10::jsonb,$12,$11,$11)`,
+			l.ID, org, versionID, l.Title, l.Content, l.DisplayOrder, l.VideoMediaID, externalProvider(l), externalID(l), string(points), user, captionText(l))
 	}
 	for _, q := range questions {
 		options, err := json.Marshal(q.Options)

@@ -49,7 +49,7 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 	if err != nil {
 		return view, err
 	}
-	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,m.id::text,m.mime_type,m.size_bytes,COALESCE(m.sha256,''),l.external_video_provider,l.external_video_id,l.key_points
+	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,m.id::text,m.mime_type,m.size_bytes,COALESCE(m.sha256,''),l.external_video_provider,l.external_video_id,l.key_points,l.captions_vtt
  FROM training_lessons l LEFT JOIN media_files m ON m.organization_id=l.organization_id AND m.id=l.media_file_id AND m.status='AVAILABLE' AND m.location_id IS NULL AND starts_with(m.object_key,$3)
  WHERE l.organization_id=$1 AND l.course_version_id=$2 ORDER BY l.display_order`, org, view.Version.ID, trainingVideoPrefix(org))
 	if err != nil {
@@ -64,9 +64,11 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 		var sha string
 		var provider, externalID *string
 		var keyPoints []byte
-		if err = rows.Scan(&lesson.ID, &lesson.Title, &lesson.Content, &lesson.DisplayOrder, &mediaID, &mime, &size, &sha, &provider, &externalID, &keyPoints); err != nil {
+		var captions string
+		if err = rows.Scan(&lesson.ID, &lesson.Title, &lesson.Content, &lesson.DisplayOrder, &mediaID, &mime, &size, &sha, &provider, &externalID, &keyPoints, &captions); err != nil {
 			return view, err
 		}
+		lesson.Captions = &captions
 		if lesson.KeyPoints, err = decodeKeyPoints(keyPoints); err != nil {
 			return view, err
 		}

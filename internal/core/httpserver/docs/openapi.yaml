@@ -3456,6 +3456,7 @@ components:
         video: {$ref: "#/components/schemas/TrainingLearnVideo"}
         externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
         keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Lo esencial de la lección (hasta 5 puntos); siempre un arreglo, vacío si no hay."}
+        captionsVtt: {type: string, maxLength: 100000, description: "Subtítulos WebVTT de la lección (RF-45); \"\" si no tiene."}
     TrainingLearnQuestion:
       type: object
       description: Nunca incluye correctOption ni explanation; la respuesta solo se revela tras responder.
@@ -3651,6 +3652,7 @@ components:
         videoMediaId: {type: string, format: uuid, nullable: true, description: "Video de capacitación AVAILABLE o PENDING_UPLOAD de la organización."}
         externalVideo: {nullable: true, description: "Entrada: URL de YouTube (watch?v=, youtu.be, shorts, youtube-nocookie.com/embed) como texto u objeto {provider: YOUTUBE, videoId | url}; el servidor la normaliza a {provider, videoId}. Otro dominio o formato inválido 422; con videoMediaId a la vez 422. Salida: objeto TrainingExternalVideo o null."}
         keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Entrada: ausente o null conserva los puntos previos de la lección (misma id); [] los borra; hasta 5 puntos de 1 a 200 caracteres en una línea, sin repetirse (422 en lessons[i].keyPoints). Salida: siempre un arreglo."}
+        captionsVtt: {type: string, maxLength: 100000, description: "Subtítulos WebVTT de la lección (RF-45). Entrada: ausente o null conserva los previos; \"\" los borra."}
     TrainingDraftQuestion:
       type: object
       additionalProperties: false
@@ -6000,6 +6002,7 @@ components:
                         externalVideo: {$ref: "#/components/schemas/TrainingExternalVideo"}
                         offlineAvailable: {type: boolean}
                         keyPoints: {type: array, maxItems: 5, items: {type: string, minLength: 1, maxLength: 200}, description: "Lo esencial de la lección (hasta 5 puntos); siempre un arreglo, vacío si no hay."}
+                        captionsVtt: {type: string, maxLength: 100000, description: "Subtítulos WebVTT de la lección (RF-45); \"\" si no tiene."}
                   questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
     TrainingPublicCertificateResponse:
       type: object

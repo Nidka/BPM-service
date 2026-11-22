@@ -91,7 +91,7 @@ func (h *Handler) putDraft(w http.ResponseWriter, r *http.Request) {
 	if body.Lessons != nil {
 		input.Lessons = make([]domain.Lesson, 0, len(*body.Lessons))
 		for _, l := range *body.Lessons {
-			lesson := domain.Lesson{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, KeyPoints: l.KeyPoints}
+			lesson := domain.Lesson{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, KeyPoints: l.KeyPoints, Captions: l.CaptionsVTT}
 			if l.VideoMediaID != nil {
 				lesson.VideoMediaID = *l.VideoMediaID
 			}

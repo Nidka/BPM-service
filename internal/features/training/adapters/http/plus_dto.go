@@ -271,6 +271,7 @@ type offlineLessonDTO struct {
 	ExternalVideo    *externalVideoDTO `json:"externalVideo"`
 	OfflineAvailable bool              `json:"offlineAvailable"`
 	KeyPoints        []string          `json:"keyPoints"`
+	CaptionsVTT      string            `json:"captionsVtt"`
 }
 
 type offlineCourseDTO struct {
@@ -293,7 +294,7 @@ func offlineCatalog(c application.OfflineCatalog) offlineCatalogDTO {
 		item := offlineCourseDTO{Course: base.Course, Version: base.Version, Questions: base.Questions, Lessons: make([]offlineLessonDTO, 0, len(v.Lessons))}
 		for _, l := range v.Lessons {
 			lesson := offlineLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder,
-				ExternalVideo: externalVideo(l.ExternalVideo), OfflineAvailable: l.ExternalVideo == nil, KeyPoints: keyPoints(l.KeyPoints)}
+				ExternalVideo: externalVideo(l.ExternalVideo), OfflineAvailable: l.ExternalVideo == nil, KeyPoints: keyPoints(l.KeyPoints), CaptionsVTT: captions(l.Captions)}
 			if l.Video != nil {
 				lesson.Video = &offlineVideoDTO{MediaID: l.Video.MediaID, MIMEType: l.Video.MIMEType, SizeBytes: l.Video.SizeBytes, SHA256: l.Video.SHA256}
 			}

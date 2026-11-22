@@ -24,7 +24,7 @@ type store struct{ tx pgx.Tx }
 func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
 // RequireSchema evita servir la Academia con un esquema incompatible: exige las
-// columnas y unicidades de V8, V11 y V15. No ejecuta migraciones.
+// columnas y unicidades de V8, V11, V15 y V16. No ejecuta migraciones.
 func (r *Repository) RequireSchema(ctx context.Context) error {
 	rows, err := r.pool.Query(ctx, `SELECT v.row_version, a.request_hash FROM training_course_versions v CROSS JOIN training_attempts a LIMIT 0`)
 	if err != nil {
@@ -77,7 +77,13 @@ func (r *Repository) RequireSchema(ctx context.Context) error {
 	if !valid {
 		return errors.New("training migration V15 is required")
 	}
-	return nil
+	// V16: subtítulos WebVTT por lección (RF-45).
+	rows, err = r.pool.Query(ctx, `SELECT l.captions_vtt FROM training_lessons l LIMIT 0`)
+	if err != nil {
+		return errors.New("training migration V16 is required")
+	}
+	rows.Close()
+	return rows.Err()
 }
 
 // Within ejecuta fn en una transacción y la revierte si devuelve error.

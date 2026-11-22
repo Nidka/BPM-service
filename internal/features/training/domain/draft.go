@@ -2,8 +2,10 @@ package domain
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // DraftInput es el contenido que el administrador envía para reemplazar el borrador.
@@ -90,6 +92,13 @@ func NormalizeDraft(in DraftInput) (DraftInput, error) {
 			fields[indexed("lessons", i, "keyPoints")] = msg
 		}
 		l.KeyPoints = points
+		if l.Captions != nil {
+			captions, msg := NormalizeCaptions(*l.Captions)
+			if msg != "" {
+				fields[indexed("lessons", i, "captionsVtt")] = msg
+			}
+			l.Captions = &captions
+		}
 	}
 
 	questions := make([]Question, len(in.Questions))
@@ -171,6 +180,32 @@ func NormalizeKeyPoints(points []string) ([]string, string) {
 	}
 	return out, ""
 }
+
+// NormalizeCaptions valida los subtítulos WebVTT de una lección (RF-45): vacío (sin subtítulos) o
+// un documento que empieza con "WEBVTT", tiene al menos un tiempo "inicio --> fin" y no supera
+// MaxCaptionsLength caracteres. Quita la marca BOM, unifica los saltos de línea y los espacios
+// del final. Devuelve el texto normalizado y un mensaje para la persona si no es válido.
+func NormalizeCaptions(raw string) (string, string) {
+	text := strings.TrimPrefix(raw, "\ufeff")
+	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "", ""
+	}
+	if utf8.RuneCountInString(text) > MaxCaptionsLength {
+		return raw, fmt.Sprintf("Los subtítulos admiten hasta %d caracteres.", MaxCaptionsLength)
+	}
+	if !utf8.ValidString(text) || !strings.HasPrefix(text, "WEBVTT") {
+		return raw, "Usa un archivo de subtítulos WebVTT: debe empezar con WEBVTT."
+	}
+	if !captionTiming.MatchString(text) {
+		return raw, "Los subtítulos no tienen tiempos válidos (por ejemplo 00:00:01.000 --> 00:00:04.000)."
+	}
+	return text + "\n", ""
+}
+
+// captionTiming reconoce una línea de tiempos WebVTT: [hh:]mm:ss.ttt --> [hh:]mm:ss.ttt.
+var captionTiming = regexp.MustCompile(`(?m)^(\d{2,}:)?\d{2}:\d{2}\.\d{3}\s+-->\s+(\d{2,}:)?\d{2}:\d{2}\.\d{3}`)
 
 // validateOptions exige de 2 a 6 opciones no vacías, de hasta 300 caracteres y sin repetirse.
 func validateOptions(options []string) string {

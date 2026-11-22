@@ -80,6 +80,8 @@ type draftLessonBody struct {
 	ExternalVideo json.RawMessage `json:"externalVideo"`
 	// KeyPoints: ausente (o null) conserva los puntos previos de la lección; [] los borra.
 	KeyPoints []string `json:"keyPoints"`
+	// CaptionsVTT (RF-45): ausente (o null) conserva los subtítulos previos; "" los borra.
+	CaptionsVTT *string `json:"captionsVtt"`
 }
 
 type draftQuestionBody struct {
@@ -170,6 +172,14 @@ func progress(p domain.Progress) progressDTO {
 		CompletedLessonIDs: ids, CompletedLessons: p.CompletedLessons(), TotalLessons: p.TotalLessons, Percent: p.Percent()}
 }
 
+// captions devuelve los subtítulos de la lección o "" si no tiene.
+func captions(text *string) string {
+	if text == nil {
+		return ""
+	}
+	return *text
+}
+
 // keyPoints devuelve siempre un arreglo (vacío si la lección no tiene puntos clave).
 func keyPoints(points []string) []string {
 	if points == nil {
@@ -213,6 +223,8 @@ type learnLessonDTO struct {
 	ExternalVideo *externalVideoDTO `json:"externalVideo"`
 	// KeyPoints es "Lo esencial" de la lección (siempre un arreglo).
 	KeyPoints []string `json:"keyPoints"`
+	// CaptionsVTT son los subtítulos WebVTT (RF-45); "" si la lección no tiene.
+	CaptionsVTT string `json:"captionsVtt"`
 }
 
 // learnQuestionDTO no tiene campos para la respuesta correcta ni la explicación,
@@ -239,7 +251,7 @@ func courseView(v domain.CourseView) courseViewDTO {
 		Lessons: make([]learnLessonDTO, 0, len(v.Lessons)), Questions: make([]learnQuestionDTO, 0, len(v.Questions)),
 		Progress: progress(v.Progress), Certificate: certificate(v.Certificate)}
 	for _, l := range v.Lessons {
-		item := learnLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, KeyPoints: keyPoints(l.KeyPoints)}
+		item := learnLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, KeyPoints: keyPoints(l.KeyPoints), CaptionsVTT: captions(l.Captions)}
 		if l.Video != nil {
 			item.Video = &videoDTO{MediaID: l.Video.MediaID, MIMEType: l.Video.MIMEType, SizeBytes: l.Video.SizeBytes}
 		}
@@ -349,6 +361,7 @@ type draftLessonDTO struct {
 	VideoMediaID  *string           `json:"videoMediaId"`
 	ExternalVideo *externalVideoDTO `json:"externalVideo"`
 	KeyPoints     []string          `json:"keyPoints"`
+	CaptionsVTT   string            `json:"captionsVtt"`
 }
 
 type draftQuestionDTO struct {
@@ -373,7 +386,7 @@ func draft(d domain.Draft) draftDTO {
 		Version: draftVersionDTO{ID: d.Version.ID, VersionNumber: d.Version.Number, PassingScore: d.Version.PassingScore, RowVersion: strconv.Itoa(d.Version.RowVersion)},
 		Lessons: make([]draftLessonDTO, 0, len(d.Lessons)), Questions: make([]draftQuestionDTO, 0, len(d.Questions))}
 	for _, l := range d.Lessons {
-		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo), KeyPoints: keyPoints(l.KeyPoints)})
+		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo), KeyPoints: keyPoints(l.KeyPoints), CaptionsVTT: captions(l.Captions)})
 	}
 	for _, q := range d.Questions {
 		out.Questions = append(out.Questions, draftQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, CorrectOption: q.CorrectOption, Explanation: q.Explanation, DisplayOrder: q.DisplayOrder})

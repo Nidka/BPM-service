@@ -129,3 +129,11 @@ reservada. Ver [REPORTS.md](REPORTS.md).
 ## Progreso por lección y "Lo esencial" (V15)
 
 `V15__training_lesson_progress.sql` es aditiva: crea `training_lesson_progress` (lecciones completadas por persona, origen `VIEWED` o `MODULE_PASSED`), agrega `training_lessons.key_points` (JSONB, arreglo de hasta 5 puntos clave) y `training_attempts.xp_awarded` (NULL en intentos anteriores) y el índice `cleaning_executions_plan_idx (organization_id, cleaning_plan_id, executed_at DESC)`. Aplicar después de V11 (y V1) con `ON_ERROR_STOP=1` y **antes** de desplegar la API: la Academia falla al arrancar si falta (`training migration V15 is required`). No borra ni reescribe datos; el contenido ya publicado queda con `keyPoints` vacío hasta una nueva publicación. Ver [TRAINING.md](TRAINING.md).
+
+## Subtítulos de lecciones (V16)
+
+`V16__training_lesson_captions.sql` es aditiva: agrega `training_lessons.captions_vtt` (texto WebVTT, vacío por
+defecto, hasta 100 000 caracteres) para RF-45. Aplicar después de V15 con `ON_ERROR_STOP=1` y **antes** de
+desplegar la API: la Academia falla al arrancar si falta (`training migration V16 is required`). No borra ni
+reescribe datos; las lecciones existentes quedan sin subtítulos hasta que el administrador los cargue.
+

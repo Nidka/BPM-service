@@ -41,6 +41,8 @@ const (
 	MaxContentLength  = 20000
 	MaxKeyPoints      = 5
 	MaxKeyPointLength = 200
+	// MaxCaptionsLength acota los subtítulos WebVTT de una lección (RF-45).
+	MaxCaptionsLength = 100000
 	DefaultPassScore  = 80
 	XPPerCorrectFinal = 10
 )
@@ -106,6 +108,9 @@ type Lesson struct {
 	// significa "no enviado" (se conservan los previos) y un arreglo vacío los borra;
 	// en toda salida es un arreglo (puede estar vacío).
 	KeyPoints []string
+	// Captions son los subtítulos WebVTT de la lección (RF-45). En la entrada de autoría nil
+	// significa "no enviado" (se conservan los previos) y "" los borra; en toda salida no es nil.
+	Captions *string
 }
 
 // Video describe el video disponible de una lección publicada.
