@@ -137,3 +137,10 @@ defecto, hasta 100 000 caracteres) para RF-45. Aplicar después de V15 con `ON_E
 desplegar la API: la Academia falla al arrancar si falta (`training migration V16 is required`). No borra ni
 reescribe datos; las lecciones existentes quedan sin subtítulos hasta que el administrador los cargue.
 
+## Agente normativo (V17)
+
+`V17__normative_assistant.sql` es aditiva: crea `normative_documents` (normativa en texto que carga el
+SUPER_ADMIN, `ACTIVE`/`ARCHIVED`) y `normative_questions` (registro de consultas para auditoría y límite de 20
+por hora). Aplicar antes de desplegar la API: el servicio falla al arrancar si falta (`normative migration V17
+is required`). El agente queda apagado (503) hasta configurar `ANTHROPIC_API_KEY`.
+

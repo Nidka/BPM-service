@@ -3277,6 +3277,122 @@ paths:
             application/json:
               schema: {type: object, required: [data], properties: {data: {type: object}}}
         default: {$ref: "#/components/responses/MediaError"}
+  /api/v1/normative/status:
+    get:
+      tags: [Normativa]
+      operationId: getNormativeStatus
+      summary: Estado del agente normativo
+      security: [{FirebaseBearer: []}]
+      description: "RF-46/47. enabled es falso sin ANTHROPIC_API_KEY; documents cuenta la normativa activa."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/normative/questions:
+    post:
+      tags: [Normativa]
+      operationId: askNormative
+      summary: Consulta normativa
+      security: [{FirebaseBearer: []}]
+      description: "Cuerpo {question} (3 a 1000 caracteres). Responde {answer, citations[{documentId, documentTitle, citedText}], supported}; supported es falso si la normativa no respalda la respuesta. 20 consultas por hora (429 NORMATIVE_RATE_LIMITED); 503 NORMATIVE_ASSISTANT_DISABLED sin clave."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/normative/documents:
+    get:
+      tags: [Normativa]
+      operationId: listNormativeDocuments
+      summary: Normativa cargada (administrador general)
+      security: [{FirebaseBearer: []}]
+      description: "?status=ACTIVE|ARCHIVED. Solo SUPER_ADMIN; sin el texto completo."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    post:
+      tags: [Normativa]
+      operationId: createNormativeDocument
+      summary: Cargar normativa (administrador general)
+      security: [{FirebaseBearer: []}]
+      description: "Cuerpo {title, source, content}; content hasta 400 000 caracteres y 1 500 000 entre los activos (422 NORMATIVE_TOO_LARGE)."
+      responses:
+        "201":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/normative/documents/{documentID}:
+    parameters:
+      - {in: path, name: documentID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Normativa]
+      operationId: getNormativeDocument
+      summary: Documento con su texto (administrador general)
+      security: [{FirebaseBearer: []}]
+      description: "Solo SUPER_ADMIN."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+    put:
+      tags: [Normativa]
+      operationId: updateNormativeDocument
+      summary: Editar normativa (administrador general)
+      security: [{FirebaseBearer: []}]
+      description: "Cuerpo {title, source, content}."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/normative/documents/{documentID}/archive:
+    parameters:
+      - {in: path, name: documentID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Normativa]
+      operationId: archiveNormativeDocument
+      summary: Archivar normativa
+      security: [{FirebaseBearer: []}]
+      description: "Deja de usarse en las respuestas; no se borra."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/normative/documents/{documentID}/restore:
+    parameters:
+      - {in: path, name: documentID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Normativa]
+      operationId: restoreNormativeDocument
+      summary: Reactivar normativa
+      security: [{FirebaseBearer: []}]
+      description: "Vuelve a usarse; respeta el tope de 1 500 000 caracteres activos."
+      responses:
+        "200":
+          description: Correcto.
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {type: object}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
 components:
   parameters:
     PageSize:

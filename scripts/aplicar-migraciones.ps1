@@ -49,6 +49,7 @@ $migraciones = [ordered]@{
     "V14__alerts_admin_operates"      = "SELECT position('''CHECKLIST_MISSING'' THEN m.role IN (''ADMIN'',''CHEF'')' in pg_get_functiondef('alert_recipient_authorized(text,uuid,text)'::regprocedure)) > 0"
     "V15__training_lesson_progress"   = "SELECT to_regclass('training_lesson_progress') IS NOT NULL"
     "V16__training_lesson_captions"   = "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='training_lessons' AND column_name='captions_vtt')"
+    "V17__normative_assistant"        = "SELECT to_regclass('normative_documents') IS NOT NULL"
 }
 
 $pendientes = @()
