@@ -22,7 +22,7 @@ migraciones=(
   "V18__webhooks|SELECT to_regclass('webhook_endpoints') IS NOT NULL"
 )
 
-echo "Servidor: $(consultar 'SHOW server_version') · LC_CTYPE=$(consultar 'SHOW lc_ctype')"
+echo "Servidor: $(consultar 'SHOW server_version') · LC_CTYPE=$(consultar "SELECT datctype FROM pg_database WHERE datname=current_database()")"
 pendientes=()
 for item in "${migraciones[@]}"; do
   nombre="${item%%|*}"; consulta="${item#*|}"
