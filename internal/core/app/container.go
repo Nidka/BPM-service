@@ -147,7 +147,7 @@ func NewContainer(
 			training.Routes(container.Database, container.TokenVerifier, container.VideoStorage, cfg.R2, cfg.HTTP, logger, identityModule.Sessions),
 			reports.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			usage.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
-			normative.Routes(container.Database, cfg.Assistant, container.TokenVerifier, logger, identityModule.Sessions),
+			normative.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			webhooks.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})

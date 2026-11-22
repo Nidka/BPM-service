@@ -70,8 +70,8 @@ están en la misma sección de `specs/TRAINING.md` y requieren además V11.
 El progreso por lección (`completedLessonId`, `percent`) y "Lo esencial" (`keyPoints`) requieren además V15
 (también `xp_awarded` y un índice de limpieza); aplicar V15 antes de desplegar la API.
 Los subtítulos WebVTT por lección (`captionsVtt`, RF-45) requieren V16; aplicarla antes de desplegar la API.
-El agente normativo (RF-46/47, `internal/features/normative`, rutas `/normative/*`) requiere V17 y `ANTHROPIC_API_KEY`;
-responde solo con la normativa que carga el SUPER_ADMIN, con citas, usando Claude (`NORMATIVE_MODEL`, por defecto `claude-opus-5-5`).
+El buscador de normativa (RF-46/47, `internal/features/normative`, rutas `/normative/*`) requiere V17; busca con texto completo
+en español (sin IA ni servicios externos) solo en la normativa que carga el SUPER_ADMIN.
 Los webhooks salientes para n8n (RF-48, `internal/features/webhooks`) requieren V18 en la API y el worker; ver specs/WEBHOOKS.md.
 
 Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de

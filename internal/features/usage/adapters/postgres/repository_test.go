@@ -135,23 +135,25 @@ func TestRegistroDeUsoIdempotenteYAislado(t *testing.T) {
 		}
 	}
 	// Resumen: ADMIN y SUPER_ADMIN; WORKER no; agregados sin personas.
+	// La sesión empezó hace 10 minutos: justo después de medianoche (Lima) cae en el día anterior.
 	day := now.In(domain.Lima).Format(domain.DateLayout)
-	s, err := svc.Summary(ctx, "admin", "org-a", day, day)
+	from := now.Add(-10 * time.Minute).In(domain.Lima).Format(domain.DateLayout)
+	s, err := svc.Summary(ctx, "admin", "org-a", from, day)
 	if err != nil || s.Sessions != 1 || s.EndedSessions != 1 || s.ActiveUsers != 1 || s.AverageSessionSeconds == nil || *s.AverageSessionSeconds != 540 || len(s.Modules) != 1 || s.Modules[0].Module != "CHECKLISTS" {
 		t.Fatalf("resumen: %+v %v", s, err)
 	}
-	if _, err = svc.Summary(ctx, "super", "org-a", day, day); err != nil {
+	if _, err = svc.Summary(ctx, "super", "org-a", from, day); err != nil {
 		t.Fatalf("SUPER_ADMIN: %v", err)
 	}
-	if _, err = svc.Summary(ctx, "worker", "org-a", day, day); !errors.Is(err, domain.ErrDenied) {
+	if _, err = svc.Summary(ctx, "worker", "org-a", from, day); !errors.Is(err, domain.ErrDenied) {
 		t.Fatal("worker no consulta")
 	}
 	// Resumen de investigación: solo usuarios con participación ACTIVE y consentimiento vigente.
-	rs, err := svc.ResearchSummary(ctx, "admin", "org-a", day, day)
+	rs, err := svc.ResearchSummary(ctx, "admin", "org-a", from, day)
 	if err != nil || rs.Sessions != 0 || rs.ActiveUsers != 0 || len(rs.Modules) != 0 || rs.AlertsViewed != 0 {
 		t.Fatalf("sin consentimiento no hay datos de investigación: %+v %v", rs, err)
 	}
-	if _, err = svc.ResearchSummary(ctx, "worker", "org-a", day, day); !errors.Is(err, domain.ErrDenied) {
+	if _, err = svc.ResearchSummary(ctx, "worker", "org-a", from, day); !errors.Is(err, domain.ErrDenied) {
 		t.Fatal("worker no consulta investigación")
 	}
 	for _, q := range []string{
@@ -163,7 +165,7 @@ func TestRegistroDeUsoIdempotenteYAislado(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day)
+	rs, err = svc.ResearchSummary(ctx, "admin", "org-a", from, day)
 	if err != nil || rs.Sessions != 1 || rs.ActiveUsers != 1 || len(rs.Modules) != 1 {
 		t.Fatalf("con consentimiento vigente: %+v %v", rs, err)
 	}
@@ -171,22 +173,22 @@ func TestRegistroDeUsoIdempotenteYAislado(t *testing.T) {
 	if _, err = pool.Exec(ctx, `UPDATE research_consent_documents SET status='ARCHIVED'; INSERT INTO research_consent_documents(version,title,body_text,responsible_investigator) VALUES('v-new','t','b','i')`); err != nil {
 		t.Fatal(err)
 	}
-	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 0 || rs.ActiveUsers != 0 {
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", from, day); err != nil || rs.Sessions != 0 || rs.ActiveUsers != 0 {
 		t.Fatalf("versión desactualizada: %+v %v", rs, err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO consent_records(organization_id,participant_id,document_version,accepted,accepted_at,recorded_by) VALUES('org-a','00000000-0000-0000-0000-0000000000a1','v-new',true,NOW()+interval '1 second','worker')`); err != nil {
 		t.Fatal(err)
 	}
-	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 1 {
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", from, day); err != nil || rs.Sessions != 1 {
 		t.Fatalf("reaceptado: %+v %v", rs, err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO consent_records(organization_id,participant_id,document_version,accepted,accepted_at,recorded_by) VALUES('org-a','00000000-0000-0000-0000-0000000000a1','v-new',false,NOW()+interval '2 seconds','worker')`); err != nil {
 		t.Fatal(err)
 	}
-	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", day, day); err != nil || rs.Sessions != 0 {
+	if rs, err = svc.ResearchSummary(ctx, "admin", "org-a", from, day); err != nil || rs.Sessions != 0 {
 		t.Fatalf("revocado: %+v %v", rs, err)
 	}
-	if all, err := svc.Summary(ctx, "admin", "org-a", day, day); err != nil || all.Sessions != 1 {
+	if all, err := svc.Summary(ctx, "admin", "org-a", from, day); err != nil || all.Sessions != 1 {
 		t.Fatalf("el resumen operativo no cambia: %+v %v", all, err)
 	}
 	other, err := svc.Summary(ctx, "other", "org-b", day, day)

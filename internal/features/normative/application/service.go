@@ -1,98 +1,53 @@
-// Package application implementa los casos de uso del agente normativo (RF-46/47).
+// Package application implementa los casos de uso del buscador de normativa (RF-46/47).
 package application
 
 import (
 	"context"
-	"time"
 
 	"github.com/Nidka/BPM-service/internal/features/normative/domain"
 )
 
-// Store es la persistencia del agente normativo.
+// Store es la persistencia del buscador de normativa.
 type Store interface {
 	// PlatformRole devuelve el rol de plataforma de una persona ACTIVE ("" si no tiene); ErrDenied si no está activa.
 	PlatformRole(ctx context.Context, user string) (string, error)
 	Documents(ctx context.Context, status string) ([]domain.Document, error)
-	ActiveDocuments(ctx context.Context) ([]domain.Document, error)
-	// ActiveCharacters suma los caracteres de la normativa activa sin contar [excludeID].
-	ActiveCharacters(ctx context.Context, excludeID string) (int, error)
+	ActiveCount(ctx context.Context) (int, error)
 	Document(ctx context.Context, id string) (domain.Document, error)
-	CreateDocument(ctx context.Context, user, id string, in domain.DocumentInput) (domain.Document, error)
-	UpdateDocument(ctx context.Context, user, id string, in domain.DocumentInput) (domain.Document, error)
+	// CreateDocument y UpdateDocument guardan la norma y reemplazan sus fragmentos en una transacción.
+	CreateDocument(ctx context.Context, user, id string, in domain.DocumentInput, fragments []string) (domain.Document, error)
+	UpdateDocument(ctx context.Context, user, id string, in domain.DocumentInput, fragments []string) (domain.Document, error)
 	SetStatus(ctx context.Context, user, id, status string) (domain.Document, error)
-	QuestionsSince(ctx context.Context, user string, since time.Time) (int, error)
-	LogQuestion(ctx context.Context, user, question string, answer domain.Answer) error
+	// Search busca en los fragmentos de la normativa activa, del más al menos pertinente.
+	Search(ctx context.Context, query string, limit int) ([]domain.SearchResult, error)
 }
 
-// Answerer consulta al modelo con la normativa como única fuente.
-type Answerer interface {
-	Answer(ctx context.Context, documents []domain.Document, question string) (domain.Answer, error)
-}
-
-// Service orquesta permisos, límites y registro.
+// Service orquesta permisos y validación.
 type Service struct {
-	store    Store
-	answerer Answerer
-	now      func() time.Time
-	newID    func() string
+	store Store
+	newID func() string
 }
 
-// New crea el servicio. Con [answerer] nulo el agente queda apagado (sin clave de API).
-func New(store Store, answerer Answerer, newID func() string) *Service {
-	return &Service{store: store, answerer: answerer, now: time.Now, newID: newID}
-}
+func New(store Store, newID func() string) *Service { return &Service{store: store, newID: newID} }
 
-// Status informa si el agente está disponible y cuántos documentos activos hay.
-type Status struct {
-	Enabled   bool
-	Documents int
-}
-
-func (s *Service) Status(ctx context.Context, user string) (Status, error) {
+// Status devuelve cuántas normas activas hay para buscar.
+func (s *Service) Status(ctx context.Context, user string) (int, error) {
 	if _, err := s.store.PlatformRole(ctx, user); err != nil {
-		return Status{}, err
+		return 0, err
 	}
-	docs, err := s.store.ActiveDocuments(ctx)
-	if err != nil {
-		return Status{}, err
-	}
-	return Status{Enabled: s.answerer != nil, Documents: len(docs)}, nil
+	return s.store.ActiveCount(ctx)
 }
 
-// Ask responde una pregunta con la normativa activa y la registra.
-func (s *Service) Ask(ctx context.Context, user, question string) (domain.Answer, error) {
+// Search busca en la normativa activa; cualquier persona activa puede hacerlo.
+func (s *Service) Search(ctx context.Context, user, query string) ([]domain.SearchResult, error) {
 	if _, err := s.store.PlatformRole(ctx, user); err != nil {
-		return domain.Answer{}, err
+		return nil, err
 	}
-	q, err := domain.NormalizeQuestion(question)
+	q, err := domain.NormalizeQuery(query)
 	if err != nil {
-		return domain.Answer{}, err
+		return nil, err
 	}
-	if s.answerer == nil {
-		return domain.Answer{}, domain.ErrDisabled
-	}
-	count, err := s.store.QuestionsSince(ctx, user, s.now().Add(-time.Hour))
-	if err != nil {
-		return domain.Answer{}, err
-	}
-	if count >= domain.QuestionsPerHour {
-		return domain.Answer{}, domain.ErrRateLimited
-	}
-	docs, err := s.store.ActiveDocuments(ctx)
-	if err != nil {
-		return domain.Answer{}, err
-	}
-	if len(docs) == 0 {
-		return domain.Answer{}, domain.ErrNoDocuments
-	}
-	answer, err := s.answerer.Answer(ctx, docs, q)
-	if err != nil {
-		return domain.Answer{}, err
-	}
-	if err = s.store.LogQuestion(ctx, user, q, answer); err != nil {
-		return domain.Answer{}, err
-	}
-	return answer, nil
+	return s.store.Search(ctx, q, domain.MaxResults)
 }
 
 func (s *Service) requireAdmin(ctx context.Context, user string) error {
@@ -117,7 +72,7 @@ func (s *Service) Documents(ctx context.Context, user, status string) ([]domain.
 	return s.store.Documents(ctx, status)
 }
 
-// Document devuelve un documento con su contenido (solo administrador general).
+// Document devuelve un documento con su texto (solo administrador general).
 func (s *Service) Document(ctx context.Context, user, id string) (domain.Document, error) {
 	if err := s.requireAdmin(ctx, user); err != nil {
 		return domain.Document{}, err
@@ -128,7 +83,7 @@ func (s *Service) Document(ctx context.Context, user, id string) (domain.Documen
 	return s.store.Document(ctx, id)
 }
 
-// Create carga una norma nueva, activa.
+// Create carga una norma nueva, activa y lista para buscar.
 func (s *Service) Create(ctx context.Context, user string, in domain.DocumentInput) (domain.Document, error) {
 	if err := s.requireAdmin(ctx, user); err != nil {
 		return domain.Document{}, err
@@ -137,13 +92,10 @@ func (s *Service) Create(ctx context.Context, user string, in domain.DocumentInp
 	if err != nil {
 		return domain.Document{}, err
 	}
-	if err = s.checkSize(ctx, "", len([]rune(doc.Content))); err != nil {
-		return domain.Document{}, err
-	}
-	return s.store.CreateDocument(ctx, user, s.newID(), doc)
+	return s.store.CreateDocument(ctx, user, s.newID(), doc, domain.Fragments(doc.Content))
 }
 
-// Update reemplaza título, referencia y texto de una norma.
+// Update reemplaza título, referencia y texto, y vuelve a indexar la norma.
 func (s *Service) Update(ctx context.Context, user, id string, in domain.DocumentInput) (domain.Document, error) {
 	if err := s.requireAdmin(ctx, user); err != nil {
 		return domain.Document{}, err
@@ -155,19 +107,10 @@ func (s *Service) Update(ctx context.Context, user, id string, in domain.Documen
 	if err != nil {
 		return domain.Document{}, err
 	}
-	current, err := s.store.Document(ctx, id)
-	if err != nil {
-		return domain.Document{}, err
-	}
-	if current.Status == domain.StatusActive {
-		if err = s.checkSize(ctx, id, len([]rune(doc.Content))); err != nil {
-			return domain.Document{}, err
-		}
-	}
-	return s.store.UpdateDocument(ctx, user, id, doc)
+	return s.store.UpdateDocument(ctx, user, id, doc, domain.Fragments(doc.Content))
 }
 
-// SetStatus archiva (deja de usarse en respuestas) o reactiva una norma.
+// SetStatus archiva (deja de aparecer en búsquedas) o reactiva una norma.
 func (s *Service) SetStatus(ctx context.Context, user, id, status string) (domain.Document, error) {
 	if err := s.requireAdmin(ctx, user); err != nil {
 		return domain.Document{}, err
@@ -175,25 +118,5 @@ func (s *Service) SetStatus(ctx context.Context, user, id, status string) (domai
 	if !domain.ValidID(id) {
 		return domain.Document{}, domain.ErrNotFound
 	}
-	if status == domain.StatusActive {
-		current, err := s.store.Document(ctx, id)
-		if err != nil {
-			return domain.Document{}, err
-		}
-		if err = s.checkSize(ctx, id, current.Characters); err != nil {
-			return domain.Document{}, err
-		}
-	}
 	return s.store.SetStatus(ctx, user, id, status)
-}
-
-func (s *Service) checkSize(ctx context.Context, excludeID string, adding int) error {
-	total, err := s.store.ActiveCharacters(ctx, excludeID)
-	if err != nil {
-		return err
-	}
-	if total+adding > domain.MaxActiveCharacters {
-		return domain.ErrTooLarge
-	}
-	return nil
 }

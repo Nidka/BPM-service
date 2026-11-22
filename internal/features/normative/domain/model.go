@@ -1,5 +1,5 @@
-// Package domain define el agente normativo (RF-46/47): documentos de normativa cargados por el
-// administrador general y respuestas que solo citan esos documentos.
+// Package domain define el buscador de normativa (RF-46/47): documentos cargados por el administrador
+// general, divididos en fragmentos que cualquier persona activa puede buscar. Sin servicios externos.
 package domain
 
 import (
@@ -11,27 +11,23 @@ import (
 )
 
 const (
-	MaxTitleLength    = 200
-	MaxSourceLength   = 300
-	MaxContentLength  = 400_000
-	MaxQuestionLength = 1000
-	// MaxActiveCharacters acota la normativa activa que se envía en cada consulta (~400 mil tokens).
-	MaxActiveCharacters = 1_500_000
-	// QuestionsPerHour limita las consultas por persona para contener el costo.
-	QuestionsPerHour = 20
+	MaxTitleLength   = 200
+	MaxSourceLength  = 300
+	MaxContentLength = 400_000
+	MinQueryLength   = 2
+	MaxQueryLength   = 200
+	// MaxFragmentLength acota cada fragmento buscable (un párrafo largo se divide por oraciones).
+	MaxFragmentLength = 1500
+	// MaxResults limita los fragmentos que devuelve una búsqueda.
+	MaxResults = 20
 
 	StatusActive   = "ACTIVE"
 	StatusArchived = "ARCHIVED"
 )
 
 var (
-	ErrDenied      = errors.New("normative: denied")
-	ErrNotFound    = errors.New("normative: document not found")
-	ErrDisabled    = errors.New("normative: assistant disabled")
-	ErrNoDocuments = errors.New("normative: no active documents")
-	ErrRateLimited = errors.New("normative: too many questions")
-	ErrTooLarge    = errors.New("normative: active documents exceed the limit")
-	ErrUnavailable = errors.New("normative: model unavailable")
+	ErrDenied   = errors.New("normative: denied")
+	ErrNotFound = errors.New("normative: document not found")
 )
 
 // ValidationError agrupa campos inválidos (HTTP 422).
@@ -49,19 +45,9 @@ type Document struct {
 // DocumentInput es lo que el administrador general envía al crear o editar.
 type DocumentInput struct{ Title, Source, Content string }
 
-// Citation es un fragmento literal de un documento que respalda la respuesta.
-type Citation struct {
-	DocumentID    string `json:"documentId"`
-	DocumentTitle string `json:"documentTitle"`
-	CitedText     string `json:"citedText"`
-}
-
-// Answer es la respuesta del agente. Declined indica que la normativa cargada no cubre la pregunta
-// o que el modelo no pudo responder; en ese caso no hay citas.
-type Answer struct {
-	Text      string
-	Citations []Citation
-	Declined  bool
+// SearchResult es un fragmento de la normativa activa que coincide con la búsqueda.
+type SearchResult struct {
+	DocumentID, DocumentTitle, DocumentSource, Text string
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
@@ -71,11 +57,9 @@ func ValidID(id string) bool { return uuidPattern.MatchString(id) }
 
 // NormalizeDocument recorta espacios, unifica saltos de línea y valida longitudes.
 func NormalizeDocument(in DocumentInput) (DocumentInput, error) {
-	out := DocumentInput{
-		Title:   strings.TrimSpace(in.Title),
-		Source:  strings.TrimSpace(in.Source),
-		Content: strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(strings.TrimPrefix(in.Content, "\ufeff"), "\r\n", "\n"), "\r", "\n")),
-	}
+	content := strings.TrimPrefix(in.Content, "\ufeff")
+	content = strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", "\n"), "\r", "\n")
+	out := DocumentInput{Title: strings.TrimSpace(in.Title), Source: strings.TrimSpace(in.Source), Content: strings.TrimSpace(content)}
 	fields := map[string]string{}
 	if n := utf8.RuneCountInString(out.Title); n < 1 || n > MaxTitleLength || strings.ContainsAny(out.Title, "\n\r") {
 		fields["title"] = "El título es obligatorio, de una línea y de hasta 200 caracteres."
@@ -95,11 +79,54 @@ func NormalizeDocument(in DocumentInput) (DocumentInput, error) {
 	return out, nil
 }
 
-// NormalizeQuestion recorta la pregunta y valida su longitud.
-func NormalizeQuestion(q string) (string, error) {
-	q = strings.TrimSpace(q)
-	if n := utf8.RuneCountInString(q); n < 3 || n > MaxQuestionLength || !utf8.ValidString(q) {
-		return q, &ValidationError{Fields: map[string]string{"question": "Escribe tu pregunta (de 3 a 1000 caracteres)."}}
+// NormalizeQuery recorta la búsqueda y valida su longitud.
+func NormalizeQuery(q string) (string, error) {
+	q = strings.Join(strings.Fields(q), " ")
+	if n := utf8.RuneCountInString(q); n < MinQueryLength || n > MaxQueryLength || !utf8.ValidString(q) {
+		return q, &ValidationError{Fields: map[string]string{"q": "Escribe lo que buscas (de 2 a 200 caracteres)."}}
 	}
 	return q, nil
+}
+
+var sentenceEnd = regexp.MustCompile(`[.;:!?]\s+`)
+
+// Fragments divide el texto de una norma en párrafos buscables: separa por líneas en blanco, une líneas
+// sueltas del mismo párrafo y parte por oraciones lo que supere MaxFragmentLength.
+func Fragments(content string) []string {
+	out := []string{}
+	for _, block := range regexp.MustCompile(`\n\s*\n`).Split(content, -1) {
+		paragraph := strings.Join(strings.Fields(block), " ")
+		if paragraph == "" {
+			continue
+		}
+		for utf8.RuneCountInString(paragraph) > MaxFragmentLength {
+			cut := splitPoint(paragraph)
+			out = append(out, strings.TrimSpace(paragraph[:cut]))
+			paragraph = strings.TrimSpace(paragraph[cut:])
+		}
+		if paragraph != "" {
+			out = append(out, paragraph)
+		}
+	}
+	return out
+}
+
+// splitPoint devuelve el índice en bytes donde cortar: el último fin de oración antes del máximo o, si no
+// hay, el último espacio; nunca parte un carácter.
+func splitPoint(text string) int {
+	limit := 0
+	for i := range text {
+		if utf8.RuneCountInString(text[:i]) >= MaxFragmentLength {
+			break
+		}
+		limit = i
+	}
+	window := text[:limit]
+	if loc := sentenceEnd.FindAllStringIndex(window, -1); len(loc) > 0 && loc[len(loc)-1][1] > limit/2 {
+		return loc[len(loc)-1][1]
+	}
+	if i := strings.LastIndex(window, " "); i > limit/2 {
+		return i + 1
+	}
+	return limit
 }

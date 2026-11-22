@@ -1,6 +1,6 @@
--- RF-46/47: agente normativo. El administrador general carga la normativa (texto) y cualquier persona
--- activa consulta; las respuestas citan solo esos documentos. Las preguntas se registran (auditoría y
--- límite por hora). No contiene datos de empresas.
+-- RF-46/47: buscador de normativa. El administrador general carga la normativa (texto) y cualquier persona
+-- activa la consulta. Cada norma se divide en fragmentos (párrafos) indexados con búsqueda de texto completo en
+-- español, sin distinguir tildes. No usa servicios externos ni contiene datos de empresas.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS normative_documents (
@@ -16,15 +16,16 @@ CREATE TABLE IF NOT EXISTS normative_documents (
 );
 CREATE INDEX IF NOT EXISTS normative_documents_status_idx ON normative_documents (status, updated_at DESC);
 
-CREATE TABLE IF NOT EXISTS normative_questions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(128) NOT NULL REFERENCES application_users(id),
-    question VARCHAR(1000) NOT NULL CHECK (char_length(btrim(question)) >= 1),
-    answer TEXT NOT NULL DEFAULT '',
-    citations JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(citations) = 'array'),
-    declined BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Fragmentos buscables; se reemplazan completos cada vez que se edita la norma.
+CREATE TABLE IF NOT EXISTS normative_fragments (
+    document_id UUID NOT NULL REFERENCES normative_documents(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 4000),
+    search_vector TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('spanish'::regconfig, translate(lower(body), 'áéíóúüñ', 'aeiouun'))
+    ) STORED,
+    PRIMARY KEY (document_id, position)
 );
-CREATE INDEX IF NOT EXISTS normative_questions_user_idx ON normative_questions (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS normative_fragments_search_idx ON normative_fragments USING GIN (search_vector);
 
 COMMIT;

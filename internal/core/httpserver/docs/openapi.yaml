@@ -3281,9 +3281,9 @@ paths:
     get:
       tags: [Normativa]
       operationId: getNormativeStatus
-      summary: Estado del agente normativo
+      summary: Normativa disponible para buscar
       security: [{FirebaseBearer: []}]
-      description: "RF-46/47. enabled es falso sin ANTHROPIC_API_KEY; documents cuenta la normativa activa."
+      description: "RF-46/47. Devuelve {documents}: cantidad de normas activas."
       responses:
         "200":
           description: Correcto.
@@ -3291,19 +3291,19 @@ paths:
             application/json:
               schema: {type: object, required: [data], properties: {data: {type: object}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
-  /api/v1/normative/questions:
-    post:
+  /api/v1/normative/search:
+    get:
       tags: [Normativa]
-      operationId: askNormative
-      summary: Consulta normativa
+      operationId: searchNormative
+      summary: Buscar en la normativa
       security: [{FirebaseBearer: []}]
-      description: "Cuerpo {question} (3 a 1000 caracteres). Responde {answer, citations[{documentId, documentTitle, citedText}], supported}; supported es falso si la normativa no respalda la respuesta. 20 consultas por hora (429 NORMATIVE_RATE_LIMITED); 503 NORMATIVE_ASSISTANT_DISABLED sin clave."
+      description: "?q= (2 a 200 caracteres). Búsqueda de texto completo en español, sin distinguir tildes, en los párrafos de la normativa activa; primero todas las palabras y, si no hay resultados, cualquiera. Devuelve hasta 20 [{documentId, documentTitle, documentSource, text}]."
       responses:
         "200":
           description: Correcto.
           content:
             application/json:
-              schema: {type: object, required: [data], properties: {data: {type: object}}}
+              schema: {type: object, required: [data], properties: {data: {type: array, items: {type: object}}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
   /api/v1/normative/documents:
     get:
@@ -3324,7 +3324,7 @@ paths:
       operationId: createNormativeDocument
       summary: Cargar normativa (administrador general)
       security: [{FirebaseBearer: []}]
-      description: "Cuerpo {title, source, content}; content hasta 400 000 caracteres y 1 500 000 entre los activos (422 NORMATIVE_TOO_LARGE)."
+      description: "Cuerpo {title, source, content}; content hasta 400 000 caracteres; se divide en párrafos buscables."
       responses:
         "201":
           description: Correcto.
@@ -3369,7 +3369,7 @@ paths:
       operationId: archiveNormativeDocument
       summary: Archivar normativa
       security: [{FirebaseBearer: []}]
-      description: "Deja de usarse en las respuestas; no se borra."
+      description: "Deja de aparecer en las búsquedas; no se borra."
       responses:
         "200":
           description: Correcto.
@@ -3385,7 +3385,7 @@ paths:
       operationId: restoreNormativeDocument
       summary: Reactivar normativa
       security: [{FirebaseBearer: []}]
-      description: "Vuelve a usarse; respeta el tope de 1 500 000 caracteres activos."
+      description: "Vuelve a aparecer en las búsquedas."
       responses:
         "200":
           description: Correcto.

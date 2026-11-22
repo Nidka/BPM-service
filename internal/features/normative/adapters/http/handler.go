@@ -1,8 +1,7 @@
-// Package normativehttp expone el agente normativo (RF-46/47). No registra preguntas ni respuestas en logs.
+// Package normativehttp expone el buscador de normativa (RF-46/47). No registra las búsquedas en logs.
 package normativehttp
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,13 +16,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const (
-	maxQuestionBody = 8 << 10
-	// maxDocumentBody admite 400 000 caracteres de hasta 4 bytes más el resto del cuerpo.
-	maxDocumentBody = 1_700_000
-	// answerTimeout acota la espera del modelo con la normativa completa.
-	answerTimeout = 2 * time.Minute
-)
+// maxDocumentBody admite 400 000 caracteres de hasta 4 bytes más el resto del cuerpo.
+const maxDocumentBody = 1_700_000
 
 // Handler traduce HTTP a los casos de uso.
 type Handler struct {
@@ -40,7 +34,7 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 	r.Group(func(r chi.Router) {
 		r.Use(auth)
 		r.Get("/normative/status", h.status)
-		r.Post("/normative/questions", h.ask)
+		r.Get("/normative/search", h.search)
 		r.Get("/normative/documents", h.documents)
 		r.Post("/normative/documents", h.create)
 		r.Get("/normative/documents/{documentID}", h.document)
@@ -60,16 +54,6 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "Tu cuenta no tiene permiso para esta operación."})
 	case errors.Is(err, domain.ErrNotFound):
 		response.Error(w, 404, id, response.APIError{Code: "NORMATIVE_DOCUMENT_NOT_FOUND", Message: "El documento ya no está disponible."})
-	case errors.Is(err, domain.ErrDisabled):
-		response.Error(w, 503, id, response.APIError{Code: "NORMATIVE_ASSISTANT_DISABLED", Message: "El asistente de normativa aún no está activado."})
-	case errors.Is(err, domain.ErrNoDocuments):
-		response.Error(w, 409, id, response.APIError{Code: "NORMATIVE_NO_DOCUMENTS", Message: "Todavía no hay normativa cargada para consultar."})
-	case errors.Is(err, domain.ErrRateLimited):
-		response.Error(w, 429, id, response.APIError{Code: "NORMATIVE_RATE_LIMITED", Message: fmt.Sprintf("Llegaste al límite de %d consultas por hora. Intenta más tarde.", domain.QuestionsPerHour)})
-	case errors.Is(err, domain.ErrTooLarge):
-		response.Error(w, 422, id, response.APIError{Code: "NORMATIVE_TOO_LARGE", Message: "La normativa activa superaría el límite. Archiva un documento antes de agregar otro."})
-	case errors.Is(err, domain.ErrUnavailable):
-		response.Error(w, 503, id, response.APIError{Code: "NORMATIVE_UNAVAILABLE", Message: "El asistente no respondió. Intenta de nuevo en unos minutos."})
 	default:
 		if h.logger != nil {
 			h.logger.Error("normative request failed", "requestId", id, "errorType", fmt.Sprintf("%T", err))
@@ -103,40 +87,41 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s, err := h.service.Status(r.Context(), user)
+	count, err := h.service.Status(r.Context(), user)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	response.JSON(w, 200, map[string]any{"data": map[string]any{"enabled": s.Enabled, "documents": s.Documents,
-		"questionsPerHour": domain.QuestionsPerHour}})
+	response.JSON(w, 200, map[string]any{"data": map[string]any{"documents": count}})
 }
 
-type questionBody struct {
-	Question string `json:"question"`
+type resultDTO struct {
+	DocumentID     string `json:"documentId"`
+	DocumentTitle  string `json:"documentTitle"`
+	DocumentSource string `json:"documentSource"`
+	Text           string `json:"text"`
 }
 
-func (h *Handler) ask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	user, ok := request.VerifiedUID(w, r)
 	if !ok {
 		return
 	}
-	var body questionBody
-	if !request.DecodeStrictJSON(w, r, &body, maxQuestionBody) {
+	q := r.URL.Query()
+	if len(q) != 1 || len(q["q"]) != 1 {
+		response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "Envía solo el parámetro q."})
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), answerTimeout)
-	defer cancel()
-	answer, err := h.service.Ask(ctx, user, body.Question)
+	results, err := h.service.Search(r.Context(), user, q.Get("q"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	citations := answer.Citations
-	if citations == nil {
-		citations = []domain.Citation{}
+	items := make([]resultDTO, 0, len(results))
+	for _, v := range results {
+		items = append(items, resultDTO{DocumentID: v.DocumentID, DocumentTitle: v.DocumentTitle, DocumentSource: v.DocumentSource, Text: v.Text})
 	}
-	response.JSON(w, 200, map[string]any{"data": map[string]any{"answer": answer.Text, "citations": citations, "supported": !answer.Declined}})
+	response.JSON(w, 200, map[string]any{"data": items})
 }
 
 func (h *Handler) documents(w http.ResponseWriter, r *http.Request) {

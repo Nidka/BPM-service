@@ -33,13 +33,6 @@ type Config struct {
 	Email         EmailConfig
 	Observability ObservabilityConfig
 	Worker        WorkerConfig
-	Assistant     AssistantConfig
-}
-
-// AssistantConfig configura el agente normativo (RF-46/47). Sin APIKey el agente queda apagado.
-type AssistantConfig struct {
-	APIKey string
-	Model  string
 }
 
 type WorkerConfig struct {
@@ -269,10 +262,6 @@ func loadFrom(getenv func(string) string) (Config, error) {
 		Observability: ObservabilityConfig{
 			SentryDSN: strings.TrimSpace(getenv("SENTRY_DSN")),
 		},
-		Assistant: AssistantConfig{
-			APIKey: strings.TrimSpace(getenv("ANTHROPIC_API_KEY")),
-			Model:  firstNonEmpty(strings.TrimSpace(getenv("NORMATIVE_MODEL")), "claude-opus-5-5"),
-		},
 	}
 
 	if len(parseErrs) > 0 {
@@ -408,14 +397,4 @@ func splitCSV(value string) []string {
 		}
 	}
 	return result
-}
-
-// firstNonEmpty devuelve el primer valor no vacío.
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
