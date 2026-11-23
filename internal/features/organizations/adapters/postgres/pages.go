@@ -74,6 +74,33 @@ func (s *store) MembersPageByStatus(ctx context.Context, org, status string, w p
 	}
 	return out, rows.Err()
 }
+
+// TeamPage entrega al jefe de cocina, solo lectura, a las personas activas (WORKER y otros CHEF, nunca administradores) que comparten
+// al menos una de SUS sedes. El correo no se entrega (el jefe ve nombre, rol y sedes) y las sedes se limitan a las que comparten con él.
+func (s *store) TeamPage(ctx context.Context, a domain.Actor, org string, w pagination.Window) ([]domain.Member, error) {
+	rows, e := s.tx.Query(ctx, `SELECT u.id,u.display_name,'',m.role,
+ COALESCE((SELECT array_agg(ml.location_id::text ORDER BY ml.location_id) FROM membership_locations ml WHERE ml.organization_id=$1 AND ml.user_id=u.id
+   AND ml.location_id IN (SELECT mine.location_id FROM membership_locations mine WHERE mine.organization_id=$1 AND mine.user_id=$6)),'{}'::text[]),m.status,m.row_version,(u.status='ACTIVE')
+ FROM organization_memberships m JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE'
+ WHERE m.organization_id=$1 AND m.status='ACTIVE' AND m.role IN ('WORKER','CHEF') AND u.id<>$6
+ AND EXISTS(SELECT 1 FROM membership_locations mine JOIN membership_locations theirs ON theirs.organization_id=mine.organization_id AND theirs.location_id=mine.location_id
+   WHERE mine.organization_id=$1 AND mine.user_id=$6 AND theirs.user_id=u.id)
+ AND ($2='' OR strpos(lower(u.display_name),lower($2))>0)
+ AND ($4='' OR (u.display_name,u.id)>($3,$4)) ORDER BY u.display_name,u.id LIMIT $5`, org, w.Query, w.After.Key, w.After.ID, w.Size+1, a.ID)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+	out := []domain.Member{}
+	for rows.Next() {
+		var v domain.Member
+		if e = rows.Scan(&v.ID, &v.Name, &v.Email, &v.Role, &v.LocationIDs, &v.Status, &v.RowVersion, &v.AccountActive); e != nil {
+			return nil, e
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
 func (s *store) EntriesPage(ctx context.Context, a domain.Actor, org, role, resource string, w pagination.Window) ([]domain.Entry, error) {
 	switch resource {
 	case "courses":
@@ -118,6 +145,15 @@ func (s *store) WorkspacePage(ctx context.Context, a domain.Actor, org, role str
 		mp := pagination.Close(ms, w, func(v domain.Member) pagination.Position { return pagination.Position{Key: v.Name, ID: v.ID} }, a.ID, org, "members")
 		out.Members = mp.Items
 		out.NextTokens["members"] = mp.NextToken
+	} else if role == "CHEF" {
+		// El jefe de cocina ve a su equipo (las personas de sus sedes), no a toda la organización.
+		ms, e := s.TeamPage(ctx, a, org, w)
+		if e != nil {
+			return out, e
+		}
+		mp := pagination.Close(ms, w, func(v domain.Member) pagination.Position { return pagination.Position{Key: v.Name, ID: v.ID} }, a.ID, org, "team")
+		out.Members = mp.Items
+		out.NextTokens["team"] = mp.NextToken
 	}
 	for _, resource := range []string{"courses", "checklist-summaries", "incidents"} {
 		es, e := s.EntriesPage(ctx, a, org, role, resource, w)

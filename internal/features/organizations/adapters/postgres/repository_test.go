@@ -241,9 +241,22 @@ func TestWorkspacePostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	chef, err := service.Workspace(ctx, "chef", org.ID)
-	if err != nil || len(chef.Locations) != 1 || len(chef.Members) != 0 {
-		t.Fatal("chef scope", err)
+	// El jefe ve a las personas de SU sede (el trabajador), sin correo y sin administradores ni a sí mismo.
+	if err != nil || len(chef.Locations) != 1 || len(chef.Members) != 1 || chef.Members[0].ID != "worker" || chef.Members[0].Email != "" || chef.Members[0].Role != "WORKER" {
+		t.Fatalf("chef scope: %+v %v", chef, err)
 	}
+	// Una persona de OTRA sede de la misma organización y un administrador no aparecen en el equipo del jefe.
+	exec(`INSERT INTO locations(id,organization_id,name,address) VALUES('20000000-0000-0000-0000-0000000000f1',$1,'Otra sede','Dirección')`, org.ID)
+	exec(`INSERT INTO application_users(id,email,display_name) VALUES('far','far@example.invalid','Lejana')`)
+	exec(`INSERT INTO organization_memberships(organization_id,user_id,role) VALUES($1,'far','WORKER')`, org.ID)
+	exec(`INSERT INTO membership_locations(organization_id,user_id,location_id) VALUES($1,'far','20000000-0000-0000-0000-0000000000f1')`, org.ID)
+	if chef, err = service.Workspace(ctx, "chef", org.ID); err != nil || len(chef.Members) != 1 {
+		t.Fatalf("chef team leaked another site: %+v %v", chef.Members, err)
+	}
+	exec(`DELETE FROM membership_locations WHERE user_id='far'`)
+	exec(`DELETE FROM organization_memberships WHERE user_id='far'`)
+	exec(`DELETE FROM application_users WHERE id='far'`)
+	exec(`DELETE FROM locations WHERE id='20000000-0000-0000-0000-0000000000f1'`)
 	router := chi.NewRouter()
 	organizationhttp.New(service, slog.New(slog.NewTextHandler(io.Discard, nil))).Register(router, middleware.Authenticate(tenantTestVerifier{}))
 	for _, tc := range []struct {

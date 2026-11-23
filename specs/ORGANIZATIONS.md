@@ -388,3 +388,10 @@ puede ser como responsable de incidencia: es elegible en cualquier sede de su em
 ## SUPER_ADMIN que también es miembro
 Regla transversal de las features operativas (checklists, operations, incidents, media) y training: si el usuario tiene `platform_role = SUPER_ADMIN` **y** una membresía ACTIVE en la empresa, su rol efectivo es el de la membresía (ADMIN, CHEF o WORKER), con todos sus permisos y limitaciones de sede; opera como cualquier miembro. Sin membresía activa conserva el comportamiento de supervisor (no opera, 403 al operar). La creación de empresas y las concesiones de investigación siguen dependiendo solo de `platform_role`. alerts, reports, research y organizations no cambian. Cada resolvedor de actor consulta primero la membresía y solo recurre a SUPER_ADMIN si no existe.
 Resumen de la regla por feature: checklists, operations, incidents, media y training usan el rol de la membresía cuando existe; ver la sección equivalente en cada spec.
+
+## Equipo del jefe de cocina en el workspace
+
+`GET /organizations/{id}/workspace` entrega `members` completo (con correo) solo a ADMIN y SUPER_ADMIN. Al rol CHEF le entrega, solo lectura,
+a las personas **activas** (WORKER y otros CHEF, nunca administradores ni él mismo) que comparten al menos una de **sus** sedes, sin correo
+(`email` vacío) y con `locationIds` limitados a las sedes que comparten con él (`TeamPage`). Su paginación usa el token `team`; el
+listado completo `GET …/members` sigue siendo solo para quien administra. WORKER no recibe miembros.
