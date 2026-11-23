@@ -79,7 +79,7 @@ obligatorio incluso cuando vale false. Todas las escrituras devuelven HTTP 200.
 | POST /incident-catalog | Publicar código nuevo |
 | POST /incident-catalog/{catalogID}/versions | Publicar siguiente versión |
 | GET /incidents | Lista por `locationId` obligatorio, `status` opcional y búsqueda |
-| POST /incidents | Reportar con UUID y `clientOperationId` estables |
+| POST /incidents | Reportar con UUID y `clientOperationId` estables; categoría por `catalogId` o por `catalogCode` integrada (ver abajo) |
 | GET /incidents/{incidentID} | Detalle, acciones, permisos y conteos |
 | GET /incidents/{incidentID}/assignees | Personas elegibles de la sede, solo supervisores |
 | POST /incidents/{incidentID}/actions | ASSIGN, START, RESOLVE, VERIFY o RETURN |
@@ -170,3 +170,13 @@ una prueba en dispositivos físicos.
 
 ## SUPER_ADMIN que también es miembro
 Un SUPER_ADMIN con membresía activa en la empresa opera con el rol de su membresía (ADMIN, CHEF o WORKER), incluidas las limitaciones de sede (un CHEF solo opera y ve sus sedes asignadas). Sin membresía sigue como supervisor y recibe 403 al operar. Ver `ORGANIZATIONS.md`.
+
+## Categorías integradas
+
+Reportar no depende de que la administración haya configurado un catálogo. `POST /incidents` acepta, en lugar de
+`catalogId`, un `catalogCode` entre `TEMPERATURA`, `LIMPIEZA`, `PLAGAS`, `EQUIPO_DANADO`, `PRODUCTO_MAL_ESTADO`,
+`HIGIENE_PERSONAL` y `OTRO` (exactamente uno de los dos campos). La primera vez que una organización usa un código, el
+servidor inserta su fila en `incident_catalog` (versión 1, sin fotos obligatorias) con `INSERT … ON CONFLICT DO NOTHING`
+y reporta contra la última versión de ese código; si la organización ya tenía una categoría con ese código se usa la suya.
+Desde entonces es una categoría normal que la administración puede versionar. No requiere migración: la tabla y sus
+restricciones no cambian. Los valores integrados viven en `internal/features/incidents/domain/defaults.go`.

@@ -38,17 +38,19 @@ func NormalizeCatalog(v Catalog, create bool) (Catalog, error) {
 	}
 	return v, nil
 }
+func isDefault(code string) bool { _, ok := DefaultCategory(code); return ok }
 func NormalizeReport(v Report, now time.Time) (Report, error) {
 	v.ID = strings.ToLower(v.ID)
 	v.LocationID = strings.ToLower(v.LocationID)
 	v.CatalogID = strings.ToLower(v.CatalogID)
+	v.CatalogCode = strings.ToUpper(strings.TrimSpace(v.CatalogCode))
 	v.ClientOperationID = strings.ToLower(v.ClientOperationID)
 	v.Description = strings.TrimSpace(v.Description)
 	v.ClientCreatedAt = v.ClientCreatedAt.UTC().Truncate(time.Microsecond)
 	for _, x := range []struct {
 		k  string
 		ok bool
-	}{{"id", ValidID(v.ID)}, {"locationId", ValidID(v.LocationID)}, {"catalogId", ValidID(v.CatalogID)}, {"clientOperationId", ValidID(v.ClientOperationID)}, {"description", text(v.Description, 1, 4000)}, {"clientCreatedAt", !v.ClientCreatedAt.IsZero() && !v.ClientCreatedAt.After(now.Add(5*time.Minute))}} {
+	}{{"id", ValidID(v.ID)}, {"locationId", ValidID(v.LocationID)}, {"catalogId", (v.CatalogID == "" && v.CatalogCode != "") || (v.CatalogID != "" && ValidID(v.CatalogID) && v.CatalogCode == "")}, {"catalogCode", v.CatalogCode == "" || isDefault(v.CatalogCode)}, {"clientOperationId", ValidID(v.ClientOperationID)}, {"description", text(v.Description, 1, 4000)}, {"clientCreatedAt", !v.ClientCreatedAt.IsZero() && !v.ClientCreatedAt.After(now.Add(5*time.Minute))}} {
 		if !x.ok {
 			return v, invalid(x.k)
 		}

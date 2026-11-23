@@ -56,13 +56,14 @@ type reportInput struct {
 	ID                string    `json:"id"`
 	LocationID        string    `json:"locationId"`
 	CatalogID         string    `json:"catalogId"`
+	CatalogCode       string    `json:"catalogCode"`
 	Description       string    `json:"description"`
 	ClientOperationID string    `json:"clientOperationId"`
 	ClientCreatedAt   time.Time `json:"clientCreatedAt"`
 }
 
 func (v reportInput) domain() domain.Report {
-	return domain.Report{ID: v.ID, LocationID: v.LocationID, CatalogID: v.CatalogID, Description: v.Description, ClientOperationID: v.ClientOperationID, ClientCreatedAt: v.ClientCreatedAt}
+	return domain.Report{ID: v.ID, LocationID: v.LocationID, CatalogID: v.CatalogID, CatalogCode: v.CatalogCode, Description: v.Description, ClientOperationID: v.ClientOperationID, ClientCreatedAt: v.ClientCreatedAt}
 }
 
 type commandInput struct {

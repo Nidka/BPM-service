@@ -18,6 +18,8 @@ type CatalogStore interface {
 	Catalog(context.Context, string, string) (domain.Catalog, error)
 	Latest(context.Context, string, string) (domain.Catalog, error)
 	InsertCatalog(context.Context, domain.Actor, string, domain.Catalog) (domain.Catalog, error)
+	// EnsureDefault crea, si no existe, la categoría integrada en el catálogo de la organización y devuelve su última versión.
+	EnsureDefault(context.Context, domain.Actor, string, domain.Catalog) (domain.Catalog, error)
 	Catalogs(context.Context, string, pagination.Window) ([]domain.Catalog, error)
 }
 type IncidentStore interface {

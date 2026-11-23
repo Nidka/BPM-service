@@ -252,3 +252,36 @@ func TestIncidentPostgresLifecyclePrivacyAndRecovery(t *testing.T) {
 		t.Fatal("replay sin reautorizar", e)
 	}
 }
+
+// Una organización sin catálogo configurado puede reportar con una categoría integrada: el servidor crea la fila
+// una sola vez (también con dos reportes seguidos) y el reporte queda con su criterio como cualquier otro.
+func TestReportWithBuiltInCategoryNeedsNoConfiguredCatalog(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	s := application.New(New(pool))
+	now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+	r := domain.Report{ID: uid(4, 11), LocationID: site, CatalogCode: "TEMPERATURA", Description: "La cámara no enfría", ClientOperationID: uid(5, 11), ClientCreatedAt: now}
+	v, e := s.Report(ctx, "worker", org, "builtin-key-1", r)
+	if e != nil || v.Name != "Temperatura" || v.Status != "OPEN" || v.CatalogVersion != 1 {
+		t.Fatal(v, e)
+	}
+	r2 := domain.Report{ID: uid(4, 12), LocationID: site, CatalogCode: "TEMPERATURA", Description: "Otra vez", ClientOperationID: uid(5, 12), ClientCreatedAt: now}
+	v2, e := s.Report(ctx, "chef", org, "builtin-key-2", r2)
+	if e != nil || v2.CatalogID != v.CatalogID {
+		t.Fatal("duplicó la categoría integrada", v2, e)
+	}
+	var rows int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM incident_catalog WHERE organization_id=$1 AND code='TEMPERATURA'`, org).Scan(&rows); e != nil || rows != 1 {
+		t.Fatal("filas de catálogo", rows, e)
+	}
+	// El mismo reporte con la misma clave es un reintento, no otra incidencia.
+	if again, e := s.Report(ctx, "worker", org, "builtin-key-1", r); e != nil || again.ID != v.ID {
+		t.Fatal("el reintento creó otra incidencia", again, e)
+	}
+	// Un código que no es integrado ni existe se rechaza.
+	bad := r
+	bad.ID, bad.ClientOperationID, bad.CatalogCode = uid(4, 13), uid(5, 13), "INVENTADA"
+	if _, e = s.Report(ctx, "worker", org, "builtin-key-3", bad); e == nil {
+		t.Fatal("aceptó una categoría inexistente")
+	}
+}

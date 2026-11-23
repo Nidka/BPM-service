@@ -32,9 +32,12 @@ type CatalogVersion struct {
 	Catalog
 	ExpectedVersion int
 }
+
+// Report es el reporte de una incidencia. La categoría es CatalogID (una del catálogo de la organización) o bien
+// CatalogCode (una categoría integrada, ver DefaultCategory); exactamente una de las dos.
 type Report struct {
-	ID, LocationID, CatalogID, Description, ClientOperationID string
-	ClientCreatedAt                                           time.Time
+	ID, LocationID, CatalogID, CatalogCode, Description, ClientOperationID string
+	ClientCreatedAt                                                        time.Time
 }
 type Command struct {
 	OperationID                                          string

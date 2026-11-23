@@ -26,6 +26,16 @@ func (s *store) InsertCatalog(ctx context.Context, a domain.Actor, org string, v
 	}
 	return s.Catalog(ctx, org, v.ID)
 }
+
+// EnsureDefault inserta la categoría integrada si la organización aún no tiene ese código (idempotente y sin error
+// ante dos reportes simultáneos) y devuelve la última versión del código, sea la integrada o una propia de la organización.
+func (s *store) EnsureDefault(ctx context.Context, a domain.Actor, org string, v domain.Catalog) (domain.Catalog, error) {
+	_, e := s.tx.Exec(ctx, `INSERT INTO incident_catalog(id,organization_id,code,name,area,normative_criterion,risk_level,evidence_required,version_number,created_by,updated_by) VALUES(gen_random_uuid(),$1,$2,$3,$4,$5,$6,false,1,$7,$7) ON CONFLICT (organization_id,code,version_number) DO NOTHING`, org, v.Code, v.Name, v.Area, v.NormativeCriterion, v.RiskLevel, a.ID)
+	if e != nil {
+		return v, conflict(e)
+	}
+	return s.Latest(ctx, org, v.Code)
+}
 func (s *store) Catalogs(ctx context.Context, org string, w pagination.Window) ([]domain.Catalog, error) {
 	if w.After.ID != "" && !domain.ValidID(w.After.ID) {
 		return nil, pagination.ErrInvalid

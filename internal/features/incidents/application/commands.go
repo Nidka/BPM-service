@@ -19,7 +19,15 @@ func (s *Service) Report(ctx context.Context, user, org, key string, input domai
 		}
 		return db.Location(ctx, a, org, v.LocationID)
 	}, func(db Store, a domain.Actor, hash string) (domain.Incident, error) {
-		if _, e := db.Catalog(ctx, org, v.CatalogID); e != nil {
+		if v.CatalogCode != "" {
+			// Categoría integrada: la organización no necesita haber configurado un catálogo para reportar.
+			d, _ := domain.DefaultCategory(v.CatalogCode)
+			c, e := db.EnsureDefault(ctx, a, org, d)
+			if e != nil {
+				return domain.Incident{}, e
+			}
+			v.CatalogID = c.ID
+		} else if _, e := db.Catalog(ctx, org, v.CatalogID); e != nil {
 			return domain.Incident{}, e
 		}
 		out, e := db.InsertIncident(ctx, a, org, v, hash)

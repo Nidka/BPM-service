@@ -119,3 +119,46 @@ func TestSoleValidatorMaySelfVerifyOnlyWithFlag(t *testing.T) {
 		t.Fatal("un WORKER nunca valida", err)
 	}
 }
+
+func TestReportNeedsExactlyOneCategoryAndBuiltInCodesAreKnown(t *testing.T) {
+	now := time.Now()
+	ok := Report{ID: "10000000-0000-0000-0000-000000000001", LocationID: "20000000-0000-0000-0000-000000000001", Description: "Algo", ClientOperationID: "30000000-0000-0000-0000-000000000001", ClientCreatedAt: now.Add(-time.Minute)}
+	byID := ok
+	byID.CatalogID = "40000000-0000-0000-0000-000000000001"
+	byCode := ok
+	byCode.CatalogCode = " otro "
+	both := byID
+	both.CatalogCode = "OTRO"
+	neither := ok
+	unknown := ok
+	unknown.CatalogCode = "INVENTADA"
+	for name, want := range map[string]struct {
+		v     Report
+		valid bool
+	}{"id": {byID, true}, "code": {byCode, true}, "both": {both, false}, "neither": {neither, false}, "unknown": {unknown, false}} {
+		if _, err := NormalizeReport(want.v, now); (err == nil) != want.valid {
+			t.Fatal(name, err)
+		}
+	}
+	if n, _ := NormalizeReport(byCode, now); n.CatalogCode != "OTRO" {
+		t.Fatal("no normalizó el código", n.CatalogCode)
+	}
+}
+
+func TestDefaultCategoriesAreCompleteAndValid(t *testing.T) {
+	seen := map[string]bool{}
+	for _, c := range DefaultCategories() {
+		if !code.MatchString(c.Code) || seen[c.Code] {
+			t.Fatal("código inválido o repetido", c.Code)
+		}
+		seen[c.Code] = true
+		if _, err := NormalizeCatalog(Catalog{ID: "10000000-0000-0000-0000-000000000001", Code: c.Code, Name: c.Name, Area: c.Area, NormativeCriterion: c.NormativeCriterion, RiskLevel: c.RiskLevel}, true); err != nil {
+			t.Fatal(c.Code, err)
+		}
+	}
+	for _, want := range []string{"TEMPERATURA", "LIMPIEZA", "PLAGAS", "EQUIPO_DANADO", "PRODUCTO_MAL_ESTADO", "HIGIENE_PERSONAL", "OTRO"} {
+		if !seen[want] {
+			t.Fatal("falta", want)
+		}
+	}
+}
