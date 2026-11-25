@@ -21,6 +21,7 @@ migraciones=(
   "V17__normative_assistant|SELECT to_regclass('normative_documents') IS NOT NULL"
   "V18__webhooks|SELECT to_regclass('webhook_endpoints') IS NOT NULL"
   "V19__training_question_bank|SELECT to_regclass('training_evaluation_draws') IS NOT NULL"
+  "V20__training_platform_videos|SELECT to_regclass('platform_training_videos') IS NOT NULL"
 )
 
 echo "Servidor: $(consultar 'SHOW server_version') · LC_CTYPE=$(consultar "SELECT datctype FROM pg_database WHERE datname=current_database()")"

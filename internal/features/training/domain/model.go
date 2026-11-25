@@ -102,6 +102,9 @@ type Lesson struct {
 	ID, Title, Content string
 	DisplayOrder       int
 	VideoMediaID       string
+	// PlatformVideoID es un video de la plataforma (catálogo base, V20), excluyente con los otros dos. El cliente no
+	// lo envía: el servidor lo conserva mientras la lección no tenga otro video propio.
+	PlatformVideoID string
 	// ExternalVideo es un video de YouTube; excluyente con VideoMediaID.
 	ExternalVideo *ExternalVideo
 	// KeyPoints es "Lo esencial": hasta 5 puntos clave. En la entrada de autoría nil

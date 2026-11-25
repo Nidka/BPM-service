@@ -7,7 +7,7 @@
       "code": "M01",
       "courseCode": "BPM-M01",
       "title": "Módulo 1. Inocuidad alimentaria e higiene personal",
-      "description": "Inocuidad, peligros, lavado de manos, salud y vestimenta del manipulador. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "description": "4 unidades (Inocuidad, peligros y riesgos; Lavado de manos; Salud y vestimenta del personal; Hábitos y objetos personales). Cada una trae lo esencial y una práctica con respuesta inmediata, justificación y fuente; lo que falles vuelve en el repaso. Cierra con una evaluación del módulo de 5 preguntas (aprueba con 4 de 5). Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
       "units": [
         {
           "title": "Inocuidad, peligros y riesgos",
@@ -18,7 +18,13 @@
             "Biológico (Salmonella), químico (detergente) y físico (vidrio, grapas) son los tipos de peligro.",
             "Un alimento puede tener microorganismos peligrosos sin cambiar de olor ni de aspecto."
           ],
-          "items": ["M01-01", "M01-02", "M01-03", "M01-10", "M01-15"]
+          "items": [
+            "M01-01",
+            "M01-02",
+            "M01-03",
+            "M01-10",
+            "M01-15"
+          ]
         },
         {
           "title": "Lavado de manos",
@@ -29,7 +35,12 @@
             "La higiene del inicio del turno no reemplaza el lavado en los momentos críticos posteriores.",
             "Lávate también después de manipular basura, aunque hayas usado pinzas."
           ],
-          "items": ["M01-05", "M01-13", "M01-18", "M01-19"]
+          "items": [
+            "M01-05",
+            "M01-13",
+            "M01-18",
+            "M01-19"
+          ]
         },
         {
           "title": "Salud y vestimenta del personal",
@@ -40,7 +51,13 @@
             "La indumentaria y la protección del cabello reducen la contaminación de los alimentos.",
             "Antes de exigir un requisito, revisa la norma vigente y sus modificaciones."
           ],
-          "items": ["M01-06", "M01-07", "M01-12", "M01-14", "M01-16"]
+          "items": [
+            "M01-06",
+            "M01-07",
+            "M01-12",
+            "M01-14",
+            "M01-16"
+          ]
         },
         {
           "title": "Hábitos y objetos personales",
@@ -52,15 +69,30 @@
             "Tras cortar pollo crudo, usa una tabla limpia y desinfectada para alimentos listos para consumo.",
             "Capacitar ayuda, pero el cumplimiento se verifica en el trabajo."
           ],
-          "items": ["M01-04", "M01-08", "M01-09", "M01-11", "M01-17", "M01-20"]
+          "items": [
+            "M01-04",
+            "M01-08",
+            "M01-09",
+            "M01-11",
+            "M01-17",
+            "M01-20"
+          ]
         }
-      ]
+      ],
+      "video": {
+        "code": "BPM-M01-V1",
+        "objectKey": "organizations/plataforma/training/videos/bpm-m01-v1.mp4",
+        "originalName": "01 Inocuidad_e_Higiene_Personal.mp4",
+        "mimeType": "video/mp4",
+        "sizeBytes": 29397090,
+        "sha256": "59b7ed59ee5f5b0b12d6a7fb93c413d0cb575c4dae9fd9091925dc13bf01f3d2"
+      }
     },
     {
       "code": "M02",
       "courseCode": "BPM-M02",
       "title": "Módulo 2. Manipulación segura de alimentos",
-      "description": "Recepción, almacenamiento, contaminación cruzada y preparación segura. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "description": "4 unidades (Recepción y trazabilidad; Almacenamiento y rotación; Contaminación cruzada; Preparación y cocción). Cada una trae lo esencial y una práctica con respuesta inmediata, justificación y fuente; lo que falles vuelve en el repaso. Cierra con una evaluación del módulo de 5 preguntas (aprueba con 4 de 5). Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
       "units": [
         {
           "title": "Recepción y trazabilidad",
@@ -71,7 +103,13 @@
             "Trazabilidad: proveedor, lote, y datos de ingreso y salida.",
             "Si llegan dos lotes, identifica y registra ambos sin perder su origen."
           ],
-          "items": ["M02-02", "M02-03", "M02-04", "M02-15", "M02-19"]
+          "items": [
+            "M02-02",
+            "M02-03",
+            "M02-04",
+            "M02-15",
+            "M02-19"
+          ]
         },
         {
           "title": "Almacenamiento y rotación",
@@ -82,7 +120,13 @@
             "Producto vencido: no se utiliza, aunque se vea bien.",
             "Temperatura fuera de criterio: verifica la medición, evalúa los alimentos y aplica la medida correctiva."
           ],
-          "items": ["M02-06", "M02-07", "M02-08", "M02-13", "M02-17"]
+          "items": [
+            "M02-06",
+            "M02-07",
+            "M02-08",
+            "M02-13",
+            "M02-17"
+          ]
         },
         {
           "title": "Contaminación cruzada",
@@ -93,7 +137,13 @@
             "No uses el mismo cuchillo o tabla para crudo y listo para consumo sin limpiar y desinfectar.",
             "El termómetro limpio y desinfectado evita transferir contaminantes."
           ],
-          "items": ["M02-01", "M02-05", "M02-09", "M02-10", "M02-16"]
+          "items": [
+            "M02-01",
+            "M02-05",
+            "M02-09",
+            "M02-10",
+            "M02-16"
+          ]
         },
         {
           "title": "Preparación y cocción",
@@ -104,15 +154,29 @@
             "Verifica la cocción con procedimientos apropiados; el aspecto no basta.",
             "Un menú seguro combina recepción, separación de crudos, conservación, higiene y verificación térmica."
           ],
-          "items": ["M02-11", "M02-12", "M02-14", "M02-18", "M02-20"]
+          "items": [
+            "M02-11",
+            "M02-12",
+            "M02-14",
+            "M02-18",
+            "M02-20"
+          ]
         }
-      ]
+      ],
+      "video": {
+        "code": "BPM-M02-V1",
+        "objectKey": "organizations/plataforma/training/videos/bpm-m02-v1.mp4",
+        "originalName": "02 HigieneEnRestaurantes.mp4",
+        "mimeType": "video/mp4",
+        "sizeBytes": 38667150,
+        "sha256": "09ba45342ff6959d08f08d067f370682c783913f4c156e9dce007d0247637d14"
+      }
     },
     {
       "code": "M03",
       "courseCode": "BPM-M03",
       "title": "Módulo 3. Higiene y saneamiento del establecimiento",
-      "description": "Limpieza, desinfección, plagas, residuos, agua y equipos. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "description": "4 unidades (Limpieza y desinfección; Programa de higiene y registros; Plagas y productos químicos; Residuos, agua e instalaciones). Cada una trae lo esencial y una práctica con respuesta inmediata, justificación y fuente; lo que falles vuelve en el repaso. Cierra con una evaluación del módulo de 5 preguntas (aprueba con 4 de 5). Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
       "units": [
         {
           "title": "Limpieza y desinfección",
@@ -123,7 +187,13 @@
             "Respeta la dosificación del producto: más concentración no significa más seguridad.",
             "El brillo no demuestra desinfección; verifica según los criterios y la frecuencia del PHS."
           ],
-          "items": ["M03-01", "M03-03", "M03-04", "M03-05", "M03-18"]
+          "items": [
+            "M03-01",
+            "M03-03",
+            "M03-04",
+            "M03-05",
+            "M03-18"
+          ]
         },
         {
           "title": "Programa de higiene y registros",
@@ -134,7 +204,12 @@
             "Un PHS con solo firmas, sin observaciones ni verificación, no demuestra eficacia.",
             "Revisa registros y, si corresponde, aplica verificación técnica."
           ],
-          "items": ["M03-02", "M03-12", "M03-14", "M03-20"]
+          "items": [
+            "M03-02",
+            "M03-12",
+            "M03-14",
+            "M03-20"
+          ]
         },
         {
           "title": "Plagas y productos químicos",
@@ -145,7 +220,13 @@
             "No apliques plaguicidas de forma improvisada mientras se preparan alimentos.",
             "Guarda los químicos identificados y en un área segura, lejos de los alimentos."
           ],
-          "items": ["M03-06", "M03-07", "M03-08", "M03-16", "M03-19"]
+          "items": [
+            "M03-06",
+            "M03-07",
+            "M03-08",
+            "M03-16",
+            "M03-19"
+          ]
         },
         {
           "title": "Residuos, agua e instalaciones",
@@ -156,15 +237,30 @@
             "El aceite usado se recolecta y dispone por la vía sanitaria; no va al desagüe.",
             "Fisuras y drenaje deficiente dificultan la limpieza: reporta y corrige."
           ],
-          "items": ["M03-09", "M03-10", "M03-11", "M03-13", "M03-15", "M03-17"]
+          "items": [
+            "M03-09",
+            "M03-10",
+            "M03-11",
+            "M03-13",
+            "M03-15",
+            "M03-17"
+          ]
         }
-      ]
+      ],
+      "video": {
+        "code": "BPM-M03-V1",
+        "objectKey": "organizations/plataforma/training/videos/bpm-m03-v1.mp4",
+        "originalName": "03 Programa_de_Higiene.mp4",
+        "mimeType": "video/mp4",
+        "sizeBytes": 33113209,
+        "sha256": "5b263b5dee3c3cf2110b59eac118fd2493c2d80bbeef7dd6c887e3076061f3fd"
+      }
     },
     {
       "code": "M04",
       "courseCode": "BPM-M04",
       "title": "Módulo 4. Servicio, transporte y distribución de alimentos",
-      "description": "Servido, transporte, catering y alérgenos. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "description": "4 unidades (Servido higiénico; Envases, transporte y catering; Alérgenos; Entrega y criterios normativos). Cada una trae lo esencial y una práctica con respuesta inmediata, justificación y fuente; lo que falles vuelve en el repaso. Cierra con una evaluación del módulo de 5 preguntas (aprueba con 4 de 5). Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
       "units": [
         {
           "title": "Servido higiénico",
@@ -175,7 +271,12 @@
             "Si un utensilio cae al suelo, retíralo y reemplázalo por uno limpio o higienizado.",
             "Ante una desviación de conservación, verifica, protege el alimento y aplica la medida correctiva."
           ],
-          "items": ["M04-01", "M04-02", "M04-03", "M04-14"]
+          "items": [
+            "M04-01",
+            "M04-02",
+            "M04-03",
+            "M04-14"
+          ]
         },
         {
           "title": "Envases, transporte y catering",
@@ -186,7 +287,13 @@
             "Ante una demora, evalúa tiempo y condiciones de conservación y documenta la desviación.",
             "Antes de cerrar un envío revisa contenido, cantidad, envase, conservación y destino."
           ],
-          "items": ["M04-04", "M04-06", "M04-07", "M04-08", "M04-15"]
+          "items": [
+            "M04-04",
+            "M04-06",
+            "M04-07",
+            "M04-08",
+            "M04-15"
+          ]
         },
         {
           "title": "Alérgenos",
@@ -197,7 +304,14 @@
             "Comunica los cambios de ingredientes: pueden modificar el perfil de alérgenos.",
             "Si no puedes asegurar la ausencia de contacto cruzado, comunica la limitación; no lo garantices."
           ],
-          "items": ["M04-09", "M04-10", "M04-11", "M04-12", "M04-13", "M04-19"]
+          "items": [
+            "M04-09",
+            "M04-10",
+            "M04-11",
+            "M04-12",
+            "M04-13",
+            "M04-19"
+          ]
         },
         {
           "title": "Entrega y criterios normativos",
@@ -208,15 +322,29 @@
             "Un requisito del Codex es una recomendación técnica, salvo que la norma peruana lo haga obligatorio.",
             "Revisa la NTS 234 junto con la R. M. 936-2025, que suspendió numerales de forma temporal."
           ],
-          "items": ["M04-05", "M04-16", "M04-17", "M04-18", "M04-20"]
+          "items": [
+            "M04-05",
+            "M04-16",
+            "M04-17",
+            "M04-18",
+            "M04-20"
+          ]
         }
-      ]
+      ],
+      "video": {
+        "code": "BPM-M04-V1",
+        "objectKey": "organizations/plataforma/training/videos/bpm-m04-v1.mp4",
+        "originalName": "04 Transporte_y_Servicio_Seguro.mp4",
+        "mimeType": "video/mp4",
+        "sizeBytes": 42380289,
+        "sha256": "c684025428adae4e40e3925af7773d309ddb3a67ea293b588b63989a8d7422de"
+      }
     },
     {
       "code": "M05",
       "courseCode": "BPM-M05",
       "title": "Módulo 5. Supervisión, registros y control de BPM",
-      "description": "Inspección, checklist, hallazgos y acciones correctivas. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "description": "4 unidades (Inspección interna y checklist; Hallazgos y registros; Acciones correctivas; Verificación y seguimiento). Cada una trae lo esencial y una práctica con respuesta inmediata, justificación y fuente; lo que falles vuelve en el repaso. Cierra con una evaluación del módulo de 5 preguntas (aprueba con 4 de 5). Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
       "units": [
         {
           "title": "Inspección interna y checklist",
@@ -227,7 +355,14 @@
             "«No aplica»: el criterio no corresponde a las operaciones y se justifica.",
             "R1, R2 y R3 ayudan a priorizar; R3 es alto riesgo de contaminación."
           ],
-          "items": ["M05-01", "M05-02", "M05-03", "M05-04", "M05-10", "M05-11"]
+          "items": [
+            "M05-01",
+            "M05-02",
+            "M05-03",
+            "M05-04",
+            "M05-10",
+            "M05-11"
+          ]
         },
         {
           "title": "Hallazgos y registros",
@@ -238,7 +373,13 @@
             "Un registro útil es legible, fechable, identificable y respalda hechos observados.",
             "Un checklist sin observar los procesos compromete la confiabilidad de los datos."
           ],
-          "items": ["M05-05", "M05-06", "M05-12", "M05-15", "M05-17"]
+          "items": [
+            "M05-05",
+            "M05-06",
+            "M05-12",
+            "M05-15",
+            "M05-17"
+          ]
         },
         {
           "title": "Acciones correctivas",
@@ -249,7 +390,14 @@
             "Seguimiento: responsable, medida ejecutada, fecha y evidencia de verificación.",
             "Si un problema se repite, investiga las causas y revisa la eficacia del PHS."
           ],
-          "items": ["M05-07", "M05-08", "M05-09", "M05-13", "M05-14", "M05-18"]
+          "items": [
+            "M05-07",
+            "M05-08",
+            "M05-09",
+            "M05-13",
+            "M05-14",
+            "M05-18"
+          ]
         },
         {
           "title": "Verificación y seguimiento",
@@ -259,9 +407,21 @@
             "Muchos registros no equivalen a cumplimiento: revisa si las correcciones funcionan.",
             "La guía I05 observa contexto, uso del aplicativo, prácticas y barreras de adopción."
           ],
-          "items": ["M05-16", "M05-19", "M05-20"]
+          "items": [
+            "M05-16",
+            "M05-19",
+            "M05-20"
+          ]
         }
-      ]
+      ],
+      "video": {
+        "code": "BPM-M05-V1",
+        "objectKey": "organizations/plataforma/training/videos/bpm-m05-v1.mp4",
+        "originalName": "05 Supervisión_y_Control_BPM.mp4",
+        "mimeType": "video/mp4",
+        "sizeBytes": 40821069,
+        "sha256": "41d2bc7b0190b214b5fb7216fb93a8af9a5949baaf25da42584afceb9a11b426"
+      }
     }
   ]
 }

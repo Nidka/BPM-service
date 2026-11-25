@@ -133,7 +133,19 @@ type CourseModule struct {
 	CourseCode  string `json:"courseCode"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	Units       []Unit `json:"units"`
+	// Video es el video del módulo, compartido por todas las organizaciones (se muestra en la primera unidad).
+	Video Video  `json:"video"`
+	Units []Unit `json:"units"`
+}
+
+// Video describe el objeto de R2 de un video de la plataforma: su clave, tamaño y SHA-256 son los de la copia aprobada.
+type Video struct {
+	Code         string `json:"code"`
+	ObjectKey    string `json:"objectKey"`
+	OriginalName string `json:"originalName"`
+	MIMEType     string `json:"mimeType"`
+	SizeBytes    int64  `json:"sizeBytes"`
+	SHA256       string `json:"sha256"`
 }
 
 // Courses es la ruta de aprendizaje de los cinco módulos.
@@ -246,6 +258,10 @@ func (b *Bank) index() error {
 func (c *Courses) validate(bank *Bank) error {
 	seen := map[string]bool{}
 	for _, m := range c.Modules {
+		v := m.Video
+		if v.Code == "" || !strings.HasPrefix(v.ObjectKey, "organizations/plataforma/training/videos/") || v.MIMEType != "video/mp4" || v.SizeBytes < 1 || len(v.SHA256) != 64 {
+			return fmt.Errorf("el módulo %s necesita un video de plataforma válido", m.Code)
+		}
 		if len(m.Units) < 3 || len(m.Units) > 4 {
 			return fmt.Errorf("el módulo %s debe tener 3 o 4 unidades", m.Code)
 		}

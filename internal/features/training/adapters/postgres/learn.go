@@ -50,8 +50,9 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 	if err != nil {
 		return view, err
 	}
-	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,m.id::text,m.mime_type,m.size_bytes,COALESCE(m.sha256,''),l.external_video_provider,l.external_video_id,l.key_points,l.captions_vtt
+	rows, err := s.tx.Query(ctx, `SELECT l.id::text,l.title,l.content,l.display_order,COALESCE(m.id,pv.id)::text,COALESCE(m.mime_type,pv.mime_type),COALESCE(m.size_bytes,pv.size_bytes),COALESCE(m.sha256,pv.sha256,''),l.external_video_provider,l.external_video_id,l.key_points,l.captions_vtt
  FROM training_lessons l LEFT JOIN media_files m ON m.organization_id=l.organization_id AND m.id=l.media_file_id AND m.status='AVAILABLE' AND m.location_id IS NULL AND starts_with(m.object_key,$3)
+ LEFT JOIN platform_training_videos pv ON pv.id=l.platform_video_id AND pv.status='AVAILABLE'
  WHERE l.organization_id=$1 AND l.course_version_id=$2 ORDER BY l.display_order`, org, view.Version.ID, trainingVideoPrefix(org))
 	if err != nil {
 		return view, err
@@ -167,7 +168,14 @@ func (s *store) LessonVideo(ctx context.Context, org, versionID, lessonID string
 	file, err := scanVideo(s.tx.QueryRow(ctx, `SELECT `+videoColumns+` FROM training_lessons l JOIN media_files m ON m.organization_id=l.organization_id AND m.id=l.media_file_id
  WHERE l.organization_id=$1 AND l.course_version_id=$2 AND l.id=$3 AND m.status='AVAILABLE' AND m.location_id IS NULL AND starts_with(m.object_key,$4)`, org, versionID, lessonID, trainingVideoPrefix(org)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return file, domain.ErrVideoNotFound
+		// Video de la plataforma (catálogo base): el mismo objeto para todas las organizaciones.
+		err = s.tx.QueryRow(ctx, `SELECT pv.id::text,$4::varchar,pv.object_key,pv.original_name,pv.mime_type,pv.size_bytes,pv.sha256,pv.status,'',pv.created_at,pv.verified_at
+ FROM training_lessons l JOIN platform_training_videos pv ON pv.id=l.platform_video_id
+ WHERE l.organization_id=$1 AND l.course_version_id=$2 AND l.id=$3 AND pv.status='AVAILABLE'`, org, versionID, lessonID, org).
+			Scan(&file.ID, &file.OrganizationID, &file.ObjectKey, &file.OriginalName, &file.MIMEType, &file.SizeBytes, &file.SHA256, &file.Status, &file.CreatedBy, &file.CreatedAt, &file.UploadedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return file, domain.ErrVideoNotFound
+		}
 	}
 	return file, err
 }

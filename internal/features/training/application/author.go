@@ -112,6 +112,7 @@ func (s *Service) SaveDraft(ctx context.Context, user, org, courseID string, in 
 			return e
 		}
 		in.Questions = keepBankItems(draft.Questions, in.Questions)
+		in.Lessons = keepPlatformVideos(draft.Lessons, in.Lessons)
 		in.Lessons = keepKeyPoints(draft.Lessons, in.Lessons)
 		in.Lessons = keepCaptions(draft.Lessons, in.Lessons)
 		if out, e = db.ReplaceDraft(ctx, org, user, draft, in); e != nil {
@@ -245,4 +246,23 @@ func (s *Service) Publish(ctx context.Context, user, org, courseID string) (out 
 		return db.Audit(ctx, org, user, "training.course.published", "training_course", courseID)
 	})
 	return out, err
+}
+
+// keepPlatformVideos conserva el video de la plataforma de las lecciones que el cliente no envía con otro video
+// propio (privado o de YouTube): el cliente no conoce ese campo. Una lección con video propio lo reemplaza.
+func keepPlatformVideos(previous, next []domain.Lesson) []domain.Lesson {
+	before := make(map[string]string, len(previous))
+	for _, l := range previous {
+		if l.PlatformVideoID != "" {
+			before[l.ID] = l.PlatformVideoID
+		}
+	}
+	out := make([]domain.Lesson, len(next))
+	copy(out, next)
+	for i := range out {
+		if id := before[out[i].ID]; id != "" && out[i].VideoMediaID == "" && out[i].ExternalVideo == nil {
+			out[i].PlatformVideoID = id
+		}
+	}
+	return out
 }

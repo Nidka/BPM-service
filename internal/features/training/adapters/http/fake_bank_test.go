@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Nidka/BPM-service/internal/features/training/application"
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
 )
 
@@ -12,10 +13,11 @@ import (
 type bankState struct {
 	draws    map[string]domain.Draw
 	practice map[string]domain.PracticeState // "usuario|curso|ítem"
+	videos   map[string]application.PlatformVideo
 }
 
 func newBankState() bankState {
-	return bankState{draws: map[string]domain.Draw{}, practice: map[string]domain.PracticeState{}}
+	return bankState{draws: map[string]domain.Draw{}, practice: map[string]domain.PracticeState{}, videos: map[string]application.PlatformVideo{}}
 }
 
 func (f *fakeRepo) FindDraw(_ context.Context, _, id string) (domain.Draw, bool, error) {
@@ -104,4 +106,38 @@ func (f *fakeRepo) PublishedBankVersion(_ context.Context, org, courseID string)
 		}
 	}
 	return version, nil
+}
+
+func (f *fakeRepo) EnsurePlatformVideo(_ context.Context, v application.PlatformVideo) (string, error) {
+	if known, ok := f.bank.videos[v.Code]; ok {
+		return known.ID, nil
+	}
+	v.ID, v.Status = f.next(), "PENDING_UPLOAD"
+	f.bank.videos[v.Code] = v
+	return v.ID, nil
+}
+
+func (f *fakeRepo) PlatformVideos(context.Context) ([]application.PlatformVideo, error) {
+	out := []application.PlatformVideo{}
+	for _, v := range f.bank.videos {
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) SetPlatformVideoStatus(_ context.Context, id, status string) error {
+	for code, v := range f.bank.videos {
+		if v.ID == id {
+			v.Status = status
+			f.bank.videos[code] = v
+		}
+	}
+	return nil
+}
+
+func (f *fakeRepo) UpdateCourseText(_ context.Context, org, _, courseID, title, description string) error {
+	if c, err := f.course(org, courseID); err == nil {
+		c.c.Title, c.c.Description = title, description
+	}
+	return nil
 }

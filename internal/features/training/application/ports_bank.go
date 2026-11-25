@@ -23,4 +23,16 @@ type BankStore interface {
 	CourseByCode(ctx context.Context, org, code string) (domain.Course, bool, error)
 	// PublishedBankVersion devuelve la versión del banco de la versión publicada del curso (0 si no usa banco).
 	PublishedBankVersion(ctx context.Context, org, courseID string) (int, error)
+	// EnsurePlatformVideo registra un video de la plataforma (idempotente por código) y devuelve su id.
+	EnsurePlatformVideo(ctx context.Context, video PlatformVideo) (string, error)
+	PlatformVideos(ctx context.Context) ([]PlatformVideo, error)
+	SetPlatformVideoStatus(ctx context.Context, id, status string) error
+	// UpdateCourseText actualiza título y descripción del curso si cambiaron.
+	UpdateCourseText(ctx context.Context, org, user, courseID, title, description string) error
+}
+
+// PlatformVideo es un video del catálogo base compartido por todas las organizaciones.
+type PlatformVideo struct {
+	ID, Code, ObjectKey, OriginalName, MIMEType, SHA256, Status string
+	SizeBytes                                                   int64
 }

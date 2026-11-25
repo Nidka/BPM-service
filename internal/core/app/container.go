@@ -138,7 +138,7 @@ func NewContainer(
 			identityModule.RegisterRoutes,
 			alerts.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			notifications.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
-			organizations.RoutesWithInvitations(container.Database, container.TokenVerifier, logger, cfg.Email.InvitationAcceptURL, cfg.Email.ResendAPIKey != "" && cfg.Email.From != "", identityModule.Sessions),
+			organizations.RoutesWithSeeder(container.Database, container.TokenVerifier, logger, cfg.Email.InvitationAcceptURL, cfg.Email.ResendAPIKey != "" && cfg.Email.From != "", training.NewOrganizationSeeder(container.Database), identityModule.Sessions),
 			checklists.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			media.Routes(container.Database, container.TokenVerifier, container.ObjectStorage, cfg.R2, logger, identityModule.Sessions),
 			operations.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),

@@ -76,6 +76,9 @@ func NormalizeDraft(in DraftInput) (DraftInput, error) {
 		if l.VideoMediaID != "" && !ValidID(l.VideoMediaID) {
 			fields[indexed("lessons", i, "videoMediaId")] = "El identificador del video no es válido."
 		}
+		if l.PlatformVideoID != "" && (!ValidID(l.PlatformVideoID) || l.VideoMediaID != "" || l.ExternalVideo != nil) {
+			fields[indexed("lessons", i, "videoMediaId")] = "Una lección admite un solo video."
+		}
 		if l.ExternalVideo != nil {
 			if l.VideoMediaID != "" {
 				fields[indexed("lessons", i, "externalVideo")] = "Una lección admite video privado o externo, no ambos."

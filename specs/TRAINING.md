@@ -628,3 +628,23 @@ meta del día). Un nodo **Repaso** aparece cuando hay ítems fallados o vencidos
 `DATABASE_URL=... go run ./cmd/catalogo-bpm -org <id> [-by <usuario>] [-aplicar]` (por defecto simula). Idempotente; crea los
 cursos que falten o, si existen, publica una versión nueva (la anterior queda ARCHIVED, intentos y constancias intactos) que
 conserva el video de la primera lección. Solo toca la organización indicada.
+
+
+## Catálogo base para toda organización (V20)
+
+Cada organización recibe los 5 módulos BPM con su ruta de unidades y el banco de 100 preguntas:
+
+- **Organizaciones nuevas.** `POST /organizations` (SUPER_ADMIN) instala el catálogo justo después de crear la organización
+  (`organizations.WithSeeder` -> `training.OrganizationSeeder`, que usa el mismo instalador que el comando). Es idempotente y
+  también corre al repetir la misma solicitud: si falla, el cliente recibe el error y repetir la solicitud lo completa.
+- **Organizaciones existentes.** `DATABASE_URL=... go run ./cmd/catalogo-bpm -org <id> [-aplicar]` (simulación por defecto).
+  Un módulo que ya usa el banco vigente se omite, pero su título y descripción se actualizan al texto del catálogo.
+- **Videos.** Los videos de los 5 módulos son de la plataforma (`platform_training_videos`): un solo objeto en R2
+  (`organizations/plataforma/training/videos/bpm-m0X-v1.mp4`) para todas las organizaciones. El catálogo
+  (`cursos_bpm_v1.json`) trae su tamaño y SHA-256 aprobados. La primera unidad de cada módulo usa ese video salvo que el
+  módulo ya tuviera uno propio. Un video solo se muestra y se firma cuando está AVAILABLE:
+  `go run ./cmd/catalogo-bpm -videos` (con R2_* y DATABASE_URL) registra los 5 y comprueba cada objeto (tamaño, tipo,
+  firma, SHA-256); ausente = PENDING_UPLOAD, distinto = FAILED. El borrador conserva el video de plataforma de una lección
+  mientras el cliente no le ponga otro propio.
+- Los objetos se copian en R2 una sola vez, antes de borrar los videos de la organización de prueba (borrar la
+  organización solo quita filas; los objetos de R2 siguen ahí, pero ya no tendrían quién los firme).

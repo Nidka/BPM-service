@@ -51,3 +51,23 @@ func InstallCatalog(ctx context.Context, pool *pgxpool.Pool, org, by string, dry
 	service := application.New(postgres.New(pool), nil, domain.VideoPolicy{})
 	return service.InstallBPMCatalog(ctx, org, by, dryRun)
 }
+
+// OrganizationSeeder instala el catálogo base (5 módulos BPM y el banco oficial) en cada organización nueva.
+// Cumple organizations/application.Seeder y es idempotente.
+type OrganizationSeeder struct{ pool *pgxpool.Pool }
+
+// NewOrganizationSeeder crea el preparador de organizaciones nuevas.
+func NewOrganizationSeeder(pool *pgxpool.Pool) OrganizationSeeder {
+	return OrganizationSeeder{pool: pool}
+}
+
+// SeedOrganization instala el catálogo base; actorID queda en la auditoría.
+func (s OrganizationSeeder) SeedOrganization(ctx context.Context, organizationID, actorID string) error {
+	_, err := InstallCatalog(ctx, s.pool, organizationID, actorID, false)
+	return err
+}
+
+// VerifyPlatformVideos registra y comprueba en R2 los videos de la plataforma (ver cmd/catalogo-bpm -videos).
+func VerifyPlatformVideos(ctx context.Context, pool *pgxpool.Pool, videos contracts.VideoStorage) ([]application.VerifiedVideo, error) {
+	return application.New(postgres.New(pool), videos, domain.VideoPolicy{}).VerifyPlatformVideos(ctx)
+}

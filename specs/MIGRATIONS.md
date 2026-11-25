@@ -169,3 +169,11 @@ mostrado (`item_code`, `bank_version`, `option_order`) y crea `training_evaluati
 con ella aplicada. Aplicar antes de desplegar la API: la Academia falla al arrancar si falta (`training migration V19 is
 required`). El contenido (módulos, unidades y los 100 ítems) se instala por organización con `cmd/catalogo-bpm`
 (ver TRAINING.md, «Banco oficial de preguntas»); la migración no carga contenido.
+
+## Videos de la plataforma (V20)
+
+`V20__training_platform_videos.sql` es aditiva: crea `platform_training_videos` (videos del catálogo base, sin organización,
+con clave `organizations/plataforma/training/videos/...`) y agrega `training_lessons.platform_video_id` (opcional, excluyente
+con el video privado y el de YouTube). No reescribe datos. Aplicar antes de desplegar la API: la Academia falla al arrancar
+si falta (`training migration V20 is required`). Los objetos de R2 se copian aparte y se verifican con
+`cmd/catalogo-bpm -videos` (ver TRAINING.md, «Catálogo base»).

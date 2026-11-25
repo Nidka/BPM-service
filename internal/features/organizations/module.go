@@ -21,7 +21,17 @@ func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.L
 // RoutesWithInvitations igual que Routes, con la URL de aceptación (INVITATION_ACCEPT_URL)
 // y si hay proveedor de correo configurado; sin él no se encola el aviso de invitación.
 func RoutesWithInvitations(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.Logger, acceptURL string, mailEnabled bool, sessions ...contracts.SessionValidator) func(chi.Router) {
-	h := httpadapter.New(application.New(postgres.New(pool), application.WithInvitationDelivery(acceptURL, mailEnabled)), logger)
+	return RoutesWithSeeder(pool, verifier, logger, acceptURL, mailEnabled, nil, sessions...)
+}
+
+// RoutesWithSeeder igual que RoutesWithInvitations, y prepara cada organización nueva con el contenido base que
+// aporta seeder (nil = ninguno). Ver application.Seeder.
+func RoutesWithSeeder(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.Logger, acceptURL string, mailEnabled bool, seeder application.Seeder, sessions ...contracts.SessionValidator) func(chi.Router) {
+	opts := []application.Option{application.WithInvitationDelivery(acceptURL, mailEnabled)}
+	if seeder != nil {
+		opts = append(opts, application.WithSeeder(seeder))
+	}
+	h := httpadapter.New(application.New(postgres.New(pool), opts...), logger)
 	return func(r chi.Router) { h.Register(r, middleware.Authenticate(verifier, sessions...)) }
 }
 

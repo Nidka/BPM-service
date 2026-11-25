@@ -3,9 +3,11 @@ package application
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/features/training/catalog"
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
 )
@@ -76,6 +78,10 @@ func installModule(ctx context.Context, db Store, org, by string, now time.Time,
 	if course, err = db.LockCourse(ctx, org, course.ID); err != nil {
 		return report, err
 	}
+	// El título y la descripción del catálogo base se mantienen al día aunque el contenido ya esté instalado.
+	if err = db.UpdateCourseText(ctx, org, by, course.ID, module.Title, module.Description); err != nil {
+		return report, err
+	}
 	if installed, e := db.PublishedBankVersion(ctx, org, course.ID); e != nil {
 		return report, e
 	} else if installed >= bank.Version {
@@ -91,11 +97,15 @@ func installModule(ctx context.Context, db Store, org, by string, now time.Time,
 			return report, err
 		}
 	}
-	lessons, questions, err := bankContent(bank, module, draft.Lessons)
+	platformVideo, err := db.EnsurePlatformVideo(ctx, platformVideoOf(module.Video))
 	if err != nil {
 		return report, err
 	}
-	report.VideoKept = lessons[0].VideoMediaID != "" || lessons[0].ExternalVideo != nil
+	lessons, questions, err := bankContent(bank, module, draft.Lessons, platformVideo)
+	if err != nil {
+		return report, err
+	}
+	report.VideoKept = lessons[0].VideoMediaID != "" || lessons[0].ExternalVideo != nil || lessons[0].PlatformVideoID != ""
 	report.Items = len(questions)
 	input, err := domain.NormalizeDraft(domain.DraftInput{VersionID: draft.Version.ID, PassingScore: bank.PassScorePercent,
 		RowVersion: draft.Version.RowVersion, Lessons: lessons, Questions: questions})
@@ -123,8 +133,8 @@ func installModule(ctx context.Context, db Store, org, by string, now time.Time,
 }
 
 // bankContent arma lecciones (una por unidad) y preguntas (los ítems de cada unidad) con identificadores nuevos.
-// La primera unidad conserva el video de la primera lección de la versión que se reemplaza.
-func bankContent(bank *catalog.Bank, module catalog.CourseModule, previous []domain.Lesson) ([]domain.Lesson, []domain.Question, error) {
+// La primera unidad conserva el video de la primera lección de la versión que se reemplaza o, si no tiene, el de la plataforma.
+func bankContent(bank *catalog.Bank, module catalog.CourseModule, previous []domain.Lesson, platformVideo string) ([]domain.Lesson, []domain.Question, error) {
 	var lessons []domain.Lesson
 	var questions []domain.Question
 	for i, unit := range module.Units {
@@ -133,8 +143,14 @@ func bankContent(bank *catalog.Bank, module catalog.CourseModule, previous []dom
 			return nil, nil, err
 		}
 		lesson := domain.Lesson{ID: id, Title: unit.Title, Content: unit.Content, DisplayOrder: i + 1, KeyPoints: unit.KeyPoints}
-		if i == 0 && len(previous) > 0 {
-			lesson.VideoMediaID, lesson.ExternalVideo = previous[0].VideoMediaID, previous[0].ExternalVideo
+		if i == 0 {
+			// La primera unidad conserva el video que ya tenía el módulo; si no tenía, usa el de la plataforma.
+			if len(previous) > 0 {
+				lesson.VideoMediaID, lesson.ExternalVideo, lesson.PlatformVideoID = previous[0].VideoMediaID, previous[0].ExternalVideo, previous[0].PlatformVideoID
+			}
+			if lesson.VideoMediaID == "" && lesson.ExternalVideo == nil && lesson.PlatformVideoID == "" {
+				lesson.PlatformVideoID = platformVideo
+			}
 		}
 		lessons = append(lessons, lesson)
 		for _, code := range unit.Items {
@@ -152,4 +168,61 @@ func bankContent(bank *catalog.Bank, module catalog.CourseModule, previous []dom
 		}
 	}
 	return lessons, questions, nil
+}
+
+func platformVideoOf(v catalog.Video) PlatformVideo {
+	return PlatformVideo{Code: v.Code, ObjectKey: v.ObjectKey, OriginalName: v.OriginalName, MIMEType: v.MIMEType, SizeBytes: v.SizeBytes, SHA256: v.SHA256}
+}
+
+// VerifiedVideo es el resultado de comprobar un video de la plataforma contra su objeto en R2.
+type VerifiedVideo struct {
+	Code, Status, Detail string
+}
+
+// VerifyPlatformVideos registra los videos de la plataforma del catálogo y comprueba cada objeto en R2 (tamaño, tipo,
+// firma del formato y SHA-256 de todos los bytes). Solo un objeto idéntico al aprobado pasa a AVAILABLE y empieza a
+// mostrarse; uno ausente queda PENDING_UPLOAD y uno distinto FAILED. Es idempotente y no escribe en R2.
+func (s *Service) VerifyPlatformVideos(ctx context.Context) ([]VerifiedVideo, error) {
+	if s.videos == nil {
+		return nil, domain.ErrUnavailable
+	}
+	_, courses := catalog.MustLoad()
+	var registered []PlatformVideo
+	err := s.work.Within(ctx, func(db Store) error {
+		for _, module := range courses.Modules {
+			if _, e := db.EnsurePlatformVideo(ctx, platformVideoOf(module.Video)); e != nil {
+				return e
+			}
+		}
+		var e error
+		registered, e = db.PlatformVideos(ctx)
+		return e
+	})
+	if err != nil {
+		return nil, err
+	}
+	var out []VerifiedVideo
+	for _, v := range registered {
+		result := VerifiedVideo{Code: v.Code, Status: v.Status}
+		inspectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), videoInspectBudget)
+		inspection, e := s.videos.InspectVideo(inspectCtx, v.ObjectKey)
+		cancel()
+		switch {
+		case errors.Is(e, contracts.ErrObjectNotFound):
+			result.Status, result.Detail = "PENDING_UPLOAD", "el objeto no está en R2"
+		case e != nil && !errors.Is(e, contracts.ErrInvalidObject):
+			return out, domain.ErrUnavailable
+		case e != nil || inspection.ContentType != v.MIMEType || inspection.ContentLength != v.SizeBytes || inspection.SHA256Hex != v.SHA256 || !domain.ValidVideoSignature(v.MIMEType, inspection.Header):
+			result.Status, result.Detail = "FAILED", "el objeto no coincide con el video aprobado"
+		default:
+			result.Status = "AVAILABLE"
+		}
+		if result.Status != v.Status {
+			if e = s.work.Within(ctx, func(db Store) error { return db.SetPlatformVideoStatus(ctx, v.ID, result.Status) }); e != nil {
+				return out, e
+			}
+		}
+		out = append(out, result)
+	}
+	return out, nil
 }

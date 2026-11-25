@@ -24,7 +24,7 @@ type store struct{ tx pgx.Tx }
 func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
 // RequireSchema evita servir la Academia con un esquema incompatible: exige las
-// columnas y unicidades de V8, V11, V15, V16 y V19. No ejecuta migraciones.
+// columnas y unicidades de V8, V11, V15, V16, V19 y V20. No ejecuta migraciones.
 func (r *Repository) RequireSchema(ctx context.Context) error {
 	rows, err := r.pool.Query(ctx, `SELECT v.row_version, a.request_hash FROM training_course_versions v CROSS JOIN training_attempts a LIMIT 0`)
 	if err != nil {
@@ -91,6 +91,15 @@ func (r *Repository) RequireSchema(ctx context.Context) error {
  FROM training_questions q CROSS JOIN training_attempt_answers a CROSS JOIN training_evaluation_draws d CROSS JOIN training_practice_results p LIMIT 0`)
 	if err != nil {
 		return errors.New("training migration V19 is required")
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	// V20: videos de la plataforma (catálogo base compartido por todas las organizaciones).
+	rows, err = r.pool.Query(ctx, `SELECT l.platform_video_id, v.code, v.object_key, v.sha256, v.status FROM training_lessons l CROSS JOIN platform_training_videos v LIMIT 0`)
+	if err != nil {
+		return errors.New("training migration V20 is required")
 	}
 	rows.Close()
 	return rows.Err()

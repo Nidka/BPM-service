@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/features/training/application"
 	"github.com/Nidka/BPM-service/internal/features/training/catalog"
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
@@ -348,5 +350,130 @@ func TestInstalarCatalogoConservaElVideoYArchivaLaVersionAnterior(t *testing.T) 
 	var other int
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM training_courses WHERE organization_id=$1`, foreign).Scan(&other); err != nil || other != 0 {
 		t.Fatal("otra organización quedó afectada", other, err)
+	}
+}
+
+// catalogVideos simula R2: devuelve, para la clave pedida, exactamente el objeto aprobado del catálogo (salvo los
+// que se marcan como ausentes o alterados).
+type catalogVideos struct {
+	videos
+	missing, altered map[string]bool
+}
+
+func (c catalogVideos) InspectVideo(_ context.Context, key string) (contracts.VideoInspection, error) {
+	_, courses := catalog.MustLoad()
+	for _, m := range courses.Modules {
+		if m.Video.ObjectKey != key {
+			continue
+		}
+		if c.missing[key] {
+			return contracts.VideoInspection{}, contracts.ErrObjectNotFound
+		}
+		in := contracts.VideoInspection{ContentType: m.Video.MIMEType, ContentLength: m.Video.SizeBytes, SHA256Hex: m.Video.SHA256, Header: []byte{0, 0, 0, 0x18, 'f', 't', 'y', 'p'}}
+		if c.altered[key] {
+			in.SHA256Hex = strings.Repeat("0", 64)
+		}
+		return in, nil
+	}
+	return contracts.VideoInspection{}, contracts.ErrObjectNotFound
+}
+
+func TestCatalogoBaseComparteVideosDeLaPlataformaYMantieneElTexto(t *testing.T) {
+	ctx, pool := database(t)
+	seed(t, ctx, pool)
+	_, courses := catalog.MustLoad()
+	storage := catalogVideos{missing: map[string]bool{courses.Modules[4].Video.ObjectKey: true}, altered: map[string]bool{courses.Modules[1].Video.ObjectKey: true}}
+	s := application.New(New(pool), storage, domain.VideoPolicy{MaxBytes: 1 << 20})
+
+	// Dos organizaciones comparten los mismos 5 videos de la plataforma.
+	for _, id := range []string{org, foreign} {
+		if _, err := s.InstallBPMCatalog(ctx, id, "admin", false); err != nil {
+			t.Fatal(id, err)
+		}
+	}
+	var videosRows, lessonsWithVideo int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM platform_training_videos),(SELECT count(*) FROM training_lessons WHERE platform_video_id IS NOT NULL)`).Scan(&videosRows, &lessonsWithVideo); err != nil || videosRows != 5 || lessonsWithVideo != 10 {
+		t.Fatal("5 videos compartidos por 10 lecciones", videosRows, lessonsWithVideo, err)
+	}
+	var m01 string
+	if err := pool.QueryRow(ctx, `SELECT id::text FROM training_courses WHERE organization_id=$1 AND code='BPM-M01'`, org).Scan(&m01); err != nil {
+		t.Fatal(err)
+	}
+	// Hasta verificar el objeto, el video no se muestra ni se firma.
+	view, err := s.Course(ctx, "worker", org, m01)
+	if err != nil || view.Lessons[0].Video != nil {
+		t.Fatal("un video sin verificar no se muestra", err)
+	}
+	if _, err = s.LessonVideo(ctx, "worker", org, m01, view.Lessons[0].ID); !errors.Is(err, domain.ErrVideoNotFound) {
+		t.Fatal(err)
+	}
+	results, err := s.VerifyPlatformVideos(ctx)
+	if err != nil || len(results) != 5 {
+		t.Fatal(results, err)
+	}
+	status := map[string]string{}
+	for _, r := range results {
+		status[r.Code] = r.Status
+	}
+	if status["BPM-M01-V1"] != "AVAILABLE" || status["BPM-M02-V1"] != "FAILED" || status["BPM-M05-V1"] != "PENDING_UPLOAD" {
+		t.Fatalf("verificación inesperada %v", status)
+	}
+	view, err = s.Course(ctx, "worker", org, m01)
+	if err != nil || view.Lessons[0].Video == nil || view.Lessons[0].Video.MIMEType != "video/mp4" || view.Lessons[1].Video != nil {
+		t.Fatal("el video verificado aparece solo en la primera unidad", err)
+	}
+	access, err := s.LessonVideo(ctx, "worker", org, m01, view.Lessons[0].ID)
+	if err != nil || access.URL == "" || access.MIMEType != "video/mp4" {
+		t.Fatal(access, err)
+	}
+	// La otra organización ve el mismo video; el módulo con el objeto alterado no se muestra.
+	var otherM01, otherM02 string
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM training_courses WHERE organization_id=$1 AND code='BPM-M01'`, foreign).Scan(&otherM01)
+	_ = pool.QueryRow(ctx, `SELECT id::text FROM training_courses WHERE organization_id=$1 AND code='BPM-M02'`, org).Scan(&otherM02)
+	if v, e := s.Course(ctx, "other", foreign, otherM01); e != nil || v.Lessons[0].Video == nil || v.Lessons[0].Video.MediaID != view.Lessons[0].Video.MediaID {
+		t.Fatal("el video de plataforma es el mismo para todas las organizaciones", e)
+	}
+	if v, e := s.Course(ctx, "worker", org, otherM02); e != nil || v.Lessons[0].Video != nil {
+		t.Fatal("un objeto alterado no se muestra", e)
+	}
+	// Verificar de nuevo es idempotente.
+	if _, err = s.VerifyPlatformVideos(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// El texto del catálogo se mantiene al día aunque el contenido ya esté instalado, sin republicar.
+	if _, err = pool.Exec(ctx, `UPDATE training_courses SET description='antigua' WHERE organization_id=$1 AND code='BPM-M01'`, org); err != nil {
+		t.Fatal(err)
+	}
+	var before int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM training_course_versions WHERE organization_id=$1`, org).Scan(&before)
+	report, err := s.InstallBPMCatalog(ctx, org, "admin", false)
+	if err != nil || !report[0].Skipped {
+		t.Fatal(report, err)
+	}
+	var description string
+	var after int
+	_ = pool.QueryRow(ctx, `SELECT description FROM training_courses WHERE organization_id=$1 AND code='BPM-M01'`, org).Scan(&description)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM training_course_versions WHERE organization_id=$1`, org).Scan(&after)
+	if description != courses.Modules[0].Description || before != after {
+		t.Fatal("la descripción se actualiza sin crear versiones", description, before, after)
+	}
+
+	// El borrador de un curso con video de plataforma lo conserva si el cliente no envía otro video.
+	draft, err := s.Draft(ctx, "admin", org, m01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.Lessons[0].PlatformVideoID == "" {
+		t.Fatal("el borrador copia el video de plataforma")
+	}
+	input := domain.DraftInput{PassingScore: draft.Version.PassingScore, RowVersion: draft.Version.RowVersion, Questions: draft.Questions}
+	for _, l := range draft.Lessons {
+		l.PlatformVideoID = ""
+		input.Lessons = append(input.Lessons, l)
+	}
+	saved, err := s.SaveDraft(ctx, "admin", org, m01, input)
+	if err != nil || saved.Lessons[0].PlatformVideoID == "" || saved.Lessons[1].PlatformVideoID != "" {
+		t.Fatal("el servidor conserva el video de plataforma de la lección", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Nidka/BPM-service/internal/features/training/application"
 	"github.com/Nidka/BPM-service/internal/features/training/domain"
 	"github.com/jackc/pgx/v5"
 )
@@ -139,4 +140,50 @@ func (s *store) PublishedBankVersion(ctx context.Context, org, courseID string) 
  LEFT JOIN training_questions q ON q.organization_id=v.organization_id AND q.course_version_id=v.id
  WHERE v.organization_id=$1 AND v.course_id=$2 AND v.status='PUBLISHED'`, org, courseID).Scan(&version)
 	return version, err
+}
+
+// EnsurePlatformVideo crea el video de la plataforma si no existe (PENDING_UPLOAD hasta que se verifique el objeto)
+// y devuelve su id. Si ya existe con otros datos es un error: un video publicado no cambia de contenido.
+func (s *store) EnsurePlatformVideo(ctx context.Context, v application.PlatformVideo) (string, error) {
+	var id, key string
+	var size int64
+	var sha string
+	err := s.tx.QueryRow(ctx, `INSERT INTO platform_training_videos(code,object_key,original_name,mime_type,size_bytes,sha256)
+ VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (code) DO UPDATE SET code=EXCLUDED.code
+ RETURNING id::text,object_key,size_bytes,sha256`, v.Code, v.ObjectKey, v.OriginalName, v.MIMEType, v.SizeBytes, v.SHA256).Scan(&id, &key, &size, &sha)
+	if err != nil {
+		return "", err
+	}
+	if key != v.ObjectKey || size != v.SizeBytes || sha != v.SHA256 {
+		return "", domain.ErrVideoConflict
+	}
+	return id, nil
+}
+
+func (s *store) PlatformVideos(ctx context.Context) ([]application.PlatformVideo, error) {
+	rows, err := s.tx.Query(ctx, `SELECT id::text,code,object_key,original_name,mime_type,size_bytes,sha256,status FROM platform_training_videos ORDER BY code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []application.PlatformVideo{}
+	for rows.Next() {
+		var v application.PlatformVideo
+		if err = rows.Scan(&v.ID, &v.Code, &v.ObjectKey, &v.OriginalName, &v.MIMEType, &v.SizeBytes, &v.SHA256, &v.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func (s *store) SetPlatformVideoStatus(ctx context.Context, id, status string) error {
+	_, err := s.tx.Exec(ctx, `UPDATE platform_training_videos SET status=$2::varchar(24),verified_at=CASE WHEN $2::varchar(24)='AVAILABLE' THEN NOW() ELSE verified_at END WHERE id=$1`, id, status)
+	return err
+}
+
+// UpdateCourseText actualiza título y descripción de un curso (el catálogo base mantiene su texto al día).
+func (s *store) UpdateCourseText(ctx context.Context, org, user, courseID, title, description string) error {
+	_, err := s.tx.Exec(ctx, `UPDATE training_courses SET title=$3,description=NULLIF($4,''),updated_by=$5 WHERE organization_id=$1 AND id=$2 AND (title<>$3 OR COALESCE(description,'')<>$4)`, org, courseID, title, description, user)
+	return err
 }

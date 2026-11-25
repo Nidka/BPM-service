@@ -38,7 +38,18 @@ type Service struct {
 	acceptURL string
 	// queueMail indica si hay proveedor de correo; sin él no se encola el aviso.
 	queueMail bool
+	// seeder prepara cada organización nueva con contenido base (opcional).
+	seeder Seeder
 }
+
+// Seeder prepara una organización recién creada con contenido base de otras features (por ejemplo, los módulos
+// BPM de la Academia). Debe ser idempotente: se invoca también cuando se repite la solicitud de creación.
+type Seeder interface {
+	SeedOrganization(ctx context.Context, organizationID, actorID string) error
+}
+
+// WithSeeder fija el preparador de organizaciones nuevas.
+func WithSeeder(seeder Seeder) Option { return func(s *Service) { s.seeder = seeder } }
 
 // Option ajusta la entrega de invitaciones sin cambiar el constructor.
 type Option func(*Service)
@@ -114,6 +125,10 @@ func (s *Service) CreateOrganization(ctx context.Context, uid string, input doma
 		}
 		return db.CreateOrganization(ctx, actor, input)
 	})
+	if err == nil && s.seeder != nil {
+		// La organización ya existe; si el contenido base falla, repetir la misma solicitud (idempotente) lo completa.
+		err = s.seeder.SeedOrganization(ctx, input.ID, uid)
+	}
 	return input, err
 }
 func (s *Service) CreateLocation(ctx context.Context, uid, org string, input domain.Location) (domain.Location, error) {
