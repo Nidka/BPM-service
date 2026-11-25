@@ -1980,7 +1980,7 @@ paths:
       tags: [Academia]
       operationId: answerTrainingStudyQuestion
       summary: Practicar una pregunta en modo estudio
-      description: Retroalimentación inmediata. No califica, no crea intentos, no otorga XP ni constancia y no persiste nada. 422 si selectedOption está fuera de rango; 404 si la pregunta no es de la versión publicada.
+      description: Retroalimentación inmediata. No califica, no crea intentos ni constancia. Con una pregunta del banco oficial y membresía, además queda registrada para el repaso espaciado, suma XP de práctica la primera vez que se acierta cada ítem (xpEarned) y cuenta para la meta del día; la respuesta trae el código del ítem y sus fuentes. 422 si selectedOption está fuera de rango; 404 si la pregunta no es de la versión publicada.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -2008,6 +2008,9 @@ paths:
         repetido con la misma nota suma 0. Se omite en intentos anteriores a V15, que no guardaron el XP. outcome
         nextCourse sugiere el siguiente curso tras un FINAL aprobado (null en otros casos o si no hay uno).
         Requiere membresía (SUPER_ADMIN recibe 403).
+        En un curso con banco oficial (DIAGNOSTIC y FINAL) hay que iniciar antes la evaluación (POST evaluations) con el mismo
+        id: sin sorteo responde 409 TRAINING_EVALUATION_NOT_STARTED; se responden exactamente los 5 ítems sorteados y
+        selectedOption es la posición mostrada. Cada respuesta guarda el código del ítem, la versión del banco y el orden mostrado.
       security: [{FirebaseBearer: []}]
       requestBody:
         required: true
@@ -2019,6 +2022,43 @@ paths:
         "201":
           description: Intento calificado y registrado.
           content: {application/json: {schema: {$ref: "#/components/schemas/TrainingAttemptResponse"}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/evaluations:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Academia]
+      operationId: startTrainingEvaluation
+      summary: Iniciar una evaluación sorteada del banco oficial
+      description: |
+        Solo para cursos con banco oficial (course.questionBank no es null; 422 TRAINING_NO_QUESTION_BANK si no). El
+        servidor sortea 5 ítems - la selección recomendada del documento la primera vez y, después, una rotación que
+        prioriza los menos vistos y reparte por nivel de Bloom (1 comprender, 2 aplicar, 1 analizar, 1 evaluar) - y
+        baraja las alternativas de cada uno. El sorteo queda guardado con el id del intento; después se califica con
+        POST attempts usando ese mismo id y las posiciones tal como se mostraron. La respuesta nunca trae la clave,
+        la justificación, el código del ítem ni el nivel de Bloom. Repetir la solicitud con el mismo id devuelve el mismo
+        sorteo (200); otro usuario o tipo con ese id responde 409 IDEMPOTENCY_CONFLICT. Requiere membresía.
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/TrainingEvaluationRequest"}}}
+      responses:
+        "200": {description: Sorteo ya existente (repetición)., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingEvaluationResponse"}}}}
+        "201": {description: Sorteo creado., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingEvaluationResponse"}}}}
+        default: {$ref: "#/components/responses/TrainingError"}
+  /api/v1/organizations/{organizationID}/training/courses/{courseID}/bank:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: path, name: courseID, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Academia]
+      operationId: getTrainingQuestionBank
+      summary: Ver el banco oficial de un módulo (solo lectura)
+      description: ADMIN y SUPER_ADMIN. Lista los ítems con código, nivel de Bloom, alternativas, clave, justificación, fuentes y si forman parte de la evaluación recomendada. 422 TRAINING_NO_QUESTION_BANK si el curso no usa banco.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Banco del módulo., content: {application/json: {schema: {$ref: "#/components/schemas/TrainingBankResponse"}}}}
         default: {$ref: "#/components/responses/TrainingError"}
   /api/v1/organizations/{organizationID}/training/courses/{courseID}/draft:
     parameters:
@@ -3692,6 +3732,23 @@ components:
         questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
         progress: {$ref: "#/components/schemas/TrainingProgress"}
         certificate: {$ref: "#/components/schemas/TrainingCertificate"}
+        questionBank:
+          type: object
+          nullable: true
+          description: Banco oficial de preguntas del curso; null en un curso común. Con banco, FINAL y DIAGNOSTIC se rinden con POST evaluations.
+          required: [version, itemsPerAttempt, poolSize]
+          properties:
+            version: {type: integer}
+            itemsPerAttempt: {type: integer, example: 5}
+            poolSize: {type: integer, example: 20}
+        review:
+          type: object
+          nullable: true
+          description: Repaso espaciado de quien consulta (null sin banco). questionIds son hasta 5 preguntas (ids de questions) falladas o vencidas.
+          required: [dueCount, questionIds]
+          properties:
+            dueCount: {type: integer}
+            questionIds: {type: array, items: {type: string, format: uuid}}
     TrainingCourseViewResponse:
       type: object
       required: [data]
@@ -3742,6 +3799,77 @@ components:
             correct: {type: boolean}
             correctOption: {type: integer}
             explanation: {type: string}
+            itemCode: {type: string, example: M01-03, description: "Solo preguntas del banco oficial."}
+            bloom: {type: string, enum: [Recordar, Comprender, Aplicar, Analizar, Evaluar]}
+            sources: {type: array, items: {$ref: "#/components/schemas/TrainingSource"}}
+            xpEarned: {type: integer, minimum: 0, description: "XP de práctica ganado ahora (primer acierto del ítem)."}
+    TrainingSource:
+      type: object
+      required: [code, label, title, url]
+      properties:
+        code: {type: string, example: P01}
+        label: {type: string, example: NTS 142 (P01)}
+        title: {type: string}
+        url: {type: string}
+    TrainingEvaluationRequest:
+      type: object
+      additionalProperties: false
+      required: [id, attemptType]
+      properties:
+        id: {type: string, format: uuid, description: "Será el id del intento."}
+        attemptType: {type: string, enum: [DIAGNOSTIC, FINAL]}
+    TrainingEvaluationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [evaluation]
+          properties:
+            evaluation:
+              type: object
+              required: [id, versionId, attemptType, bankVersion, attemptNumber, passingScore, createdAt, questions]
+              properties:
+                id: {type: string, format: uuid}
+                versionId: {type: string, format: uuid}
+                attemptType: {type: string, enum: [DIAGNOSTIC, FINAL]}
+                bankVersion: {type: integer}
+                attemptNumber: {type: integer, description: "1 = selección recomendada; después rotación."}
+                passingScore: {type: integer}
+                createdAt: {type: string, format: date-time}
+                questions: {type: array, items: {$ref: "#/components/schemas/TrainingLearnQuestion"}}
+    TrainingBankResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [bank]
+          properties:
+            bank:
+              type: object
+              required: [course, module, bankVersion, passingScore, items]
+              properties:
+                course: {$ref: "#/components/schemas/TrainingCourse"}
+                module: {type: string, example: M01}
+                bankVersion: {type: integer}
+                passingScore: {type: integer}
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [code, bloom, questionText, options, correctOption, key, justification, sources, recommended, lessonTitle]
+                    properties:
+                      code: {type: string, example: M01-03}
+                      bloom: {type: string, enum: [Recordar, Comprender, Aplicar, Analizar, Evaluar]}
+                      questionText: {type: string}
+                      options: {type: array, items: {type: string}, description: "Alternativas A-E en el orden original del banco."}
+                      correctOption: {type: integer}
+                      key: {type: string, example: B}
+                      justification: {type: string}
+                      sources: {type: array, items: {$ref: "#/components/schemas/TrainingSource"}}
+                      recommended: {type: boolean, description: "Forma parte de la evaluación recomendada del primer intento."}
+                      lessonTitle: {type: string}
     TrainingAttemptRequest:
       type: object
       additionalProperties: false
@@ -3804,10 +3932,16 @@ components:
                 required: [questionId, selectedOption, correct, correctOption, explanation]
                 properties:
                   questionId: {type: string, format: uuid}
-                  selectedOption: {type: integer}
+                  selectedOption: {type: integer, description: "En ítems del banco, posición mostrada en options."}
                   correct: {type: boolean}
-                  correctOption: {type: integer}
+                  correctOption: {type: integer, description: "En ítems del banco, posición mostrada en options."}
                   explanation: {type: string}
+                  itemCode: {type: string, example: M01-03}
+                  bloom: {type: string, enum: [Recordar, Comprender, Aplicar, Analizar, Evaluar]}
+                  bankVersion: {type: integer}
+                  questionText: {type: string}
+                  options: {type: array, items: {type: string}, description: "Alternativas en el orden en que se mostraron."}
+                  sources: {type: array, items: {$ref: "#/components/schemas/TrainingSource"}}
             progress: {$ref: "#/components/schemas/TrainingProgress"}
             certificate: {$ref: "#/components/schemas/TrainingCertificate"}
     TrainingCourseRequest:

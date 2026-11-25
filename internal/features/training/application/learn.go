@@ -23,7 +23,12 @@ func (s *Service) Course(ctx context.Context, user, org, courseID string) (out d
 		if a.CanPersist() {
 			progressUser = user
 		}
-		out, e = db.CourseView(ctx, org, progressUser, courseID)
+		if out, e = db.CourseView(ctx, org, progressUser, courseID); e != nil {
+			return e
+		}
+		if out.Bank != nil && progressUser != "" {
+			out.Review, e = db.ReviewDue(ctx, org, progressUser, courseID, out.Version.ID, s.now().UTC())
+		}
 		return e
 	})
 	return out, err
@@ -138,7 +143,8 @@ func (s *Service) StudyAnswer(ctx context.Context, user, org, courseID, question
 		return out, &domain.ValidationError{Fields: map[string]string{"questionId": "Elige una pregunta válida."}}
 	}
 	err = s.work.Within(ctx, func(db Store) error {
-		if _, e := s.actor(ctx, db, user, org, learner); e != nil {
+		actor, e := s.actor(ctx, db, user, org, learner)
+		if e != nil {
 			return e
 		}
 		version, e := db.PublishedVersion(ctx, org, courseID)
@@ -149,7 +155,16 @@ func (s *Service) StudyAnswer(ctx context.Context, user, org, courseID, question
 		if e != nil {
 			return e
 		}
-		out, e = domain.Study(question, selected)
+		if out, e = domain.Study(question, selected); e != nil {
+			return e
+		}
+		// La práctica de un ítem del banco queda registrada (repaso espaciado, XP y meta del día); no es una evaluación.
+		if question.FromBank() && actor.CanPersist() {
+			if e = db.LockLearner(ctx, org, user, courseID); e != nil {
+				return e
+			}
+			out.XP, e = db.RecordPractice(ctx, org, user, courseID, question.ItemCode, out.Correct, s.now().UTC())
+		}
 		return e
 	})
 	return out, err

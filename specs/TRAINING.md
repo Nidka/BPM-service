@@ -585,3 +585,46 @@ app anterior ignora los campos nuevos.
   siguiente curso con ninguna/una/varias rutas, ruta completa con fallback a asignaciones y nada, racha
   vigente/rota, unión de lecciones e intentos, zona de la sede) y PostgreSQL real (`xp_awarded`
   persistido, zona de la primera sede activa y unión de ambas tablas, selección de siguiente curso).
+
+
+---
+
+# Banco oficial de preguntas BPM (V19)
+
+Banco de 100 preguntas de capacitación (5 módulos M01..M05 x 20 ítems, niveles de Bloom, 5 alternativas, una clave,
+justificación y fuentes P01..P08, C01..C04, G01, I03, I05) integrado en el aprendizaje. El documento fuente está en
+`Requerimientos/banco-preguntas`; el banco versionado es `internal/features/training/catalog/banco_bpm_v1.json`,
+generado por `scripts/banco_bpm/parsear_banco.py` y validado por `catalog_test.go` (100 ítems, 20 por módulo, 5
+alternativas, clave A-E y justificación igual a la alternativa clave). Es borrador para validación de expertos.
+
+## Cómo se aprende (ruta del módulo)
+
+Cada módulo es un curso `BPM-M0x` con 3 o 4 **unidades** (lecciones) temáticas (`cursos_bpm_v1.json`): texto corto, «Lo
+esencial» y, tras la unidad, la **práctica** de sus ítems (4 a 6) con retroalimentación inmediata (justificación + fuente),
+reintento de lo fallado al final de la unidad y XP de práctica (2 por ítem la primera vez que se acierta; cuenta para la
+meta del día). Un nodo **Repaso** aparece cuando hay ítems fallados o vencidos (cajas de 0, 1, 3 y 7 días) y la
+**Evaluación del módulo** (nodo final) sortea 5 ítems. La práctica no es evaluación: no aprueba ni emite constancia.
+
+## Evaluación sorteada
+
+- `POST /courses/{id}/evaluations {id, attemptType: DIAGNOSTIC|FINAL}` sortea 5 ítems con las alternativas barajadas por
+  el servidor y devuelve solo texto y alternativas (sin clave, justificación, código ni Bloom). Primera evaluación de una
+  persona en el curso: la selección recomendada de la sección 2 del documento. Siguientes: rotación que prioriza los
+  ítems menos vistos y, entre ellos, los vistos hace más tiempo, con la mezcla 1 comprender, 2 aplicar, 1 analizar y
+  1 evaluar cuando el banco lo permite (Recordar solo rellena). El sorteo se guarda con el id del intento
+  (`training_evaluation_draws`); repetir el inicio devuelve el mismo.
+- `POST /courses/{id}/attempts` con ese `id`: `selectedOption` es la posición mostrada y el servidor la traduce con el
+  orden guardado. 1 punto por ítem, aprueba con 80 % (4/5). Sin sorteo, 409 `TRAINING_EVALUATION_NOT_STARTED`. Cada
+  respuesta guarda `item_code`, `bank_version` y `option_order`; `selected_option` es el índice original. La respuesta
+  trae por ítem `itemCode`, `bloom`, `questionText`, `options` (en orden mostrado), `explanation` y `sources`.
+- Las claves solo viajan después de responder (práctica) o de terminar (evaluación). `GET course` trae `questionBank` y
+  `review` (hasta 5 preguntas por repasar). Offline: iniciar una evaluación del banco necesita conexión (el sorteo es del
+  servidor); una vez sorteada, el envío puede quedar en cola.
+- `GET /courses/{id}/bank` (ADMIN y SUPER_ADMIN): ítems del módulo con clave, justificación, fuentes y Bloom; solo lectura.
+  Los ítems oficiales no se editan desde el borrador: el servidor conserva su contenido por id.
+
+## Instalar el contenido en una organización
+
+`DATABASE_URL=... go run ./cmd/catalogo-bpm -org <id> [-by <usuario>] [-aplicar]` (por defecto simula). Idempotente; crea los
+cursos que falten o, si existen, publica una versión nueva (la anterior queda ARCHIVED, intentos y constancias intactos) que
+conserva el video de la primera lección. Solo toca la organización indicada.

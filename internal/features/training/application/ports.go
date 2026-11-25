@@ -93,6 +93,7 @@ type Store interface {
 	AuthoringStore
 	VideoStore
 	PlusStore
+	BankStore
 	AuditStore
 }
 

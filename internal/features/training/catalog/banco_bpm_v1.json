@@ -1,0 +1,2054 @@
+{
+  "version": 1,
+  "name": "Banco de 100 preguntas de capacitación en BPM (Bloom, 5 módulos)",
+  "status": "borrador para validación (7 de noviembre de 2026)",
+  "passScorePercent": 80,
+  "itemsPerEvaluation": 5,
+  "modules": [
+    {
+      "code": "M01",
+      "courseCode": "BPM-M01",
+      "title": "Inocuidad alimentaria e higiene personal",
+      "topics": "Inocuidad, ETA, lavado de manos, salud y vestimenta"
+    },
+    {
+      "code": "M02",
+      "courseCode": "BPM-M02",
+      "title": "Manipulación segura de alimentos",
+      "topics": "Contaminación cruzada, recepción, almacenamiento y preparación"
+    },
+    {
+      "code": "M03",
+      "courseCode": "BPM-M03",
+      "title": "Higiene y saneamiento del establecimiento",
+      "topics": "Limpieza, desinfección, plagas, residuos, agua y equipos"
+    },
+    {
+      "code": "M04",
+      "courseCode": "BPM-M04",
+      "title": "Servicio, transporte y distribución de alimentos",
+      "topics": "Servido, transporte, catering y alérgenos"
+    },
+    {
+      "code": "M05",
+      "courseCode": "BPM-M05",
+      "title": "Supervisión, registros y control de BPM",
+      "topics": "Inspección, checklist, incidencias y acciones correctivas"
+    }
+  ],
+  "recommendedSelection": {
+    "M01": [
+      "M01-03",
+      "M01-05",
+      "M01-11",
+      "M01-18",
+      "M01-20"
+    ],
+    "M02": [
+      "M02-02",
+      "M02-08",
+      "M02-11",
+      "M02-16",
+      "M02-19"
+    ],
+    "M03": [
+      "M03-02",
+      "M03-04",
+      "M03-09",
+      "M03-13",
+      "M03-15"
+    ],
+    "M04": [
+      "M04-01",
+      "M04-10",
+      "M04-16",
+      "M04-18",
+      "M04-20"
+    ],
+    "M05": [
+      "M05-01",
+      "M05-05",
+      "M05-12",
+      "M05-18",
+      "M05-20"
+    ]
+  },
+  "sources": [
+    {
+      "code": "C01",
+      "short": "Codex CXC 1-1969 (C01)",
+      "title": "Comisión del Codex Alimentarius. CXC 1-1969, Principios Generales de Higiene de los Alimentos.",
+      "url": "https://www.fao.org/fao-who-codexalimentarius/codex-texts/codes-of-practice/es/"
+    },
+    {
+      "code": "C02",
+      "short": "Codex CXC 39-1993 (C02)",
+      "title": "Comisión del Codex Alimentarius. CXC 39-1993, prácticas de higiene para alimentos cocinados en servicios de comidas colectivas.",
+      "url": "https://www.fao.org/fao-who-codexalimentarius/codex-texts/all-standards/es/"
+    },
+    {
+      "code": "C03",
+      "short": "Codex CXC 53-2003 (C03)",
+      "title": "Comisión del Codex Alimentarius. CXC 53-2003, higiene para frutas y hortalizas frescas.",
+      "url": "https://www.fao.org/fao-who-codexalimentarius/codex-texts/all-standards/es/"
+    },
+    {
+      "code": "C04",
+      "short": "Codex CXC 80-2020 (C04)",
+      "title": "Comisión del Codex Alimentarius. CXC 80-2020, gestión de alérgenos alimentarios; usar la edición vigente.",
+      "url": "https://www.fao.org/fao-who-codexalimentarius/codex-texts/all-standards/es/"
+    },
+    {
+      "code": "G01",
+      "short": "OMS, cinco claves (G01)",
+      "title": "OMS (2006). Manual sobre las cinco claves para la inocuidad de los alimentos.",
+      "url": "https://www.who.int/es/publications/i/item/9789241594639"
+    },
+    {
+      "code": "I03",
+      "short": "Ficha de inspección I03",
+      "title": "Equipo del proyecto. Ficha de inspección para vigilancia sanitaria de restaurantes y servicios afines (instrumento suministrado).",
+      "url": ""
+    },
+    {
+      "code": "I05",
+      "short": "Guía de observación I05",
+      "title": "Equipo del proyecto. Guía de observación participante durante el pilotaje (instrumento suministrado).",
+      "url": ""
+    },
+    {
+      "code": "P01",
+      "short": "NTS 142 (P01)",
+      "title": "MINSA (2018). NTS N.º 142-MINSA/2018/DIGESA, Norma Sanitaria para Restaurantes y Servicios Afines (R. M. 822- 2018/MINSA).",
+      "url": "https://www.digesa.minsa.gob.pe/normaslegales/normas/rm_822-2018-minsa.pdf"
+    },
+    {
+      "code": "P02",
+      "short": "R. M. 811-2023 (P02)",
+      "title": "MINSA (2023). R. M. 811-2023/MINSA, modificación del numeral 6.3.1 de la NTS 142.",
+      "url": "https://www.gob.pe/institucion/minsa/normas-legales/4574749-811-2023-minsa"
+    },
+    {
+      "code": "P03",
+      "short": "D. S. 007-98-SA (P03)",
+      "title": "MINSA (1998). D. S. 007-98-SA, Reglamento sobre Vigilancia y Control Sanitario de Alimentos y Bebidas.",
+      "url": "https://www.digesa.minsa.gob.pe/Codex/D.S.007_98_SA.pdf"
+    },
+    {
+      "code": "P04",
+      "short": "R. M. 591-2008 (P04)",
+      "title": "MINSA (2008). R. M. 591-2008/MINSA, criterios microbiológicos de calidad sanitaria e inocuidad.",
+      "url": "https://www.gob.pe/institucion/minsa/normas-legales/247682-591-2008-minsa"
+    },
+    {
+      "code": "P05",
+      "short": "R. M. 461-2007 (P05)",
+      "title": "MINSA (2007). R. M. 461-2007/MINSA, Guía Técnica para el Análisis Microbiológico de Superficies.",
+      "url": "https://www.sanipes.gob.pe/normativas/8_RM_461_2007_SUPERFICIES.pdf"
+    },
+    {
+      "code": "P06",
+      "short": "D. S. 031-2010-SA (P06)",
+      "title": "MINSA (2010). D. S. 031-2010-SA, Reglamento de la Calidad del Agua para Consumo Humano.",
+      "url": "https://www.gob.pe/institucion/minsa/normas-legales/244805-031-2010-sa"
+    },
+    {
+      "code": "P07",
+      "short": "NTS 234 (P07)",
+      "title": "MINSA (2025). R. M. 646-2025/MINSA, NTS 234 sobre transporte de alimentos.",
+      "url": "https://www.gob.pe/institucion/minsa/normas-legales/7244276-646-2025-minsa"
+    },
+    {
+      "code": "P08",
+      "short": "R. M. 936-2025 (P08)",
+      "title": "MINSA (2025). R. M. 936-2025/MINSA, suspensión temporal de numerales de la NTS 234; comprobar modificaciones posteriores.",
+      "url": "https://www.gob.pe/institucion/minsa/normas-legales/7540868-936-2025-minsa"
+    }
+  ],
+  "items": [
+    {
+      "code": "M01-01",
+      "module": "M01",
+      "bloom": "Comprender",
+      "text": "¿En qué situación se considera que un alimento es inocuo?",
+      "options": {
+        "A": "Cuando no contiene ningún microorganismo detectable",
+        "B": "Cuando no causa daño al consumidor si se prepara y consume según su uso previsto",
+        "C": "Cuando conserva todas sus características nutricionales",
+        "D": "Cuando se prepara únicamente con ingredientes locales",
+        "E": "Cuando tiene aspecto fresco y aroma agradable"
+      },
+      "key": "B",
+      "justification": "Cuando no causa daño al consumidor si se prepara y consume según su uso previsto.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-02",
+      "module": "M01",
+      "bloom": "Recordar",
+      "text": "¿Qué ejemplo corresponde a un peligro biológico?",
+      "options": {
+        "A": "Una grapa metálica en una preparación",
+        "B": "Un residuo de detergente en un plato",
+        "C": "Presencia de Salmonella en pollo crudo",
+        "D": "Un exceso de lubricante en una máquina",
+        "E": "Un fragmento de vidrio en una ensalada"
+      },
+      "key": "C",
+      "justification": "Presencia de Salmonella en pollo crudo.",
+      "sources": [
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-03",
+      "module": "M01",
+      "bloom": "Comprender",
+      "text": "¿Qué diferencia mejor un peligro de un riesgo alimentario?",
+      "options": {
+        "A": "El peligro es un error documental y el riesgo una sanción",
+        "B": "El peligro es el agente capaz de causar daño; el riesgo considera probabilidad y gravedad",
+        "C": "El peligro solo es químico y el riesgo solo biológico",
+        "D": "El peligro se refiere al consumidor y el riesgo al manipulador",
+        "E": "El riesgo aparece únicamente cuando se confirma una ETA"
+      },
+      "key": "B",
+      "justification": "El peligro es el agente capaz de causar daño; el riesgo considera probabilidad y gravedad.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-04",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "Un trabajador ha cortado pollo crudo y va a colocar verduras listas para consumo en la misma tabla. ¿Qué debe hacer?",
+      "options": {
+        "A": "Emplear una tabla limpia y desinfectada o una destinada a alimentos listos para consumo",
+        "B": "Enjuagar rápidamente con agua y usar la tabla",
+        "C": "Colocar un paño encima y cortar sobre él",
+        "D": "Retirar con papel los restos visibles y continuar",
+        "E": "Voltear la tabla sin efectuar limpieza ni desinfección"
+      },
+      "key": "A",
+      "justification": "Emplear una tabla limpia y desinfectada o una destinada a alimentos listos para consumo.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-05",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "Después de utilizar el servicio higiénico, ¿qué actuación corresponde antes de volver a preparar alimentos?",
+      "options": {
+        "A": "Aplicar desinfectante sobre el mandil",
+        "B": "Lavarse únicamente si tocó superficies visibles sucias",
+        "C": "Colocarse guantes sobre las manos sin lavar",
+        "D": "Enjuagarse las manos solo con agua fría",
+        "E": "Lavarse correctamente las manos con agua y jabón y secarlas higiénicamente"
+      },
+      "key": "E",
+      "justification": "Lavarse correctamente las manos con agua y jabón y secarlas higiénicamente.",
+      "sources": [
+        "P01",
+        "G01"
+      ]
+    },
+    {
+      "code": "M01-06",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "Un trabajador informa que presenta vómitos durante la jornada. ¿Qué debe realizar el responsable?",
+      "options": {
+        "A": "Pedirle que se mantenga alejado únicamente de alimentos crudos",
+        "B": "Autorizarle a seguir trabajando si no presenta fiebre",
+        "C": "Reemplazar el lavado de manos por desinfectante",
+        "D": "Permitirle trabajar con guantes sin modificar tareas",
+        "E": "Evaluar la situación y evitar que manipule alimentos cuando exista riesgo de contaminación, conforme al protocolo"
+      },
+      "key": "E",
+      "justification": "Evaluar la situación y evitar que manipule alimentos cuando exista riesgo de contaminación, conforme al protocolo.",
+      "sources": [
+        "P01",
+        "P02"
+      ]
+    },
+    {
+      "code": "M01-07",
+      "module": "M01",
+      "bloom": "Comprender",
+      "text": "¿Cuál es la finalidad sanitaria principal de la indumentaria de trabajo?",
+      "options": {
+        "A": "Facilitar que el trabajador se reconozca en cámaras",
+        "B": "Reducir la probabilidad de contaminación de los alimentos durante las operaciones",
+        "C": "Distinguir visualmente las categorías laborales",
+        "D": "Sustituir las medidas de limpieza de instalaciones",
+        "E": "Evitar la necesidad de higiene de manos"
+      },
+      "key": "B",
+      "justification": "Reducir la probabilidad de contaminación de los alimentos durante las operaciones.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M01-08",
+      "module": "M01",
+      "bloom": "Analizar",
+      "text": "Una persona manipula alimentos usando un reloj ajustado a la muñeca. ¿Cuál es el problema principal?",
+      "options": {
+        "A": "El reloj solo es incompatible con alimentos refrigerados",
+        "B": "El reloj altera los procedimientos de cocción",
+        "C": "El reloj modifica la temperatura de los alimentos preparados",
+        "D": "El reloj es un objeto personal que dificulta la higiene y puede favorecer contaminación",
+        "E": "El reloj impide que el termómetro mida correctamente"
+      },
+      "key": "D",
+      "justification": "El reloj es un objeto personal que dificulta la higiene y puede favorecer contaminación.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M01-09",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "¿Cuál de estos hábitos requiere corrección inmediata durante la preparación?",
+      "options": {
+        "A": "Probar una salsa con el dedo y continuar la tarea",
+        "B": "Utilizar un utensilio limpio para probar una preparación",
+        "C": "Lavarse las manos después de manipular residuos",
+        "D": "Usar vestimenta exclusiva para el área",
+        "E": "Mantener cabello protegido durante la jornada"
+      },
+      "key": "A",
+      "justification": "Probar una salsa con el dedo y continuar la tarea.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-10",
+      "module": "M01",
+      "bloom": "Comprender",
+      "text": "¿Por qué no puede confiarse únicamente en el olor y aspecto de los alimentos para descartar una ETA?",
+      "options": {
+        "A": "Porque un alimento de buen aspecto siempre tiene peligros químicos",
+        "B": "Porque pueden existir microorganismos peligrosos sin cambios sensoriales evidentes",
+        "C": "Porque todos los patógenos producen olores similares",
+        "D": "Porque solo los alimentos cocidos transmiten ETA",
+        "E": "Porque las ETA se presentan únicamente por mala refrigeración"
+      },
+      "key": "B",
+      "justification": "Porque pueden existir microorganismos peligrosos sin cambios sensoriales evidentes.",
+      "sources": [
+        "C01",
+        "G01"
+      ]
+    },
+    {
+      "code": "M01-11",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "El manipulador toca su teléfono personal durante la preparación. ¿Qué respuesta es adecuada?",
+      "options": {
+        "A": "Cambiar solo el utensilio con el que trabaja",
+        "B": "Dejar el teléfono sobre la mesa de preparación para no volver a tocarlo",
+        "C": "Retirar el teléfono del área y realizar higiene de manos antes de retomar la manipulación",
+        "D": "Frotarse las manos en el mandil y seguir",
+        "E": "Continuar si la pantalla parece limpia"
+      },
+      "key": "C",
+      "justification": "Retirar el teléfono del área y realizar higiene de manos antes de retomar la manipulación.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-12",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "¿Qué situación requiere especial atención en la comunicación de síntomas?",
+      "options": {
+        "A": "Haber utilizado uniforme nuevo",
+        "B": "Cambio de turno sin modificación del puesto",
+        "C": "Cansancio habitual sin signos de enfermedad transmisible",
+        "D": "Una lesión infectada en la mano que puede entrar en contacto con alimentos",
+        "E": "Haber recibido una capacitación reciente"
+      },
+      "key": "D",
+      "justification": "Una lesión infectada en la mano que puede entrar en contacto con alimentos.",
+      "sources": [
+        "P01",
+        "P02"
+      ]
+    },
+    {
+      "code": "M01-13",
+      "module": "M01",
+      "bloom": "Analizar",
+      "text": "¿Por qué lavarse las manos después de manipular basura es pertinente aun si se usaron pinzas?",
+      "options": {
+        "A": "Porque las manos pueden contaminarse al tocar recipientes u otras superficies durante la operación",
+        "B": "Porque solo el contacto con residuos obliga a lavarse las manos",
+        "C": "Porque los residuos solo contaminan por vía aérea",
+        "D": "Porque la higiene de manos sustituye la gestión de residuos",
+        "E": "Porque las pinzas siempre contienen patógenos específicos"
+      },
+      "key": "A",
+      "justification": "Porque las manos pueden contaminarse al tocar recipientes u otras superficies durante la operación.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-14",
+      "module": "M01",
+      "bloom": "Evaluar",
+      "text": "Un restaurante exige a todos certificados médicos semestrales citando la versión original de la NTS 142. ¿Cuál es la mejor evaluación?",
+      "options": {
+        "A": "Considerar que la modificación elimina cualquier responsabilidad sobre salud del personal",
+        "B": "Mantener automáticamente el texto original sin revisar modificaciones",
+        "C": "Revisar el numeral 6.3.1 modificado por R. M. 811-2023 antes de afirmar esa exigencia",
+        "D": "Sustituir certificados por una declaración verbal obligatoria semanal",
+        "E": "Aplicar la exigencia solo a quienes preparan alimentos crudos"
+      },
+      "key": "C",
+      "justification": "Revisar el numeral 6.3.1 modificado por R. M. 811-2023 antes de afirmar esa exigencia.",
+      "sources": [
+        "P02"
+      ]
+    },
+    {
+      "code": "M01-15",
+      "module": "M01",
+      "bloom": "Recordar",
+      "text": "¿Cuál de los siguientes ejemplos corresponde a un peligro físico?",
+      "options": {
+        "A": "Residuos de plaguicida en un ingrediente",
+        "B": "Bacterias en un alimento mal manipulado",
+        "C": "Restos de desinfectante en una superficie",
+        "D": "Sustancia alergénica no informada",
+        "E": "Astilla de vidrio desprendida de un recipiente sobre la mesa"
+      },
+      "key": "E",
+      "justification": "Astilla de vidrio desprendida de un recipiente sobre la mesa.",
+      "sources": [
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-16",
+      "module": "M01",
+      "bloom": "Comprender",
+      "text": "¿Por qué se debe proteger el cabello durante la manipulación?",
+      "options": {
+        "A": "Para garantizar que no existan microorganismos en la cocina",
+        "B": "Para permitir el uso de accesorios personales en el área",
+        "C": "Para evitar la necesidad de limpiar mesas de preparación",
+        "D": "Para reducir el riesgo de caída de cabellos y contacto que contamine los alimentos",
+        "E": "Para reemplazar los procedimientos de lavado de manos"
+      },
+      "key": "D",
+      "justification": "Para reducir el riesgo de caída de cabellos y contacto que contamine los alimentos.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-17",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "Un jefe observa uñas cortas pero con esmalte en una persona que porciona alimentos. ¿Cuál es la medida más adecuada?",
+      "options": {
+        "A": "Permitirlo si la preparación será cocida",
+        "B": "Pedir que use dos pares de guantes durante todo el turno",
+        "C": "Pedir que lave solo el esmalte con detergente industrial",
+        "D": "Permitirlo si el esmalte es transparente",
+        "E": "Corregir el incumplimiento antes de continuar la manipulación directa"
+      },
+      "key": "E",
+      "justification": "Corregir el incumplimiento antes de continuar la manipulación directa.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M01-18",
+      "module": "M01",
+      "bloom": "Analizar",
+      "text": "Un trabajador se lava las manos al inicio del turno, pero luego manipula pollo crudo y prepara una ensalada. ¿Cómo se interpreta?",
+      "options": {
+        "A": "El lavado inicial basta si la jornada dura menos de cuatro horas",
+        "B": "La higiene inicial no reemplaza el lavado en los momentos críticos posteriores",
+        "C": "El lavado solo corresponde al cerrar la jornada",
+        "D": "No existe riesgo si el pollo se encontraba refrigerado",
+        "E": "Basta con cambiar la ubicación de los alimentos"
+      },
+      "key": "B",
+      "justification": "La higiene inicial no reemplaza el lavado en los momentos críticos posteriores.",
+      "sources": [
+        "P01",
+        "G01"
+      ]
+    },
+    {
+      "code": "M01-19",
+      "module": "M01",
+      "bloom": "Aplicar",
+      "text": "En una demostración, la persona se lava las palmas pero omite dedos y uñas. ¿Qué debe corregirse?",
+      "options": {
+        "A": "Frotar todas las superficies de las manos y completar el enjuague y secado",
+        "B": "Repetir el lavado sin agua pero con un paño",
+        "C": "Aumentar solamente la cantidad de jabón en las palmas",
+        "D": "Evitar la fricción para no irritar la piel",
+        "E": "Usar una toalla compartida para acelerar el secado"
+      },
+      "key": "A",
+      "justification": "Frotar todas las superficies de las manos y completar el enjuague y secado.",
+      "sources": [
+        "G01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M01-20",
+      "module": "M01",
+      "bloom": "Evaluar",
+      "text": "¿Cuál es la conclusión más adecuada sobre el efecto de capacitar al personal en higiene?",
+      "options": {
+        "A": "Puede mejorar conocimientos y prácticas, pero el cumplimiento debe verificarse en el trabajo",
+        "B": "Elimina el riesgo sanitario del establecimiento si se repite mensualmente",
+        "C": "Reemplaza los requisitos de vestimenta y salud del manipulador",
+        "D": "Garantiza que nunca se produzcan enfermedades transmitidas por alimentos",
+        "E": "Sustituye la supervisión cuando se logra una buena calificación"
+      },
+      "key": "A",
+      "justification": "Puede mejorar conocimientos y prácticas, pero el cumplimiento debe verificarse en el trabajo.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-01",
+      "module": "M02",
+      "bloom": "Recordar",
+      "text": "¿Qué describe mejor la contaminación cruzada?",
+      "options": {
+        "A": "Deshidratación de un producto durante su almacenamiento",
+        "B": "Variación de peso de un ingrediente durante la preparación",
+        "C": "Cambio de olor de un alimento al cocinarlo",
+        "D": "Pérdida de calidad por congelación repetida sin contacto con otros productos",
+        "E": "Transferencia de contaminantes desde alimentos, utensilios o superficies hacia otros alimentos"
+      },
+      "key": "E",
+      "justification": "Transferencia de contaminantes desde alimentos, utensilios o superficies hacia otros alimentos.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-02",
+      "module": "M02",
+      "bloom": "Comprender",
+      "text": "¿Cuál es el principal propósito de verificar las condiciones de recepción?",
+      "options": {
+        "A": "Determinar el tiempo de servicio en el comedor",
+        "B": "Definir el precio final del menú",
+        "C": "Determinar si las materias primas reúnen condiciones sanitarias para ser aceptadas",
+        "D": "Registrar únicamente el volumen facturado por el proveedor",
+        "E": "Reducir el número de productos almacenados"
+      },
+      "key": "C",
+      "justification": "Determinar si las materias primas reúnen condiciones sanitarias para ser aceptadas.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-03",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "Un proveedor entrega pescado con envases dañados y sin identificación suficiente. ¿Qué procede?",
+      "options": {
+        "A": "Mezclarlo con pescado de un lote conforme",
+        "B": "Aceptar porque el pescado se cocinará posteriormente",
+        "C": "Rechazar o inmovilizar según evaluación y procedimiento, dejando registro de la incidencia",
+        "D": "Recibirlo y decidir sobre su uso al final de la jornada",
+        "E": "Cambiar el envase y eliminar toda información anterior"
+      },
+      "key": "C",
+      "justification": "Rechazar o inmovilizar según evaluación y procedimiento, dejando registro de la incidencia.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-04",
+      "module": "M02",
+      "bloom": "Recordar",
+      "text": "¿Qué información resulta esencial para rastrear una materia prima?",
+      "options": {
+        "A": "Proveedor, identificación del lote y datos de ingreso y salida según los registros aplicables",
+        "B": "Únicamente el precio de compra y la forma de pago",
+        "C": "Solo el nombre comercial del establecimiento",
+        "D": "Solamente el nombre del trabajador que lo almacenó",
+        "E": "La fotografía del plato terminado, sin registro del insumo"
+      },
+      "key": "A",
+      "justification": "Proveedor, identificación del lote y datos de ingreso y salida según los registros aplicables.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-05",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "Una preparación lista para consumo comparte estante con carne cruda sin protección adecuada. ¿Qué corrección es preferible?",
+      "options": {
+        "A": "Aumentar la ventilación del estante y dejar los productos igual",
+        "B": "Ubicar la carne sobre la preparación si está envasada parcialmente",
+        "C": "Separar y proteger los productos para evitar goteos y contacto cruzado",
+        "D": "Cubrir únicamente la preparación con un paño reutilizable",
+        "E": "Usar el mismo recipiente porque ambos serán consumidos hoy"
+      },
+      "key": "C",
+      "justification": "Separar y proteger los productos para evitar goteos y contacto cruzado.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-06",
+      "module": "M02",
+      "bloom": "Comprender",
+      "text": "¿En qué consiste PEPS en la rotación del almacén?",
+      "options": {
+        "A": "Priorizar la salida de los productos que ingresaron primero, si siguen siendo aptos",
+        "B": "Despachar únicamente los productos recibidos ese día",
+        "C": "Seleccionar primero los productos con mayor valor monetario",
+        "D": "Utilizar primero los envases de mayor tamaño",
+        "E": "Elegir los productos con etiquetas más legibles"
+      },
+      "key": "A",
+      "justification": "Priorizar la salida de los productos que ingresaron primero, si siguen siendo aptos.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M02-07",
+      "module": "M02",
+      "bloom": "Comprender",
+      "text": "¿Cuál es el sentido de utilizar PVPS cuando corresponde?",
+      "options": {
+        "A": "Seleccionar productos según su ubicación en el estante superior",
+        "B": "Priorizar productos con fecha de vencimiento más próxima, verificando su aptitud",
+        "C": "Retirar primero los alimentos con mayor temperatura",
+        "D": "Utilizar primero los alimentos con envases abiertos sin revisar vencimiento",
+        "E": "Despachar primero los productos de mayor peso"
+      },
+      "key": "B",
+      "justification": "Priorizar productos con fecha de vencimiento más próxima, verificando su aptitud.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-08",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "Un refrigerador registra una temperatura fuera del criterio previsto para los alimentos almacenados. ¿Qué acción corresponde?",
+      "options": {
+        "A": "Registrar únicamente que el equipo funciona",
+        "B": "Añadir más alimentos para estabilizar el equipo",
+        "C": "Esperar al siguiente turno y mantener el producto sin evaluación",
+        "D": "Verificar la medición, evaluar los alimentos afectados y aplicar el procedimiento correctivo documentado",
+        "E": "Modificar el valor anotado para ajustarlo al límite"
+      },
+      "key": "D",
+      "justification": "Verificar la medición, evaluar los alimentos afectados y aplicar el procedimiento correctivo documentado.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-09",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "¿Por qué el termómetro debe utilizarse de modo higiénico?",
+      "options": {
+        "A": "Porque el instrumento reemplaza la cocción",
+        "B": "Porque todos los termómetros muestran idéntica precisión sin verificación",
+        "C": "Porque una medición exime del registro sanitario",
+        "D": "Porque el termómetro esteriliza la muestra mediante contacto",
+        "E": "Porque puede transferir contaminantes entre alimentos si no se limpia y desinfecta adecuadamente"
+      },
+      "key": "E",
+      "justification": "Porque puede transferir contaminantes entre alimentos si no se limpia y desinfecta adecuadamente.",
+      "sources": [
+        "C01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M02-10",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "Una cocina usa el mismo cuchillo para pollo crudo y verduras listas para consumo. ¿Qué decisión es apropiada?",
+      "options": {
+        "A": "Continuar si el cuchillo conserva brillo",
+        "B": "Aumentar la sal de las verduras como compensación",
+        "C": "Limpiar rápidamente la hoja con una servilleta seca",
+        "D": "Enjuagar solo el mango y continuar",
+        "E": "Interrumpir la tarea y emplear un utensilio limpio y desinfectado o diferenciado"
+      },
+      "key": "E",
+      "justification": "Interrumpir la tarea y emplear un utensilio limpio y desinfectado o diferenciado.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-11",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "¿Cuál es la primera medida ante frutas y hortalizas destinadas a consumo crudo?",
+      "options": {
+        "A": "Considerar suficiente una inspección visual sin tratamiento",
+        "B": "Rociarlas con cualquier producto químico disponible",
+        "C": "Envasarlas directamente si provienen de un proveedor formal",
+        "D": "Secarlas antes de retirar tierra o impurezas",
+        "E": "Aplicar el procedimiento de selección, lavado y desinfección establecido para el producto"
+      },
+      "key": "E",
+      "justification": "Aplicar el procedimiento de selección, lavado y desinfección establecido para el producto.",
+      "sources": [
+        "P01",
+        "C03"
+      ]
+    },
+    {
+      "code": "M02-12",
+      "module": "M02",
+      "bloom": "Comprender",
+      "text": "¿Por qué la descongelación debe realizarse bajo condiciones controladas?",
+      "options": {
+        "A": "Para sustituir el control de recepción",
+        "B": "Para reducir el costo de los empaques",
+        "C": "Para limitar crecimiento microbiano y contaminación durante el proceso",
+        "D": "Para mejorar exclusivamente el color de los alimentos",
+        "E": "Para evitar que sea necesario cocinar el producto"
+      },
+      "key": "C",
+      "justification": "Para limitar crecimiento microbiano y contaminación durante el proceso.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M02-13",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "Un producto conserva buen aspecto, pero su fecha de vencimiento ya expiró. ¿Cuál es la decisión correcta?",
+      "options": {
+        "A": "Emplearlo si el proveedor lo entregó el mismo día",
+        "B": "Probar una pequeña porción para verificar su calidad",
+        "C": "Cocinarlo a mayor temperatura y servirlo sin registro",
+        "D": "Cambiar la etiqueta y utilizarlo durante ese turno",
+        "E": "No utilizarlo y aplicar el procedimiento de segregación o disposición correspondiente"
+      },
+      "key": "E",
+      "justification": "No utilizarlo y aplicar el procedimiento de segregación o disposición correspondiente.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-14",
+      "module": "M02",
+      "bloom": "Evaluar",
+      "text": "¿Qué criterio es apropiado para definir un límite de temperatura en un video de capacitación?",
+      "options": {
+        "A": "Usar la exigencia o referencia aplicable al alimento y etapa, identificando su fuente",
+        "B": "Emplear la misma temperatura para recepción, refrigeración y cocción",
+        "C": "Adoptar el valor más bajo encontrado en cualquier guía",
+        "D": "Utilizar una cifra promedio de varios documentos",
+        "E": "Elegir el valor que sea más fácil de memorizar"
+      },
+      "key": "A",
+      "justification": "Usar la exigencia o referencia aplicable al alimento y etapa, identificando su fuente.",
+      "sources": [
+        "P01",
+        "C01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M02-15",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "En la recepción, el proveedor entrega dos lotes distintos del mismo insumo. ¿Qué práctica fortalece la rastreabilidad?",
+      "options": {
+        "A": "Conservar la etiqueta del lote de mayor tamaño",
+        "B": "Descartar los comprobantes tras almacenar el producto",
+        "C": "Registrar solo el peso agregado de la compra",
+        "D": "Identificar y registrar ambos lotes sin perder su información de origen",
+        "E": "Unirlos en un solo recipiente sin conservar etiquetas"
+      },
+      "key": "D",
+      "justification": "Identificar y registrar ambos lotes sin perder su información de origen.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-16",
+      "module": "M02",
+      "bloom": "Analizar",
+      "text": "Una tabla destinada a vegetales cocidos se utiliza para limpiar pescado crudo. ¿Qué evaluación corresponde?",
+      "options": {
+        "A": "No existe riesgo porque ambos son alimentos",
+        "B": "Es correcto si el pescado tiene procedencia formal",
+        "C": "Solo requiere reorganizar la estantería",
+        "D": "El riesgo se limita a la pérdida de sabor",
+        "E": "La secuencia puede generar contaminación cruzada y exige separación o higienización adecuada"
+      },
+      "key": "E",
+      "justification": "La secuencia puede generar contaminación cruzada y exige separación o higienización adecuada.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-17",
+      "module": "M02",
+      "bloom": "Aplicar",
+      "text": "¿Qué dato debe acompañar una verificación de temperatura para permitir seguimiento?",
+      "options": {
+        "A": "Fecha, equipo o alimento identificado, valor medido y responsable según el formato",
+        "B": "El número de platos servidos durante el turno",
+        "C": "Únicamente el promedio semanal de todos los equipos",
+        "D": "Solo el modelo comercial del termómetro",
+        "E": "Solo la firma del encargado sin registrar valor"
+      },
+      "key": "A",
+      "justification": "Fecha, equipo o alimento identificado, valor medido y responsable según el formato.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M02-18",
+      "module": "M02",
+      "bloom": "Analizar",
+      "text": "¿Por qué la cocción debe verificarse con procedimientos apropiados?",
+      "options": {
+        "A": "Porque toda receta exige el mismo límite térmico",
+        "B": "Porque el aspecto exterior puede no reflejar las condiciones alcanzadas en el interior",
+        "C": "Porque una cocción prolongada neutraliza cualquier peligro químico",
+        "D": "Porque usar termómetro elimina la necesidad de higiene",
+        "E": "Porque el color del alimento siempre indica inocuidad"
+      },
+      "key": "B",
+      "justification": "Porque el aspecto exterior puede no reflejar las condiciones alcanzadas en el interior.",
+      "sources": [
+        "C01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M02-19",
+      "module": "M02",
+      "bloom": "Evaluar",
+      "text": "¿Qué respuesta es mejor si un lote recibido presenta evidencia de descongelación no prevista?",
+      "options": {
+        "A": "Separarlo, evaluar su aptitud conforme al procedimiento y documentar la decisión",
+        "B": "Utilizarlo primero solo porque ocupa espacio",
+        "C": "Volver a congelarlo de inmediato sin evaluación",
+        "D": "Mezclarlo con otros lotes para disminuir diferencias",
+        "E": "Aceptar el lote y eliminar el registro de temperatura"
+      },
+      "key": "A",
+      "justification": "Separarlo, evaluar su aptitud conforme al procedimiento y documentar la decisión.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M02-20",
+      "module": "M02",
+      "bloom": "Analizar",
+      "text": "Al evaluar un menú preparado con carne y ensalada, ¿qué conjunto de controles es más integral?",
+      "options": {
+        "A": "Revisar la fecha de compra después de servir",
+        "B": "Verificar únicamente el sabor y la presentación final",
+        "C": "Recepción conforme, separación de crudos, conservación, higiene de preparación y verificación térmica pertinente",
+        "D": "Tomar una fotografía de la cocina sin medir ni observar procesos",
+        "E": "Controlar solo el proveedor de la carne"
+      },
+      "key": "C",
+      "justification": "Recepción conforme, separación de crudos, conservación, higiene de preparación y verificación térmica pertinente.",
+      "sources": [
+        "P01",
+        "C01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M03-01",
+      "module": "M03",
+      "bloom": "Recordar",
+      "text": "¿Qué diferencia mejor limpieza y desinfección?",
+      "options": {
+        "A": "La desinfección reemplaza siempre la necesidad de retirar residuos",
+        "B": "La limpieza retira suciedad y residuos; la desinfección reduce microorganismos según el procedimiento",
+        "C": "La limpieza elimina todos los microorganismos y la desinfección solo quita grasa",
+        "D": "Son términos equivalentes para cualquier superficie",
+        "E": "La limpieza se aplica solo a pisos y la desinfección solo a mesas"
+      },
+      "key": "B",
+      "justification": "La limpieza retira suciedad y residuos; la desinfección reduce microorganismos según el procedimiento.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-02",
+      "module": "M03",
+      "bloom": "Comprender",
+      "text": "¿Qué contiene un Programa de Higiene y Saneamiento útil para el establecimiento?",
+      "options": {
+        "A": "Una declaración verbal sin seguimiento",
+        "B": "Únicamente el nombre comercial de los detergentes",
+        "C": "Un listado de trabajadores sin tareas asignadas",
+        "D": "Procedimientos escritos, responsables, frecuencias y mecanismos de verificación acordes con las operaciones",
+        "E": "Solo fotografías del establecimiento limpio"
+      },
+      "key": "D",
+      "justification": "Procedimientos escritos, responsables, frecuencias y mecanismos de verificación acordes con las operaciones.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M03-03",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Antes de desinfectar una mesa con restos de comida, ¿qué corresponde?",
+      "options": {
+        "A": "Cubrir los restos con papel para desinfectar después",
+        "B": "Retirar residuos y realizar la limpieza conforme al procedimiento antes de desinfectar",
+        "C": "Colocar utensilios limpios sobre la superficie y continuar",
+        "D": "Limpiar únicamente al finalizar la semana",
+        "E": "Aplicar más desinfectante directamente sobre los residuos"
+      },
+      "key": "B",
+      "justification": "Retirar residuos y realizar la limpieza conforme al procedimiento antes de desinfectar.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-04",
+      "module": "M03",
+      "bloom": "Evaluar",
+      "text": "Un trabajador propone duplicar la concentración de un desinfectante para que actúe más rápido. ¿Qué decisión es correcta?",
+      "options": {
+        "A": "Respetar la dosificación e instrucciones del producto y el procedimiento validado",
+        "B": "Reducir el agua sin comprobar compatibilidad",
+        "C": "Aceptar porque una concentración mayor siempre es más eficaz",
+        "D": "Mezclarlo con detergente para potenciar la acción",
+        "E": "Cambiar el tiempo de contacto por estimación personal"
+      },
+      "key": "A",
+      "justification": "Respetar la dosificación e instrucciones del producto y el procedimiento validado.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-05",
+      "module": "M03",
+      "bloom": "Analizar",
+      "text": "Una superficie está brillante después del lavado. ¿Qué conclusión es válida?",
+      "options": {
+        "A": "La ausencia de manchas demuestra esterilidad",
+        "B": "Puede omitirse toda verificación posterior",
+        "C": "El brillo confirma la ausencia de microorganismos patógenos",
+        "D": "Su aspecto no demuestra por sí solo que se haya logrado una desinfección eficaz",
+        "E": "La superficie ya es segura para cualquier alimento"
+      },
+      "key": "D",
+      "justification": "Su aspecto no demuestra por sí solo que se haya logrado una desinfección eficaz.",
+      "sources": [
+        "P05",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-06",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Se observa un envase de insecticida junto a la harina. ¿Qué medida es prioritaria?",
+      "options": {
+        "A": "Aumentar la ventilación sin reubicar productos",
+        "B": "Cambiar de lugar la harina solo al cierre del turno",
+        "C": "Cubrir el insecticida con un paño y continuar",
+        "D": "Guardar el insecticida dentro de un envase de alimento",
+        "E": "Separar y almacenar el químico en un área segura conforme al PHS y evaluar posible contaminación"
+      },
+      "key": "E",
+      "justification": "Separar y almacenar el químico en un área segura conforme al PHS y evaluar posible contaminación.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-07",
+      "module": "M03",
+      "bloom": "Recordar",
+      "text": "¿Qué situación es una señal que justifica investigar posible presencia de roedores?",
+      "options": {
+        "A": "Una puerta cerrada y protegida",
+        "B": "Un almacén con mercancía rotulada",
+        "C": "Registros completos de limpieza",
+        "D": "Excrementos y envases roídos en el almacén",
+        "E": "Un área sin restos de comida a la vista"
+      },
+      "key": "D",
+      "justification": "Excrementos y envases roídos en el almacén.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-08",
+      "module": "M03",
+      "bloom": "Comprender",
+      "text": "¿Cuál es el enfoque preventivo más adecuado contra plagas?",
+      "options": {
+        "A": "Esperar a observar numerosos insectos para intervenir",
+        "B": "Guardar residuos temporalmente al lado de alimentos",
+        "C": "Impedir ingreso, acceso a alimentos y refugio, manteniendo orden y reportando señales",
+        "D": "Aplicar insecticida diariamente sobre cualquier superficie",
+        "E": "Mantener puertas abiertas para mejorar ventilación"
+      },
+      "key": "C",
+      "justification": "Impedir ingreso, acceso a alimentos y refugio, manteniendo orden y reportando señales.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-09",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Un empleado encuentra residuos sólidos dispersos cerca de la mesa de preparación. ¿Qué debe hacer?",
+      "options": {
+        "A": "Cubrirlos con una caja hasta después del servicio",
+        "B": "Retirarlos mediante el procedimiento sanitario y verificar limpieza del área",
+        "C": "Desplazarlos con agua hacia la zona de alimentos",
+        "D": "Limpiarlos solamente si hay una inspección externa",
+        "E": "Moverlos al pasillo de circulación de ingredientes"
+      },
+      "key": "B",
+      "justification": "Retirarlos mediante el procedimiento sanitario y verificar limpieza del área.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M03-10",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "¿Qué práctica es adecuada para gestionar aceite usado de fritura?",
+      "options": {
+        "A": "Recolectarlo y disponerlo por la vía sanitaria establecida, evitando el vertido al desagüe",
+        "B": "Reutilizarlo indefinidamente mientras conserve color",
+        "C": "Mezclarlo con detergente y enviarlo al drenaje",
+        "D": "Depositarlo en recipientes abiertos del área de preparación",
+        "E": "Verterlo al lavadero con abundante agua caliente"
+      },
+      "key": "A",
+      "justification": "Recolectarlo y disponerlo por la vía sanitaria establecida, evitando el vertido al desagüe.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M03-11",
+      "module": "M03",
+      "bloom": "Comprender",
+      "text": "¿Por qué se debe controlar la calidad del agua utilizada en cocina?",
+      "options": {
+        "A": "Porque la transparencia garantiza ausencia de peligros",
+        "B": "Porque el control de agua solo interesa al proveedor",
+        "C": "Porque toda agua almacenada permanece segura sin mantenimiento",
+        "D": "Porque el agua hervida sustituye la higiene de equipos",
+        "E": "Porque el agua puede ser una fuente de contaminación de alimentos y superficies"
+      },
+      "key": "E",
+      "justification": "Porque el agua puede ser una fuente de contaminación de alimentos y superficies.",
+      "sources": [
+        "P01",
+        "P06"
+      ]
+    },
+    {
+      "code": "M03-12",
+      "module": "M03",
+      "bloom": "Analizar",
+      "text": "¿Qué práctica permite verificar el procedimiento de higiene más allá de observar brillo?",
+      "options": {
+        "A": "Aumentar el volumen de agua sin documentarlo",
+        "B": "Revisar registros y, cuando corresponda, aplicar verificación técnica apropiada",
+        "C": "Utilizar exclusivamente el olor del desinfectante",
+        "D": "Preguntar si la mesa parece limpia a simple vista",
+        "E": "Comparar el color del detergente antes y después"
+      },
+      "key": "B",
+      "justification": "Revisar registros y, cuando corresponda, aplicar verificación técnica apropiada.",
+      "sources": [
+        "P01",
+        "P05"
+      ]
+    },
+    {
+      "code": "M03-13",
+      "module": "M03",
+      "bloom": "Analizar",
+      "text": "Una superficie de trabajo presenta fisuras persistentes. ¿Cuál es la implicancia sanitaria?",
+      "options": {
+        "A": "Es aceptable mientras sea de acero y brille",
+        "B": "No constituye ningún problema si se lava al inicio",
+        "C": "Puede dificultar la limpieza completa y requiere evaluación de reparación o sustitución",
+        "D": "Solo afecta la presentación estética del área",
+        "E": "Se corrige permanentemente cubriendo la fisura con un trapo"
+      },
+      "key": "C",
+      "justification": "Puede dificultar la limpieza completa y requiere evaluación de reparación o sustitución.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-14",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "¿Qué evidencia es útil al registrar la ejecución de una limpieza programada?",
+      "options": {
+        "A": "Una fotografía sin identificar qué fue limpiado",
+        "B": "Una lista de productos sin fecha ni lugar",
+        "C": "Solo el nombre del establecimiento",
+        "D": "El total de clientes atendidos ese día",
+        "E": "Área o equipo, fecha, tarea realizada, responsable y verificación según el PHS"
+      },
+      "key": "E",
+      "justification": "Área o equipo, fecha, tarea realizada, responsable y verificación según el PHS.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-15",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Un recipiente de residuos está destapado junto a alimentos listos para servir. ¿Qué medida es adecuada?",
+      "options": {
+        "A": "Rociar perfume cerca del recipiente",
+        "B": "Colocar más bolsas abiertas junto al recipiente",
+        "C": "Retirarlo del área crítica, asegurar su tapa y verificar limpieza del entorno",
+        "D": "Trasladar el alimento a otro extremo de la misma mesa sin más acciones",
+        "E": "Mantenerlo allí y pedir que nadie lo toque"
+      },
+      "key": "C",
+      "justification": "Retirarlo del área crítica, asegurar su tapa y verificar limpieza del entorno.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M03-16",
+      "module": "M03",
+      "bloom": "Evaluar",
+      "text": "En un almacén aparecen insectos y se propone aplicar plaguicidas mientras se preparan alimentos. ¿Qué decisión corresponde?",
+      "options": {
+        "A": "Suspender solo el registro de limpieza y continuar",
+        "B": "Aplicar directamente sobre cajas de alimentos",
+        "C": "Restringir una aplicación improvisada, proteger alimentos y activar el control previsto por personal competente",
+        "D": "Aumentar la cantidad de insecticida por precaución",
+        "E": "Autorizar la aplicación por cualquier manipulador sin capacitación"
+      },
+      "key": "C",
+      "justification": "Restringir una aplicación improvisada, proteger alimentos y activar el control previsto por personal competente.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-17",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Un lavadero presenta drenaje deficiente y retorno de agua residual. ¿Qué evaluación es correcta?",
+      "options": {
+        "A": "Existe riesgo sanitario que exige reportar, controlar la exposición y corregir la instalación",
+        "B": "Se resuelve usando fragancias durante el servicio",
+        "C": "Solo influye en la velocidad de lavado, no en la inocuidad",
+        "D": "Puede ignorarse si no hay inspección ese día",
+        "E": "Es un problema exclusivamente estético"
+      },
+      "key": "A",
+      "justification": "Existe riesgo sanitario que exige reportar, controlar la exposición y corregir la instalación.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M03-18",
+      "module": "M03",
+      "bloom": "Comprender",
+      "text": "¿Cuándo conviene verificar que se completó un procedimiento de limpieza?",
+      "options": {
+        "A": "Solamente cuando un cliente presenta queja",
+        "B": "Cuando cambia la carta del restaurante",
+        "C": "Solo antes de comprar detergente",
+        "D": "Únicamente al finalizar el año",
+        "E": "Después de ejecutarlo, según los criterios y frecuencia definidos en el PHS"
+      },
+      "key": "E",
+      "justification": "Después de ejecutarlo, según los criterios y frecuencia definidos en el PHS.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-19",
+      "module": "M03",
+      "bloom": "Aplicar",
+      "text": "Un trabajador observa un recipiente de detergente trasvasado sin identificación. ¿Qué debe recomendar?",
+      "options": {
+        "A": "Eliminar su etiqueta original y conservarlo en un envase de bebida",
+        "B": "Usarlo porque el color permite reconocerlo",
+        "C": "Dejarlo junto a ingredientes para no olvidarlo",
+        "D": "Mezclarlo con otros productos para evitar desperdicio",
+        "E": "Identificarlo correctamente y almacenarlo de forma segura conforme al procedimiento"
+      },
+      "key": "E",
+      "justification": "Identificarlo correctamente y almacenarlo de forma segura conforme al procedimiento.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M03-20",
+      "module": "M03",
+      "bloom": "Evaluar",
+      "text": "¿Cuál es la mejor evaluación de un PHS que solo contiene firmas, sin observaciones ni verificación?",
+      "options": {
+        "A": "Las firmas garantizan limpieza suficiente de todas las áreas",
+        "B": "El PHS cumple aunque no existan procedimientos escritos",
+        "C": "Basta con mostrar compras recientes de productos químicos",
+        "D": "No se requiere comprobar medidas preventivas",
+        "E": "Los registros por sí solos no demuestran eficacia; deben contrastarse con ejecución y resultados"
+      },
+      "key": "E",
+      "justification": "Los registros por sí solos no demuestran eficacia; deben contrastarse con ejecución y resultados.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M04-01",
+      "module": "M04",
+      "bloom": "Comprender",
+      "text": "¿Qué principio rige el servido higiénico de preparaciones listas para consumo?",
+      "options": {
+        "A": "Mantener todas las comidas a temperatura ambiente",
+        "B": "Priorizar exclusivamente la rapidez del servicio",
+        "C": "Proteger los alimentos frente a contaminación durante su manipulación y entrega",
+        "D": "Utilizar utensilios compartidos sin higienización",
+        "E": "Evitar cualquier registro en el área de despacho"
+      },
+      "key": "C",
+      "justification": "Proteger los alimentos frente a contaminación durante su manipulación y entrega.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-02",
+      "module": "M04",
+      "bloom": "Recordar",
+      "text": "¿Qué condición debe comprobarse en vajilla y utensilios de servido?",
+      "options": {
+        "A": "Que hayan sido adquiridos en la misma fecha",
+        "B": "Que todos sean desechables independientemente del uso",
+        "C": "Que tengan el mismo color del mobiliario",
+        "D": "Que estén íntegros, limpios y en condiciones apropiadas para contacto con alimentos",
+        "E": "Que permanezcan expuestos al ambiente durante el servicio"
+      },
+      "key": "D",
+      "justification": "Que estén íntegros, limpios y en condiciones apropiadas para contacto con alimentos.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M04-03",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Un buffet de comidas calientes presenta una desviación del criterio de conservación aplicable. ¿Qué debe hacerse?",
+      "options": {
+        "A": "Cambiar el valor anotado para que el registro quede conforme",
+        "B": "Agregar condimentos para compensar el tiempo de exposición",
+        "C": "Esperar a que finalice el servicio y luego verificar",
+        "D": "Verificar la situación, proteger o evaluar el alimento afectado y aplicar la medida correctiva prevista",
+        "E": "Servir de inmediato sin informar al encargado"
+      },
+      "key": "D",
+      "justification": "Verificar la situación, proteger o evaluar el alimento afectado y aplicar la medida correctiva prevista.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-04",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "¿Qué factor debe considerarse al elegir envases para alimentos preparados?",
+      "options": {
+        "A": "Que su apariencia sea similar a la vajilla del local",
+        "B": "Que permitan colocar comidas calientes en cualquier material",
+        "C": "Que no requieran cierre cuando haya traslado",
+        "D": "Que sean los envases de menor precio sin evaluación",
+        "E": "Aptitud para contacto alimentario, integridad, protección y condiciones previstas de uso"
+      },
+      "key": "E",
+      "justification": "Aptitud para contacto alimentario, integridad, protección y condiciones previstas de uso.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-05",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Un pedido listo para despacho carece de identificación y hay varios pedidos similares. ¿Qué práctica reduce errores?",
+      "options": {
+        "A": "Enviar las raciones en un único contenedor sin separación",
+        "B": "Cambiar los envases para igualar su apariencia",
+        "C": "Verificar contenido y destino, identificando el pedido antes de entregarlo",
+        "D": "Solicitar al cliente que identifique el pedido sin etiqueta",
+        "E": "Asignar el pedido al primer repartidor disponible sin comprobar"
+      },
+      "key": "C",
+      "justification": "Verificar contenido y destino, identificando el pedido antes de entregarlo.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-06",
+      "module": "M04",
+      "bloom": "Comprender",
+      "text": "¿Cuál es el propósito del control de conservación durante el transporte?",
+      "options": {
+        "A": "Reducir solamente el número de envases utilizados",
+        "B": "Sustituir la revisión de higiene del contenedor",
+        "C": "Mantener condiciones apropiadas y detectar desviaciones que puedan comprometer los alimentos",
+        "D": "Evitar cualquier necesidad de verificar los alimentos a la entrega",
+        "E": "Aumentar la velocidad del vehículo durante el traslado"
+      },
+      "key": "C",
+      "justification": "Mantener condiciones apropiadas y detectar desviaciones que puedan comprometer los alimentos.",
+      "sources": [
+        "P07",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-07",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "¿Qué medida favorece la protección de las comidas durante el traslado?",
+      "options": {
+        "A": "Apilar envases dañados para ahorrar espacio",
+        "B": "Transportar alimentos abiertos para facilitar su ventilación",
+        "C": "Utilizar contenedores limpios, íntegros y adecuados, con separación cuando corresponda",
+        "D": "Compartir espacio con productos de limpieza sin separación",
+        "E": "Colocar alimentos directamente sobre el piso del vehículo"
+      },
+      "key": "C",
+      "justification": "Utilizar contenedores limpios, íntegros y adecuados, con separación cuando corresponda.",
+      "sources": [
+        "P01",
+        "P07",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-08",
+      "module": "M04",
+      "bloom": "Analizar",
+      "text": "Una ruta de catering sufre una demora inesperada. ¿Cuál es la respuesta más adecuada?",
+      "options": {
+        "A": "Eliminar registros para evitar discrepancias de horarios",
+        "B": "Mantener la distribución sin verificar ninguna condición",
+        "C": "Evaluar tiempo y condiciones de conservación y documentar cualquier desviación conforme al procedimiento",
+        "D": "Garantizar al cliente que las comidas siguen inocuas por estar tapadas",
+        "E": "Transferir alimentos a envases abiertos para enfriarlos"
+      },
+      "key": "C",
+      "justification": "Evaluar tiempo y condiciones de conservación y documentar cualquier desviación conforme al procedimiento.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-09",
+      "module": "M04",
+      "bloom": "Recordar",
+      "text": "¿Qué describe mejor el contacto cruzado con alérgenos?",
+      "options": {
+        "A": "Mezcla de alimentos cocidos con alimentos refrigerados sin relación alergénica",
+        "B": "Pérdida de textura de una preparación al almacenarla",
+        "C": "Cambio de temperatura en un alimento alergénico",
+        "D": "Transferencia no intencional de sustancias alergénicas entre alimentos o por utensilios y superficies",
+        "E": "Cualquier contacto físico entre dos recipientes cerrados"
+      },
+      "key": "D",
+      "justification": "Transferencia no intencional de sustancias alergénicas entre alimentos o por utensilios y superficies.",
+      "sources": [
+        "C04"
+      ]
+    },
+    {
+      "code": "M04-10",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Un cliente informa alergia al maní. ¿Cuál es la mejor actuación antes de aceptar el pedido?",
+      "options": {
+        "A": "Retirar trozos visibles de maní de un plato ya preparado",
+        "B": "Recomendar probar una porción pequeña para comprobar tolerancia",
+        "C": "Asegurar que no contiene maní únicamente porque no se ve",
+        "D": "Verificar ingredientes, posibilidad de contacto cruzado y capacidad real de preparar el pedido de forma segura",
+        "E": "Prometer ausencia de alérgenos sin revisar procesos"
+      },
+      "key": "D",
+      "justification": "Verificar ingredientes, posibilidad de contacto cruzado y capacidad real de preparar el pedido de forma segura.",
+      "sources": [
+        "P01",
+        "C04"
+      ]
+    },
+    {
+      "code": "M04-11",
+      "module": "M04",
+      "bloom": "Comprender",
+      "text": "¿Qué información ayuda a comunicar de forma confiable la presencia de alérgenos?",
+      "options": {
+        "A": "Un comentario verbal no confirmado de un compañero",
+        "B": "La apariencia final del alimento",
+        "C": "Una fotografía del menú sin revisar su composición",
+        "D": "Solo el nombre comercial del plato",
+        "E": "Ingredientes utilizados y controles de preparación verificados para el pedido"
+      },
+      "key": "E",
+      "justification": "Ingredientes utilizados y controles de preparación verificados para el pedido.",
+      "sources": [
+        "P01",
+        "C04"
+      ]
+    },
+    {
+      "code": "M04-12",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Un recipiente para salsa con maní se reutiliza para una preparación solicitada sin maní. ¿Qué se debe hacer?",
+      "options": {
+        "A": "Cambiar la tapa y mantener el contenido",
+        "B": "Enjuagar superficialmente sin revisar residuos",
+        "C": "Diluir la salsa nueva con agua para disminuir el alérgeno",
+        "D": "Evitar reutilización sin un procedimiento de limpieza y control adecuado; evaluar si puede garantizarse el pedido",
+        "E": "Retirar solo la salsa visible con una cuchara"
+      },
+      "key": "D",
+      "justification": "Evitar reutilización sin un procedimiento de limpieza y control adecuado; evaluar si puede garantizarse el pedido.",
+      "sources": [
+        "C04"
+      ]
+    },
+    {
+      "code": "M04-13",
+      "module": "M04",
+      "bloom": "Analizar",
+      "text": "¿Por qué debe comunicarse un cambio de ingrediente en una receta?",
+      "options": {
+        "A": "Porque la apariencia del plato ya no puede evaluarse",
+        "B": "Porque evita tener que revisar proveedores",
+        "C": "Porque sustituye la higiene de utensilios",
+        "D": "Porque todo cambio de ingrediente aumenta inevitablemente el precio",
+        "E": "Porque puede modificar el perfil de alérgenos y la información entregada al consumidor"
+      },
+      "key": "E",
+      "justification": "Porque puede modificar el perfil de alérgenos y la información entregada al consumidor.",
+      "sources": [
+        "P01",
+        "C04"
+      ]
+    },
+    {
+      "code": "M04-14",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Durante el servido, un utensilio cae al suelo. ¿Qué decisión corresponde?",
+      "options": {
+        "A": "Retirarlo del servicio y reemplazarlo por otro limpio o higienizarlo según el procedimiento",
+        "B": "Sumergirlo brevemente en una bebida caliente",
+        "C": "Devolverlo al recipiente si no muestra suciedad",
+        "D": "Dejarlo para uso exclusivo de alimentos cocidos",
+        "E": "Limpiarlo con el mandil y seguir usándolo"
+      },
+      "key": "A",
+      "justification": "Retirarlo del servicio y reemplazarlo por otro limpio o higienizarlo según el procedimiento.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-15",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "¿Qué verificación resulta útil antes de cerrar un envío de catering?",
+      "options": {
+        "A": "Contenido y cantidad, integridad del envase, conservación aplicable y destino",
+        "B": "Que los envases puedan abrirse durante la ruta",
+        "C": "Solo el nombre del conductor",
+        "D": "Exclusivamente que la factura esté pagada",
+        "E": "Únicamente que el recipiente sea del color correcto"
+      },
+      "key": "A",
+      "justification": "Contenido y cantidad, integridad del envase, conservación aplicable y destino.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-16",
+      "module": "M04",
+      "bloom": "Aplicar",
+      "text": "Una comida se recibe con envase roto y posible contaminación. ¿Qué respuesta es adecuada?",
+      "options": {
+        "A": "Eliminar el registro y avisar solo si hay una queja",
+        "B": "Servirla si el alimento conserva buen olor",
+        "C": "Unirla con comidas íntegras del mismo lote",
+        "D": "Servirla después de cambiar el plato",
+        "E": "Retener o rechazar según el procedimiento, evaluar la condición y documentar el hallazgo"
+      },
+      "key": "E",
+      "justification": "Retener o rechazar según el procedimiento, evaluar la condición y documentar el hallazgo.",
+      "sources": [
+        "P01",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-17",
+      "module": "M04",
+      "bloom": "Comprender",
+      "text": "Un restaurante adopta un requisito del Codex para transporte. ¿Cómo debe presentarlo en capacitación?",
+      "options": {
+        "A": "Como ley peruana por el solo hecho de figurar en Codex",
+        "B": "Como requisito exclusivo de restaurantes internacionales",
+        "C": "Como norma sin relación con la inocuidad",
+        "D": "Como una sanción municipal automática",
+        "E": "Como recomendación técnica, salvo que una disposición peruana aplicable lo haga obligatorio"
+      },
+      "key": "E",
+      "justification": "Como recomendación técnica, salvo que una disposición peruana aplicable lo haga obligatorio.",
+      "sources": [
+        "P07",
+        "C02"
+      ]
+    },
+    {
+      "code": "M04-18",
+      "module": "M04",
+      "bloom": "Analizar",
+      "text": "¿Por qué debe revisarse P08 junto con P07 al redactar controles de transporte?",
+      "options": {
+        "A": "Porque P08 eliminó todos los controles de higiene en transporte",
+        "B": "Porque P08 dispuso suspensiones temporales de numerales y debe revisarse su alcance y vigencia con normas posteriores",
+        "C": "Porque P08 convierte el Codex en norma penal",
+        "D": "Porque P08 derogó automáticamente toda norma de restaurantes",
+        "E": "Porque P08 reemplaza el control interno por inspección privada"
+      },
+      "key": "B",
+      "justification": "Porque P08 dispuso suspensiones temporales de numerales y debe revisarse su alcance y vigencia con normas posteriores.",
+      "sources": [
+        "P07",
+        "P08"
+      ]
+    },
+    {
+      "code": "M04-19",
+      "module": "M04",
+      "bloom": "Evaluar",
+      "text": "Si el personal no puede asegurar ausencia de contacto cruzado para una alergia informada, ¿qué decisión es responsable?",
+      "options": {
+        "A": "Comunicar la limitación y no garantizar una preparación libre del alérgeno",
+        "B": "Afirmar que el lavado de manos elimina cualquier riesgo",
+        "C": "Retirar el ingrediente alergénico al final del proceso",
+        "D": "Servir el plato cambiando solo la presentación",
+        "E": "Evitar consultar la composición para no demorar al cliente"
+      },
+      "key": "A",
+      "justification": "Comunicar la limitación y no garantizar una preparación libre del alérgeno.",
+      "sources": [
+        "C04",
+        "P01"
+      ]
+    },
+    {
+      "code": "M04-20",
+      "module": "M04",
+      "bloom": "Evaluar",
+      "text": "¿Qué conjunto de verificaciones es más adecuado para entregar alimentos preparados?",
+      "options": {
+        "A": "Únicamente aspecto visual del empaque",
+        "B": "Solo temperatura de un alimento no relacionado con el envío",
+        "C": "Higiene de servido, protección del envase, conservación, identificación del pedido y comunicación de alérgenos",
+        "D": "Solo número de pedidos y rapidez del vehículo",
+        "E": "Confirmación del pago y fotografía del repartidor"
+      },
+      "key": "C",
+      "justification": "Higiene de servido, protección del envase, conservación, identificación del pedido y comunicación de alérgenos.",
+      "sources": [
+        "P01",
+        "C02",
+        "C04"
+      ]
+    },
+    {
+      "code": "M05-01",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Cuál es la finalidad de una inspección interna de BPM?",
+      "options": {
+        "A": "Verificar prácticas y condiciones sanitarias para detectar desviaciones y orientar correcciones",
+        "B": "Sustituir los controles de recepción de materias primas",
+        "C": "Emitir sanciones oficiales en nombre de la municipalidad",
+        "D": "Evaluar exclusivamente el desempeño comercial del restaurante",
+        "E": "Garantizar que nunca ocurra una ETA"
+      },
+      "key": "A",
+      "justification": "Verificar prácticas y condiciones sanitarias para detectar desviaciones y orientar correcciones.",
+      "sources": [
+        "P01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-02",
+      "module": "M05",
+      "bloom": "Recordar",
+      "text": "¿Qué significa marcar «No cumple» en un checklist interno?",
+      "options": {
+        "A": "Que no se dispuso de tiempo para evaluar",
+        "B": "Que el inspector no conoce el criterio",
+        "C": "Que el criterio aplicable fue verificado y no se satisface en la condición observada",
+        "D": "Que el problema ya fue corregido",
+        "E": "Que el criterio no corresponde al establecimiento"
+      },
+      "key": "C",
+      "justification": "Que el criterio aplicable fue verificado y no se satisface en la condición observada.",
+      "sources": [
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-03",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Cuándo corresponde marcar «No aplica» en una adaptación interna de la ficha?",
+      "options": {
+        "A": "Cuando el supervisor no desea registrar una desviación",
+        "B": "Cuando el criterio no corresponde a las operaciones del establecimiento y se justifica",
+        "C": "Cuando el criterio tiene clasificación R3",
+        "D": "Cuando existe incumplimiento que podría ocasionar sanción",
+        "E": "Cuando no hay evidencia de cumplimiento"
+      },
+      "key": "B",
+      "justification": "Cuando el criterio no corresponde a las operaciones del establecimiento y se justifica.",
+      "sources": [
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-04",
+      "module": "M05",
+      "bloom": "Recordar",
+      "text": "¿Qué representa la clasificación R3 de la ficha de inspección?",
+      "options": {
+        "A": "Una falta relacionada exclusivamente con ventas",
+        "B": "Una sanción económica inmediata",
+        "C": "Un criterio clasificado como de alto riesgo de contaminación",
+        "D": "Una prueba de que ya ocurrió una ETA",
+        "E": "Un criterio que debe ignorarse en establecimientos pequeños"
+      },
+      "key": "C",
+      "justification": "Un criterio clasificado como de alto riesgo de contaminación.",
+      "sources": [
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-05",
+      "module": "M05",
+      "bloom": "Aplicar",
+      "text": "Un supervisor registra «cocina sucia» sin especificar lugar ni hallazgo. ¿Qué mejora corresponde?",
+      "options": {
+        "A": "Pedir una firma sin consignar observaciones",
+        "B": "Cambiar la frase por «incumplimiento grave» sin detalles",
+        "C": "Eliminar el registro porque ya se realizó la inspección",
+        "D": "Anotar una calificación general sin precisar el criterio",
+        "E": "Describir objetivamente el área, condición observada y evidencia disponible"
+      },
+      "key": "E",
+      "justification": "Describir objetivamente el área, condición observada y evidencia disponible.",
+      "sources": [
+        "I03",
+        "C01"
+      ]
+    },
+    {
+      "code": "M05-06",
+      "module": "M05",
+      "bloom": "Aplicar",
+      "text": "Se mide un equipo con lectura fuera del criterio previsto. ¿Qué debe registrar inicialmente el responsable?",
+      "options": {
+        "A": "Solo que el equipo fue inspeccionado",
+        "B": "La temperatura que se esperaba encontrar",
+        "C": "Un valor promedio elegido de otros equipos",
+        "D": "El volumen de alimentos preparados ese día",
+        "E": "Valor, fecha y hora, identificación del equipo y observaciones pertinentes"
+      },
+      "key": "E",
+      "justification": "Valor, fecha y hora, identificación del equipo y observaciones pertinentes.",
+      "sources": [
+        "P01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-07",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Qué relación existe entre hallazgo y acción correctiva?",
+      "options": {
+        "A": "El hallazgo documenta la desviación; la acción correctiva responde a ella y requiere comprobación",
+        "B": "El hallazgo siempre cierra automáticamente la incidencia",
+        "C": "El registro sustituye la acción correctiva",
+        "D": "Ambos términos equivalen a firmar la ficha",
+        "E": "La acción correctiva se aplica antes de conocer la desviación"
+      },
+      "key": "A",
+      "justification": "El hallazgo documenta la desviación; la acción correctiva responde a ella y requiere comprobación.",
+      "sources": [
+        "C01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-08",
+      "module": "M05",
+      "bloom": "Aplicar",
+      "text": "Se detectan residuos de alimentos en una superficie antes de preparar ensaladas. ¿Cuál es la primera decisión apropiada?",
+      "options": {
+        "A": "Continuar porque el alimento se servirá frío",
+        "B": "Poner una bandeja encima de los residuos",
+        "C": "Registrar el hallazgo y dejar la limpieza para el próximo turno",
+        "D": "Impedir su uso hasta corregir la condición y verificar la higiene según el procedimiento",
+        "E": "Cambiar la etiqueta de la mesa sin higienizar"
+      },
+      "key": "D",
+      "justification": "Impedir su uso hasta corregir la condición y verificar la higiene según el procedimiento.",
+      "sources": [
+        "P01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-09",
+      "module": "M05",
+      "bloom": "Evaluar",
+      "text": "¿Qué evidencia es más sólida para cerrar una incidencia de limpieza?",
+      "options": {
+        "A": "Firma de quien detectó el problema sin volver a inspeccionar",
+        "B": "Promesa de corregir en un futuro próximo",
+        "C": "Fotografía anterior al procedimiento",
+        "D": "Registro de la corrección ejecutada y verificación de la condición higiénica",
+        "E": "Declaración de que se compró detergente nuevo"
+      },
+      "key": "D",
+      "justification": "Registro de la corrección ejecutada y verificación de la condición higiénica.",
+      "sources": [
+        "C01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-10",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Qué diferencia una inspección interna de la vigilancia sanitaria oficial?",
+      "options": {
+        "A": "La interna apoya la gestión del establecimiento; la oficial la realiza la autoridad competente",
+        "B": "La oficial no verifica condiciones de higiene",
+        "C": "La interna reemplaza todas las inspecciones oficiales",
+        "D": "La interna puede imponer sanciones sanitarias municipales",
+        "E": "Ambas emiten certificados legales idénticos"
+      },
+      "key": "A",
+      "justification": "La interna apoya la gestión del establecimiento; la oficial la realiza la autoridad competente.",
+      "sources": [
+        "P01"
+      ]
+    },
+    {
+      "code": "M05-11",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Por qué es útil la clasificación de riesgo R1, R2 y R3 de I03?",
+      "options": {
+        "A": "Permite afirmar que todos los R1 son inocuos sin verificación",
+        "B": "Ayuda a priorizar la atención de los criterios observados según la clasificación de la ficha",
+        "C": "Sustituye las medidas inmediatas de protección del alimento",
+        "D": "Determina automáticamente el precio de la corrección",
+        "E": "Convierte cada hallazgo en un diagnóstico de ETA"
+      },
+      "key": "B",
+      "justification": "Ayuda a priorizar la atención de los criterios observados según la clasificación de la ficha.",
+      "sources": [
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-12",
+      "module": "M05",
+      "bloom": "Aplicar",
+      "text": "Un criterio exige registro de temperatura, pero el equipo no tiene medición documentada. ¿Qué respuesta es apropiada?",
+      "options": {
+        "A": "Registrar el incumplimiento aplicable y activar la medida de verificación y corrección",
+        "B": "Eliminar el criterio del checklist sin justificación",
+        "C": "Marcar no aplica porque no hay datos",
+        "D": "Marcar cumple porque el equipo está encendido",
+        "E": "Inventar el valor que corresponde a la refrigeración"
+      },
+      "key": "A",
+      "justification": "Registrar el incumplimiento aplicable y activar la medida de verificación y corrección.",
+      "sources": [
+        "P01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-13",
+      "module": "M05",
+      "bloom": "Aplicar",
+      "text": "¿Qué debe incluir el seguimiento de una acción correctiva?",
+      "options": {
+        "A": "Responsable, medida ejecutada, fecha y evidencia de verificación del resultado",
+        "B": "Solo el nombre de quien hizo la inspección",
+        "C": "La firma del gerente sin confirmar la ejecución",
+        "D": "Únicamente la intención de corregir sin fecha",
+        "E": "Una puntuación de satisfacción del cliente"
+      },
+      "key": "A",
+      "justification": "Responsable, medida ejecutada, fecha y evidencia de verificación del resultado.",
+      "sources": [
+        "C01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-14",
+      "module": "M05",
+      "bloom": "Analizar",
+      "text": "Un supervisor observa el mismo problema de residuos en tres visitas. ¿Qué análisis resulta apropiado?",
+      "options": {
+        "A": "Considerarlo resuelto porque cada visita tiene una firma",
+        "B": "Cambiar el nombre del responsable sin modificar el proceso",
+        "C": "Investigar causas de recurrencia y revisar la eficacia del PHS y sus acciones correctivas",
+        "D": "Reducir la frecuencia de supervisión para evitar hallazgos",
+        "E": "Registrar tres veces y cerrar sin indagar"
+      },
+      "key": "C",
+      "justification": "Investigar causas de recurrencia y revisar la eficacia del PHS y sus acciones correctivas.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M05-15",
+      "module": "M05",
+      "bloom": "Comprender",
+      "text": "¿Qué característica debe tener un registro para ser útil en auditoría interna?",
+      "options": {
+        "A": "Contener solo símbolos sin identificación del criterio",
+        "B": "Repetir siempre el mismo comentario predeterminado",
+        "C": "Poder modificarse sin dejar trazabilidad",
+        "D": "Ser legible, fechable, identificable y respaldar hechos observados",
+        "E": "Ser breve aunque omita los datos medidos"
+      },
+      "key": "D",
+      "justification": "Ser legible, fechable, identificable y respaldar hechos observados.",
+      "sources": [
+        "C01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-16",
+      "module": "M05",
+      "bloom": "Recordar",
+      "text": "¿Cuál es el uso principal de la guía I05 durante el pilotaje?",
+      "options": {
+        "A": "Observar el contexto, interacción con el aplicativo, prácticas y barreras de adopción",
+        "B": "Certificar microbiológicamente cada superficie",
+        "C": "Sustituir todas las inspecciones sanitarias municipales",
+        "D": "Calcular la temperatura de cocción automáticamente",
+        "E": "Determinar la inocuidad sin observar los procesos"
+      },
+      "key": "A",
+      "justification": "Observar el contexto, interacción con el aplicativo, prácticas y barreras de adopción.",
+      "sources": [
+        "I05"
+      ]
+    },
+    {
+      "code": "M05-17",
+      "module": "M05",
+      "bloom": "Evaluar",
+      "text": "El supervisor completa un checklist sin observar los procesos. ¿Cuál es la valoración correcta?",
+      "options": {
+        "A": "Es válido si el supervisor conoce bien al personal",
+        "B": "Permite declarar ausencia de riesgos sin revisión adicional",
+        "C": "Se corrige aumentando el número de casillas",
+        "D": "Es suficiente si el establecimiento tuvo buen resultado anterior",
+        "E": "El registro no representa una verificación objetiva y compromete la confiabilidad de los datos"
+      },
+      "key": "E",
+      "justification": "El registro no representa una verificación objetiva y compromete la confiabilidad de los datos.",
+      "sources": [
+        "C01",
+        "I03"
+      ]
+    },
+    {
+      "code": "M05-18",
+      "module": "M05",
+      "bloom": "Analizar",
+      "text": "Se detecta desviación en refrigeración y posible afectación del alimento. ¿Qué orden de actuación es más adecuado?",
+      "options": {
+        "A": "Modificar el registro y servir el alimento",
+        "B": "Reemplazar la evidencia por una explicación verbal",
+        "C": "Cerrar la incidencia y luego medir la temperatura",
+        "D": "Proteger o separar el alimento según evaluación, registrar, corregir y comprobar la medida",
+        "E": "Esperar la siguiente inspección sin proteger alimentos"
+      },
+      "key": "D",
+      "justification": "Proteger o separar el alimento según evaluación, registrar, corregir y comprobar la medida.",
+      "sources": [
+        "P01",
+        "C01"
+      ]
+    },
+    {
+      "code": "M05-19",
+      "module": "M05",
+      "bloom": "Analizar",
+      "text": "¿Por qué conviene diferenciar «alerta atendida» de «incidencia corregida»?",
+      "options": {
+        "A": "Porque ambas métricas deben ser idénticas",
+        "B": "Porque toda alerta es una sanción",
+        "C": "Porque las incidencias no requieren evidencias",
+        "D": "Porque visualizar o responder una alerta no demuestra que se resolvió el problema sanitario",
+        "E": "Porque basta abrir la notificación para cerrar el hallazgo"
+      },
+      "key": "D",
+      "justification": "Porque visualizar o responder una alerta no demuestra que se resolvió el problema sanitario.",
+      "sources": [
+        "C01",
+        "I05"
+      ]
+    },
+    {
+      "code": "M05-20",
+      "module": "M05",
+      "bloom": "Evaluar",
+      "text": "Al concluir un mes con muchos checklists completos pero hallazgos repetidos, ¿qué conclusión es válida?",
+      "options": {
+        "A": "Las firmas sustituyen la observación sanitaria",
+        "B": "El desempeño mejora automáticamente al aumentar sesiones",
+        "C": "La frecuencia de registros no equivale a cumplimiento y debe revisarse la eficacia de las correcciones",
+        "D": "El número de checklists demuestra inocuidad absoluta",
+        "E": "Los hallazgos repetidos confirman que el sistema no debe usarse"
+      },
+      "key": "C",
+      "justification": "La frecuencia de registros no equivale a cumplimiento y debe revisarse la eficacia de las correcciones.",
+      "sources": [
+        "C01",
+        "I03",
+        "I05"
+      ]
+    }
+  ]
+}

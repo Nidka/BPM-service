@@ -46,11 +46,12 @@ type fakeRepo struct {
 	fail     error
 	seq      int
 	plus     plusState
+	bank     bankState
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{roles: map[string]string{}, supers: map[string]bool{}, courses: map[string]*fakeCourse{}, media: map[string]domain.VideoFile{},
-		progress: map[string]domain.Progress{}, results: map[string][]domain.Result{}, plus: newPlusState()}
+		progress: map[string]domain.Progress{}, results: map[string][]domain.Result{}, plus: newPlusState(), bank: newBankState()}
 }
 
 func (f *fakeRepo) Within(_ context.Context, fn func(application.Store) error) error {
@@ -126,7 +127,14 @@ func (f *fakeRepo) CourseView(_ context.Context, org, userID, courseID string) (
 		view.Lessons = append(view.Lessons, item)
 	}
 	for _, q := range v.questions {
-		view.Questions = append(view.Questions, domain.PublicQuestion{ID: q.ID, LessonID: q.LessonID, Text: q.Text, Options: q.Options, DisplayOrder: q.DisplayOrder})
+		view.Questions = append(view.Questions, domain.PublicQuestion{ID: q.ID, LessonID: q.LessonID, Text: q.Text, Options: q.Options, DisplayOrder: q.DisplayOrder, BankVersion: q.BankVersion})
+		if q.BankVersion > 0 {
+			if view.Bank == nil {
+				view.Bank = &domain.BankInfo{ItemsPerAttempt: domain.ItemsPerEvaluation}
+			}
+			view.Bank.PoolSize++
+			view.Bank.Version = q.BankVersion
+		}
 	}
 	if userID != "" {
 		view.Progress, _ = f.Progress(context.Background(), org, userID, courseID)

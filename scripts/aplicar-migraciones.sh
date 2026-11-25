@@ -20,6 +20,7 @@ migraciones=(
   "V16__training_lesson_captions|SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='training_lessons' AND column_name='captions_vtt')"
   "V17__normative_assistant|SELECT to_regclass('normative_documents') IS NOT NULL"
   "V18__webhooks|SELECT to_regclass('webhook_endpoints') IS NOT NULL"
+  "V19__training_question_bank|SELECT to_regclass('training_evaluation_draws') IS NOT NULL"
 )
 
 echo "Servidor: $(consultar 'SHOW server_version') · LC_CTYPE=$(consultar "SELECT datctype FROM pg_database WHERE datname=current_database()")"

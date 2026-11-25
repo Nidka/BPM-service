@@ -56,12 +56,15 @@ func database(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	for _, name := range []string{"V1__baseline.sql", "V7__alerts_notifications.sql", "V8__training_academy.sql", "V11__training_assignments_paths.sql", "V15__training_lesson_progress.sql", "V16__training_lesson_captions.sql"} {
+	for _, name := range []string{"V1__baseline.sql", "V7__alerts_notifications.sql", "V8__training_academy.sql", "V11__training_assignments_paths.sql", "V15__training_lesson_progress.sql", "V16__training_lesson_captions.sql", "V19__training_question_bank.sql"} {
 		if name == "V11__training_assignments_paths.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("la Academia arranca sin V11")
 		}
 		if name == "V15__training_lesson_progress.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("la Academia arranca sin V15")
+		}
+		if name == "V19__training_question_bank.sql" && New(pool).RequireSchema(ctx) == nil {
+			t.Fatal("la Academia arranca sin V19")
 		}
 		sql, err := os.ReadFile("../../../../../migraciones/" + name)
 		if err != nil {

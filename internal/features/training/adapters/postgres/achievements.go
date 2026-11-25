@@ -113,7 +113,8 @@ func (s *store) XPTotals(ctx context.Context, org, user string) (domain.XPTotals
 	err := s.tx.QueryRow(ctx, `SELECT
  COALESCE((SELECT sum(experience_points) FROM training_progress WHERE organization_id=$1 AND user_id=$2),0),
  COALESCE((SELECT sum(experience_points) FROM training_module_results WHERE organization_id=$1 AND user_id=$2),0),
- COALESCE((SELECT sum(a.points) FROM user_achievements ua JOIN training_achievements a ON a.organization_id=ua.organization_id AND a.id=ua.achievement_id WHERE ua.organization_id=$1 AND ua.user_id=$2),0)`, org, user).Scan(&x.Course, &x.Module, &x.Achievements)
+ COALESCE((SELECT sum(a.points) FROM user_achievements ua JOIN training_achievements a ON a.organization_id=ua.organization_id AND a.id=ua.achievement_id WHERE ua.organization_id=$1 AND ua.user_id=$2),0),
+ COALESCE((SELECT sum(experience_points) FROM training_practice_results WHERE organization_id=$1 AND user_id=$2),0)`, org, user).Scan(&x.Course, &x.Module, &x.Achievements, &x.Practice)
 	return x, err
 }
 
@@ -138,7 +139,8 @@ func (s *store) ModuleXP(ctx context.Context, org, user, lessonID string) (int, 
 // LearningActivity une los intentos calificados y las lecciones completadas; UNION descarta instantes repetidos.
 func (s *store) LearningActivity(ctx context.Context, org, user string, since time.Time) ([]time.Time, error) {
 	rows, err := s.tx.Query(ctx, `SELECT completed_at FROM training_attempts WHERE organization_id=$1 AND user_id=$2 AND completed_at IS NOT NULL AND completed_at>=$3
- UNION SELECT completed_at FROM training_lesson_progress WHERE organization_id=$1 AND user_id=$2 AND completed_at>=$3`, org, user, since)
+ UNION SELECT completed_at FROM training_lesson_progress WHERE organization_id=$1 AND user_id=$2 AND completed_at>=$3
+ UNION SELECT last_answered_at FROM training_practice_results WHERE organization_id=$1 AND user_id=$2 AND last_answered_at>=$3`, org, user, since)
 	if err != nil {
 		return nil, err
 	}

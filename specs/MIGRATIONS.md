@@ -159,3 +159,13 @@ V18 is required`), y el evaluador de alertas consulta la tabla al crear cada ale
 `ON_ERROR_STOP`. Usa `DATABASE_URL` del entorno o de `.env`. `pg_dump` debe ser de la misma versión principal del
 servidor o superior. Ensayado sobre una copia con V1–V15: aplica V16–V18 y la API y el worker arrancan.
 
+
+## Banco oficial de preguntas (V19)
+
+`V19__training_question_bank.sql` es aditiva: agrega a `training_questions` los metadatos del ítem (`item_code`,
+`bank_version`, `bloom_level`, `source_refs`), a `training_attempt_answers` el ítem, su versión y el orden de alternativas
+mostrado (`item_code`, `bank_version`, `option_order`) y crea `training_evaluation_draws` (sorteo de cada evaluación) y
+`training_practice_results` (práctica y repaso espaciado). No reescribe ni borra datos; la app anterior sigue funcionando
+con ella aplicada. Aplicar antes de desplegar la API: la Academia falla al arrancar si falta (`training migration V19 is
+required`). El contenido (módulos, unidades y los 100 ítems) se instala por organización con `cmd/catalogo-bpm`
+(ver TRAINING.md, «Banco oficial de preguntas»); la migración no carga contenido.

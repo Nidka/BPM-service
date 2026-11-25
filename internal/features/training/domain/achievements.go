@@ -109,10 +109,12 @@ func (u AchievementUpdate) Normalize() (AchievementUpdate, error) {
 // XPTotals desglosa el XP acumulado por un usuario.
 type XPTotals struct {
 	Course, Module, Achievements int
+	// Practice es el XP de práctica (primer acierto de cada ítem del banco).
+	Practice int
 }
 
 // Total es el XP total visible para el usuario.
-func (x XPTotals) Total() int { return x.Course + x.Module + x.Achievements }
+func (x XPTotals) Total() int { return x.Course + x.Module + x.Achievements + x.Practice }
 
 // AttemptXP calcula el XP de curso y módulo que concede un intento: solo lo que suma
 // por encima de lo que la persona ya tenía (mejor resultado), nunca negativo. Un FINAL

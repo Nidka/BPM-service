@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/Nidka/BPM-service/internal/features/training/application"
@@ -84,7 +85,7 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 		return view, err
 	}
 	rows.Close()
-	qrows, err := s.tx.Query(ctx, `SELECT id::text,COALESCE(lesson_id::text,''),question_text,options,display_order FROM training_questions WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, view.Version.ID)
+	qrows, err := s.tx.Query(ctx, `SELECT id::text,COALESCE(lesson_id::text,''),question_text,options,display_order,COALESCE(bank_version,0) FROM training_questions WHERE organization_id=$1 AND course_version_id=$2 ORDER BY display_order`, org, view.Version.ID)
 	if err != nil {
 		return view, err
 	}
@@ -93,11 +94,20 @@ func (s *store) CourseView(ctx context.Context, org, userID, courseID string) (d
 	for qrows.Next() {
 		var q domain.PublicQuestion
 		var raw []byte
-		if err = qrows.Scan(&q.ID, &q.LessonID, &q.Text, &raw, &q.DisplayOrder); err != nil {
+		if err = qrows.Scan(&q.ID, &q.LessonID, &q.Text, &raw, &q.DisplayOrder, &q.BankVersion); err != nil {
 			return view, err
 		}
 		if q.Options, err = decodeOptions(raw); err != nil {
 			return view, err
+		}
+		if q.BankVersion > 0 {
+			if view.Bank == nil {
+				view.Bank = &domain.BankInfo{ItemsPerAttempt: domain.ItemsPerEvaluation}
+			}
+			view.Bank.PoolSize++
+			if q.BankVersion > view.Bank.Version {
+				view.Bank.Version = q.BankVersion
+			}
 		}
 		view.Questions = append(view.Questions, q)
 	}
@@ -162,15 +172,23 @@ func (s *store) LessonVideo(ctx context.Context, org, versionID, lessonID string
 	return file, err
 }
 
-const questionColumns = `id::text,COALESCE(lesson_id::text,''),question_text,options,correct_option,COALESCE(explanation,''),display_order`
+const questionColumns = `id::text,COALESCE(lesson_id::text,''),question_text,options,correct_option,COALESCE(explanation,''),display_order,COALESCE(item_code,''),COALESCE(bank_version,0),COALESCE(bloom_level,''),source_refs`
 
 func scanQuestion(row pgx.Row) (q domain.Question, err error) {
-	var raw []byte
-	if err = row.Scan(&q.ID, &q.LessonID, &q.Text, &raw, &q.CorrectOption, &q.Explanation, &q.DisplayOrder); err != nil {
+	var raw, sources []byte
+	if err = row.Scan(&q.ID, &q.LessonID, &q.Text, &raw, &q.CorrectOption, &q.Explanation, &q.DisplayOrder, &q.ItemCode, &q.BankVersion, &q.Bloom, &sources); err != nil {
 		return q, err
 	}
-	q.Options, err = decodeOptions(raw)
-	return q, err
+	if q.Options, err = decodeOptions(raw); err != nil {
+		return q, err
+	}
+	if q.Sources, err = decodeKeyPoints(sources); err != nil {
+		return q, err
+	}
+	if len(q.Sources) == 0 {
+		q.Sources = nil
+	}
+	return q, nil
 }
 
 func (s *store) Question(ctx context.Context, org, versionID, questionID string) (domain.Question, error) {
@@ -301,7 +319,17 @@ func (s *store) InsertAttempt(ctx context.Context, org string, r application.Att
 	}
 	batch := &pgx.Batch{}
 	for _, result := range results {
-		batch.Queue(`INSERT INTO training_attempt_answers(organization_id,attempt_id,question_id,selected_option,is_correct,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$6)`, org, r.ID, result.QuestionID, result.SelectedOption, result.Correct, r.UserID)
+		var order *string
+		if len(result.OptionOrder) > 0 {
+			raw, e := json.Marshal(result.OptionOrder)
+			if e != nil {
+				return e
+			}
+			text := string(raw)
+			order = &text
+		}
+		batch.Queue(`INSERT INTO training_attempt_answers(organization_id,attempt_id,question_id,selected_option,is_correct,item_code,bank_version,option_order,created_by,updated_by) VALUES($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,0),$8::jsonb,$9,$9)`,
+			org, r.ID, result.QuestionID, result.StoredSelection(), result.Correct, result.ItemCode, result.BankVersion, order, r.UserID)
 	}
 	if batch.Len() == 0 {
 		return nil
@@ -317,7 +345,8 @@ func (s *store) InsertAttempt(ctx context.Context, org string, r application.Att
 }
 
 func (s *store) AttemptResults(ctx context.Context, org, attemptID string) ([]domain.Result, error) {
-	rows, err := s.tx.Query(ctx, `SELECT a.question_id::text,a.selected_option,a.is_correct,q.correct_option,COALESCE(q.explanation,'')
+	rows, err := s.tx.Query(ctx, `SELECT a.question_id::text,a.selected_option,a.is_correct,a.option_order,q.question_text,q.options,q.correct_option,COALESCE(q.explanation,''),
+ COALESCE(a.item_code,''),COALESCE(a.bank_version,0),COALESCE(q.bloom_level,''),q.source_refs
  FROM training_attempt_answers a JOIN training_questions q ON q.organization_id=a.organization_id AND q.id=a.question_id
  WHERE a.organization_id=$1 AND a.attempt_id=$2 ORDER BY q.display_order`, org, attemptID)
 	if err != nil {
@@ -327,12 +356,49 @@ func (s *store) AttemptResults(ctx context.Context, org, attemptID string) ([]do
 	out := []domain.Result{}
 	for rows.Next() {
 		var r domain.Result
-		if err = rows.Scan(&r.QuestionID, &r.SelectedOption, &r.Correct, &r.CorrectOption, &r.Explanation); err != nil {
+		var stored int
+		var order, options, sources []byte
+		var text string
+		var correctOption int
+		if err = rows.Scan(&r.QuestionID, &stored, &r.Correct, &order, &text, &options, &correctOption, &r.Explanation, &r.ItemCode, &r.BankVersion, &r.Bloom, &sources); err != nil {
 			return nil, err
 		}
-		out = append(out, r)
+		if r.ItemCode == "" {
+			// Pregunta común: se reconstruye tal como se calificó, sin barajar.
+			r.SelectedOption, r.CorrectOption = stored, correctOption
+			out = append(out, r)
+			continue
+		}
+		q := domain.Question{ID: r.QuestionID, Text: text, CorrectOption: correctOption, Explanation: r.Explanation, ItemCode: r.ItemCode, BankVersion: r.BankVersion, Bloom: r.Bloom}
+		if q.Options, err = decodeOptions(options); err != nil {
+			return nil, err
+		}
+		if q.Sources, err = decodeKeyPoints(sources); err != nil {
+			return nil, err
+		}
+		var shown []int
+		if len(order) > 0 {
+			if err = json.Unmarshal(order, &shown); err != nil {
+				return nil, err
+			}
+		}
+		out = append(out, domain.DisplayResult(q, stored, shown))
 	}
-	return out, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// Un intento sorteado se reconstruye en el orden en que se presentaron las preguntas.
+	if draw, found, e := s.FindDraw(ctx, org, attemptID); e != nil {
+		return nil, e
+	} else if found {
+		position := make(map[string]int, len(draw.Items))
+		for i, item := range draw.Items {
+			position[item.QuestionID] = i
+		}
+		sort.SliceStable(out, func(i, j int) bool { return position[out[i].QuestionID] < position[out[j].QuestionID] })
+	}
+	return out, nil
 }
 
 func (s *store) IssueCertificate(ctx context.Context, org, user, versionID, attemptID, code string) error {

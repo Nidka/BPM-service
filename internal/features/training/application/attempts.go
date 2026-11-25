@@ -99,8 +99,26 @@ func (s *Service) SubmitAttempt(ctx context.Context, user, org, courseID string,
 				return &domain.ValidationError{Fields: map[string]string{"lessonId": "La lección no tiene preguntas para evaluar."}}
 			}
 		}
-		grade, e := domain.GradeAttempt(questions, in.Answers, version.PassingScore)
-		if e != nil {
+		var grade domain.Grade
+		if in.AttemptType != domain.AttemptModule && len(domain.BankPool(questions)) > 0 {
+			// Curso con banco oficial: se califica el sorteo que el servidor entregó (ítems y orden de alternativas).
+			draw, found, e := db.FindDraw(ctx, org, in.ID)
+			if e != nil {
+				return e
+			}
+			if !found || draw.UserID != user {
+				return domain.ErrEvaluationNotStarted
+			}
+			if draw.VersionID != version.ID {
+				return domain.ErrVersionOutdated
+			}
+			if draw.AttemptType != in.AttemptType {
+				return &domain.ValidationError{Fields: map[string]string{"attemptType": "El tipo no coincide con la evaluación iniciada."}}
+			}
+			if grade, e = domain.GradeDraw(draw, questions, in.Answers, version.PassingScore); e != nil {
+				return e
+			}
+		} else if grade, e = domain.GradeAttempt(questions, in.Answers, version.PassingScore); e != nil {
 			return e
 		}
 		current, e := db.Progress(ctx, org, user, courseID)

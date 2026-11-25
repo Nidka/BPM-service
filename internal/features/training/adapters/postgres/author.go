@@ -192,8 +192,12 @@ func (s *store) insertContent(ctx context.Context, org, user, versionID string, 
 		if err != nil {
 			return err
 		}
-		batch.Queue(`INSERT INTO training_questions(id,organization_id,course_version_id,lesson_id,question_text,options,correct_option,explanation,display_order,created_by,updated_by) VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5,$6::jsonb,$7,NULLIF($8,''),$9,$10,$10)`,
-			q.ID, org, versionID, q.LessonID, q.Text, string(options), q.CorrectOption, q.Explanation, q.DisplayOrder, user)
+		sources, err := json.Marshal(nonNilPoints(q.Sources))
+		if err != nil {
+			return err
+		}
+		batch.Queue(`INSERT INTO training_questions(id,organization_id,course_version_id,lesson_id,question_text,options,correct_option,explanation,display_order,item_code,bank_version,bloom_level,source_refs,created_by,updated_by) VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5,$6::jsonb,$7,NULLIF($8,''),$9,NULLIF($10,''),NULLIF($11,0),NULLIF($12,''),$13::jsonb,$14,$14)`,
+			q.ID, org, versionID, q.LessonID, q.Text, string(options), q.CorrectOption, q.Explanation, q.DisplayOrder, q.ItemCode, q.BankVersion, q.Bloom, string(sources), user)
 	}
 	if batch.Len() == 0 {
 		return nil

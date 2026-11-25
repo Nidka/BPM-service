@@ -76,12 +76,31 @@ func NormalizeAttempt(in AttemptInput, now time.Time) (AttemptInput, error) {
 }
 
 // Result es el resultado calificado de una pregunta.
+//
+// En preguntas del banco oficial SelectedOption y CorrectOption son posiciones tal como se mostraron
+// (Options trae las alternativas en ese orden) y OptionOrder traduce cada posición al índice original.
 type Result struct {
 	QuestionID     string
 	SelectedOption int
 	Correct        bool
 	CorrectOption  int
 	Explanation    string
+	// Datos del ítem del banco (vacíos en preguntas comunes).
+	ItemCode     string
+	Bloom        string
+	BankVersion  int
+	Sources      []string
+	QuestionText string
+	Options      []string
+	OptionOrder  []int
+}
+
+// StoredSelection es el índice original de la alternativa elegida, que es lo que se guarda.
+func (r Result) StoredSelection() int {
+	if len(r.OptionOrder) > 0 && r.SelectedOption >= 0 && r.SelectedOption < len(r.OptionOrder) {
+		return r.OptionOrder[r.SelectedOption]
+	}
+	return r.SelectedOption
 }
 
 // Grade es el resultado completo de un intento.
@@ -158,6 +177,11 @@ type StudyFeedback struct {
 	Correct       bool
 	CorrectOption int
 	Explanation   string
+	// Datos del ítem del banco y XP ganado por esta respuesta de práctica (vacíos en preguntas comunes).
+	ItemCode string
+	Bloom    string
+	Sources  []string
+	XP       int
 }
 
 // Study evalúa una opción sin calificar ni persistir. Una opción fuera de rango
@@ -166,7 +190,8 @@ func Study(q Question, selected int) (StudyFeedback, error) {
 	if selected < 0 || selected >= len(q.Options) {
 		return StudyFeedback{}, &ValidationError{Fields: map[string]string{"selectedOption": "La opción elegida está fuera de rango."}}
 	}
-	return StudyFeedback{Correct: selected == q.CorrectOption, CorrectOption: q.CorrectOption, Explanation: q.Explanation}, nil
+	return StudyFeedback{Correct: selected == q.CorrectOption, CorrectOption: q.CorrectOption, Explanation: q.Explanation,
+		ItemCode: q.ItemCode, Bloom: q.Bloom, Sources: q.Sources}, nil
 }
 
 // WithLesson registra la última lección vista sin retroceder un curso completado.

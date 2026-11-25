@@ -134,13 +134,23 @@ type Question struct {
 	CorrectOption      int
 	Explanation        string
 	DisplayOrder       int
+	// Metadatos del banco oficial (vacíos en una pregunta común de autoría).
+	ItemCode    string
+	BankVersion int
+	Bloom       string
+	Sources     []string
 }
+
+// FromBank indica si la pregunta es un ítem del banco oficial.
+func (q Question) FromBank() bool { return q.ItemCode != "" }
 
 // PublicQuestion es la pregunta para aprender: nunca contiene respuesta ni explicación.
 type PublicQuestion struct {
 	ID, LessonID, Text string
 	Options            []string
 	DisplayOrder       int
+	// BankVersion es la versión del banco oficial a la que pertenece (0 si es una pregunta común).
+	BankVersion int
 }
 
 // Progress es el avance del usuario en un curso.
@@ -183,6 +193,10 @@ type CourseView struct {
 	Questions   []PublicQuestion
 	Progress    Progress
 	Certificate *Certificate
+	// Bank describe el banco oficial cuando la versión lo usa; nil en un curso común.
+	Bank *BankInfo
+	// Review son las preguntas que toca repasar a quien consulta (vacío sin membresía o sin banco).
+	Review ReviewInfo
 }
 
 // Draft es la versión editable con respuestas y explicaciones.

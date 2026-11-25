@@ -64,3 +64,11 @@ var (
 	ErrPathConflict        = errors.New("learning path was modified by someone else")
 	ErrPathArchived        = errors.New("learning path is archived")
 )
+
+// Errores del banco oficial de preguntas.
+var (
+	// ErrEvaluationNotStarted: se envió un intento de un curso con banco sin haber iniciado la evaluación.
+	ErrEvaluationNotStarted = errors.New("training evaluation was not started")
+	// ErrNoBank: se pidió una evaluación sorteada de un curso sin ítems del banco.
+	ErrNoBank = errors.New("training course has no question bank")
+)

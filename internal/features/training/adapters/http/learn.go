@@ -74,7 +74,8 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	data(w, http.StatusOK, studyDTO{Correct: feedback.Correct, CorrectOption: feedback.CorrectOption, Explanation: feedback.Explanation})
+	data(w, http.StatusOK, studyDTO{Correct: feedback.Correct, CorrectOption: feedback.CorrectOption, Explanation: feedback.Explanation,
+		ItemCode: feedback.ItemCode, Bloom: feedback.Bloom, Sources: sources(feedback.Sources), XPEarned: feedback.XP})
 }
 
 // attempt: POST /training/courses/{courseID}/attempts

@@ -77,3 +77,7 @@ Los webhooks salientes para n8n (RF-48, `internal/features/webhooks`) requieren 
 Reportes (cumplimiento, exportación CSV, KPIs, avance de capacitación, constancias de
 cumplimiento y correo semanal del worker) y registro de uso para investigación están
 implementados localmente; leer `specs/REPORTS.md`. Requieren V10.
+
+El banco oficial de 100 preguntas BPM (ruta por unidades, práctica con repaso espaciado y evaluación sorteada de 5 ítems
+con alternativas barajadas por el servidor, V19) está en la última sección de `specs/TRAINING.md`; el contenido se
+instala por organización con `cmd/catalogo-bpm`. Requiere V19 antes de desplegar la API.

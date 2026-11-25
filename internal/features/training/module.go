@@ -43,3 +43,11 @@ func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, videos contrac
 		handler.RegisterPublic(r, publicLimiter.Middleware)
 	}
 }
+
+// InstallCatalog instala (o actualiza) los cinco módulos BPM y el banco oficial de preguntas en una
+// organización. Es la operación de plataforma que usa el comando cmd/catalogo-bpm; es idempotente y con
+// dryRun no guarda nada. by es la persona o proceso que queda en la auditoría (un usuario existente).
+func InstallCatalog(ctx context.Context, pool *pgxpool.Pool, org, by string, dryRun bool) ([]application.InstalledCourse, error) {
+	service := application.New(postgres.New(pool), nil, domain.VideoPolicy{})
+	return service.InstallBPMCatalog(ctx, org, by, dryRun)
+}

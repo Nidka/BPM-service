@@ -1,0 +1,267 @@
+{
+  "version": 1,
+  "name": "Ruta de aprendizaje BPM: 5 módulos en unidades temáticas",
+  "estimatedMinutes": 25,
+  "modules": [
+    {
+      "code": "M01",
+      "courseCode": "BPM-M01",
+      "title": "Módulo 1. Inocuidad alimentaria e higiene personal",
+      "description": "Inocuidad, peligros, lavado de manos, salud y vestimenta del manipulador. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "units": [
+        {
+          "title": "Inocuidad, peligros y riesgos",
+          "content": "Un alimento es inocuo cuando no causa daño al consumidor si se prepara y consume según su uso previsto. Para lograrlo se distinguen los peligros (biológicos, químicos y físicos) del riesgo, que considera la probabilidad y la gravedad del daño. El olor y el aspecto no bastan para saber si un alimento es seguro.",
+          "keyPoints": [
+            "Inocuo: no causa daño al consumidor si se prepara y consume según su uso previsto.",
+            "Peligro es el agente capaz de causar daño; riesgo suma probabilidad y gravedad.",
+            "Biológico (Salmonella), químico (detergente) y físico (vidrio, grapas) son los tipos de peligro.",
+            "Un alimento puede tener microorganismos peligrosos sin cambiar de olor ni de aspecto."
+          ],
+          "items": ["M01-01", "M01-02", "M01-03", "M01-10", "M01-15"]
+        },
+        {
+          "title": "Lavado de manos",
+          "content": "Las manos se contaminan al tocar recipientes, residuos y superficies durante la operación. Por eso el lavado no se hace solo al iniciar el turno: se repite en los momentos críticos, por ejemplo después de usar el servicio higiénico, de manipular basura o de tocar alimentos crudos. Se lava con agua y jabón, frotando todas las superficies de las manos, y se secan de forma higiénica.",
+          "keyPoints": [
+            "Lava con agua y jabón y seca de forma higiénica antes de volver a preparar alimentos.",
+            "Frota palmas, dedos y uñas; completa el enjuague y el secado.",
+            "La higiene del inicio del turno no reemplaza el lavado en los momentos críticos posteriores.",
+            "Lávate también después de manipular basura, aunque hayas usado pinzas."
+          ],
+          "items": ["M01-05", "M01-13", "M01-18", "M01-19"]
+        },
+        {
+          "title": "Salud y vestimenta del personal",
+          "content": "El manipulador debe comunicar síntomas como vómitos o lesiones infectadas en las manos. El responsable evalúa la situación y evita que manipule alimentos cuando exista riesgo de contaminación. La indumentaria de trabajo y la protección del cabello reducen la probabilidad de contaminar los alimentos. Revisa siempre la versión vigente de la norma: el numeral 6.3.1 de la NTS 142 fue modificado por la R. M. 811-2023.",
+          "keyPoints": [
+            "Si hay vómitos u otros síntomas, avisa: el responsable evita que manipules alimentos si hay riesgo.",
+            "Una lesión infectada en la mano requiere especial atención.",
+            "La indumentaria y la protección del cabello reducen la contaminación de los alimentos.",
+            "Antes de exigir un requisito, revisa la norma vigente y sus modificaciones."
+          ],
+          "items": ["M01-06", "M01-07", "M01-12", "M01-14", "M01-16"]
+        },
+        {
+          "title": "Hábitos y objetos personales",
+          "content": "Los objetos personales (reloj, teléfono) y los hábitos como probar con el dedo dificultan la higiene y pueden contaminar. Las uñas deben estar cortas y sin esmalte cuando se manipula alimento. Los incumplimientos se corrigen antes de continuar. Capacitar al personal puede mejorar conocimientos y prácticas, pero el cumplimiento debe verificarse en el trabajo.",
+          "keyPoints": [
+            "Retira el reloj y el teléfono del área y lávate las manos antes de retomar.",
+            "Probar una salsa con el dedo exige corrección inmediata.",
+            "Corrige el incumplimiento antes de continuar la manipulación directa.",
+            "Tras cortar pollo crudo, usa una tabla limpia y desinfectada para alimentos listos para consumo.",
+            "Capacitar ayuda, pero el cumplimiento se verifica en el trabajo."
+          ],
+          "items": ["M01-04", "M01-08", "M01-09", "M01-11", "M01-17", "M01-20"]
+        }
+      ]
+    },
+    {
+      "code": "M02",
+      "courseCode": "BPM-M02",
+      "title": "Módulo 2. Manipulación segura de alimentos",
+      "description": "Recepción, almacenamiento, contaminación cruzada y preparación segura. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "units": [
+        {
+          "title": "Recepción y trazabilidad",
+          "content": "Al recibir materias primas se verifica si reúnen condiciones sanitarias para ser aceptadas. Si el envase está dañado o falta identificación, se rechaza o se inmoviliza según el procedimiento y se registra la incidencia. Para rastrear un insumo se necesita el proveedor, el lote y los datos de ingreso y salida. Cuando llegan lotes distintos, se identifican y registran ambos.",
+          "keyPoints": [
+            "La recepción determina si la materia prima reúne condiciones sanitarias para ser aceptada.",
+            "Con envases dañados o sin identificación: rechaza o inmoviliza y registra la incidencia.",
+            "Trazabilidad: proveedor, lote, y datos de ingreso y salida.",
+            "Si llegan dos lotes, identifica y registra ambos sin perder su origen."
+          ],
+          "items": ["M02-02", "M02-03", "M02-04", "M02-15", "M02-19"]
+        },
+        {
+          "title": "Almacenamiento y rotación",
+          "content": "En el almacén se rota el producto con PEPS (primero en entrar, primero en salir) o PVPS (primero en vencer, primero en salir), verificando que siga siendo apto. Un producto vencido no se usa, aunque tenga buen aspecto: se segrega y se aplica el procedimiento de disposición. La temperatura de refrigeración se verifica y registra con fecha, equipo o alimento, valor y responsable; ante una desviación se evalúan los alimentos afectados.",
+          "keyPoints": [
+            "PEPS: sale primero lo que ingresó primero, si sigue siendo apto.",
+            "PVPS: sale primero lo que vence primero, verificando su aptitud.",
+            "Producto vencido: no se utiliza, aunque se vea bien.",
+            "Temperatura fuera de criterio: verifica la medición, evalúa los alimentos y aplica la medida correctiva."
+          ],
+          "items": ["M02-06", "M02-07", "M02-08", "M02-13", "M02-17"]
+        },
+        {
+          "title": "Contaminación cruzada",
+          "content": "La contaminación cruzada es la transferencia de contaminantes desde alimentos, utensilios o superficies hacia otros alimentos. Se previene separando y protegiendo los productos crudos de los listos para consumo, y usando utensilios y tablas limpios y desinfectados o diferenciados. Incluso el termómetro debe usarse de modo higiénico.",
+          "keyPoints": [
+            "Contaminación cruzada: transferencia de contaminantes de un alimento, utensilio o superficie a otro alimento.",
+            "Separa y protege crudos de listos para consumo para evitar goteos y contacto.",
+            "No uses el mismo cuchillo o tabla para crudo y listo para consumo sin limpiar y desinfectar.",
+            "El termómetro limpio y desinfectado evita transferir contaminantes."
+          ],
+          "items": ["M02-01", "M02-05", "M02-09", "M02-10", "M02-16"]
+        },
+        {
+          "title": "Preparación y cocción",
+          "content": "Las frutas y hortalizas para consumo crudo siguen el procedimiento de selección, lavado y desinfección. La descongelación se hace bajo condiciones controladas para limitar el crecimiento microbiano. La cocción se verifica con procedimientos apropiados, porque el aspecto exterior no refleja lo alcanzado en el interior. Los límites de temperatura se toman de la exigencia aplicable al alimento y la etapa, identificando su fuente.",
+          "keyPoints": [
+            "Frutas y hortalizas crudas: selección, lavado y desinfección según el procedimiento.",
+            "Descongela en condiciones controladas para limitar el crecimiento microbiano.",
+            "Verifica la cocción con procedimientos apropiados; el aspecto no basta.",
+            "Un menú seguro combina recepción, separación de crudos, conservación, higiene y verificación térmica."
+          ],
+          "items": ["M02-11", "M02-12", "M02-14", "M02-18", "M02-20"]
+        }
+      ]
+    },
+    {
+      "code": "M03",
+      "courseCode": "BPM-M03",
+      "title": "Módulo 3. Higiene y saneamiento del establecimiento",
+      "description": "Limpieza, desinfección, plagas, residuos, agua y equipos. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "units": [
+        {
+          "title": "Limpieza y desinfección",
+          "content": "La limpieza retira suciedad y residuos; la desinfección reduce microorganismos. Primero se limpia y después se desinfecta. Cada desinfectante se usa con la dosificación e instrucciones del producto: duplicar la concentración no es una solución. Una superficie brillante no demuestra por sí sola una desinfección eficaz, por eso el procedimiento se verifica después de ejecutarlo.",
+          "keyPoints": [
+            "Limpieza retira suciedad y residuos; desinfección reduce microorganismos.",
+            "Retira los residuos y limpia antes de desinfectar.",
+            "Respeta la dosificación del producto: más concentración no significa más seguridad.",
+            "El brillo no demuestra desinfección; verifica según los criterios y la frecuencia del PHS."
+          ],
+          "items": ["M03-01", "M03-03", "M03-04", "M03-05", "M03-18"]
+        },
+        {
+          "title": "Programa de higiene y registros",
+          "content": "El Programa de Higiene y Saneamiento (PHS) reúne procedimientos escritos, responsables, frecuencias y mecanismos de verificación. La ejecución se registra con el área o equipo, la fecha, la tarea, el responsable y la verificación. Los registros no bastan por sí solos: se contrastan con la ejecución y los resultados, y se complementan con verificación técnica cuando corresponde.",
+          "keyPoints": [
+            "El PHS tiene procedimientos escritos, responsables, frecuencias y verificación.",
+            "Registra área o equipo, fecha, tarea, responsable y verificación.",
+            "Un PHS con solo firmas, sin observaciones ni verificación, no demuestra eficacia.",
+            "Revisa registros y, si corresponde, aplica verificación técnica."
+          ],
+          "items": ["M03-02", "M03-12", "M03-14", "M03-20"]
+        },
+        {
+          "title": "Plagas y productos químicos",
+          "content": "La prevención de plagas busca impedir el ingreso, el acceso a los alimentos y el refugio, manteniendo el orden y reportando señales como excrementos o envases roídos. Una aplicación improvisada de plaguicidas durante la preparación se restringe y se activa el control previsto con personal competente. Los químicos se almacenan identificados y separados de los alimentos.",
+          "keyPoints": [
+            "Previene plagas: impide ingreso, acceso a alimentos y refugio; reporta señales.",
+            "Excrementos y envases roídos justifican investigar la presencia de roedores.",
+            "No apliques plaguicidas de forma improvisada mientras se preparan alimentos.",
+            "Guarda los químicos identificados y en un área segura, lejos de los alimentos."
+          ],
+          "items": ["M03-06", "M03-07", "M03-08", "M03-16", "M03-19"]
+        },
+        {
+          "title": "Residuos, agua e instalaciones",
+          "content": "Los residuos sólidos se retiran mediante el procedimiento sanitario y se verifica la limpieza del área; los recipientes se mantienen tapados y lejos de los alimentos listos para servir. El aceite usado de fritura se recolecta y dispone por la vía sanitaria establecida, sin verterlo al desagüe. El agua puede ser fuente de contaminación, y las superficies con fisuras o los drenajes deficientes dificultan la limpieza y exigen corrección.",
+          "keyPoints": [
+            "Retira los residuos con el procedimiento sanitario y verifica la limpieza del área.",
+            "Tapa los recipientes de residuos y aléjalos de los alimentos listos para servir.",
+            "El aceite usado se recolecta y dispone por la vía sanitaria; no va al desagüe.",
+            "Fisuras y drenaje deficiente dificultan la limpieza: reporta y corrige."
+          ],
+          "items": ["M03-09", "M03-10", "M03-11", "M03-13", "M03-15", "M03-17"]
+        }
+      ]
+    },
+    {
+      "code": "M04",
+      "courseCode": "BPM-M04",
+      "title": "Módulo 4. Servicio, transporte y distribución de alimentos",
+      "description": "Servido, transporte, catering y alérgenos. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "units": [
+        {
+          "title": "Servido higiénico",
+          "content": "El servido protege los alimentos listos para consumo frente a la contaminación durante su manipulación y entrega. La vajilla y los utensilios deben estar íntegros, limpios y en condiciones apropiadas para el contacto con alimentos. Si un utensilio cae al suelo se retira del servicio y se reemplaza por otro limpio. Ante una desviación en un buffet se verifica la situación y se aplica la medida correctiva prevista.",
+          "keyPoints": [
+            "Protege los alimentos de la contaminación al manipularlos y entregarlos.",
+            "Vajilla y utensilios: íntegros, limpios y aptos para contacto con alimentos.",
+            "Si un utensilio cae al suelo, retíralo y reemplázalo por uno limpio o higienizado.",
+            "Ante una desviación de conservación, verifica, protege el alimento y aplica la medida correctiva."
+          ],
+          "items": ["M04-01", "M04-02", "M04-03", "M04-14"]
+        },
+        {
+          "title": "Envases, transporte y catering",
+          "content": "Los envases se eligen por su aptitud para el contacto con alimentos, su integridad, su protección y las condiciones previstas de uso. Durante el traslado se usan contenedores limpios, íntegros y adecuados, con separación cuando corresponda. El control de conservación mantiene condiciones apropiadas y detecta desviaciones; ante una demora se evalúan el tiempo y las condiciones y se documenta la desviación. Antes de cerrar un envío se revisan contenido, cantidad, envase, conservación y destino.",
+          "keyPoints": [
+            "Elige envases aptos para contacto con alimentos, íntegros y protectores.",
+            "Traslada en contenedores limpios, íntegros y adecuados, con separación si corresponde.",
+            "Ante una demora, evalúa tiempo y condiciones de conservación y documenta la desviación.",
+            "Antes de cerrar un envío revisa contenido, cantidad, envase, conservación y destino."
+          ],
+          "items": ["M04-04", "M04-06", "M04-07", "M04-08", "M04-15"]
+        },
+        {
+          "title": "Alérgenos",
+          "content": "El contacto cruzado con alérgenos es la transferencia no intencional de sustancias alergénicas entre alimentos o por utensilios y superficies. Ante un cliente con alergia se verifican ingredientes, posibilidad de contacto cruzado y capacidad real de preparar el pedido de forma segura. Se informa con base en los ingredientes y los controles verificados, y se comunica todo cambio de ingrediente. Si no se puede asegurar la ausencia de contacto cruzado, se comunica la limitación y no se garantiza una preparación libre del alérgeno.",
+          "keyPoints": [
+            "Contacto cruzado con alérgenos: transferencia no intencional por alimentos, utensilios o superficies.",
+            "Con una alergia informada, verifica ingredientes, contacto cruzado y capacidad real de preparar.",
+            "Comunica los cambios de ingredientes: pueden modificar el perfil de alérgenos.",
+            "Si no puedes asegurar la ausencia de contacto cruzado, comunica la limitación; no lo garantices."
+          ],
+          "items": ["M04-09", "M04-10", "M04-11", "M04-12", "M04-13", "M04-19"]
+        },
+        {
+          "title": "Entrega y criterios normativos",
+          "content": "Un pedido se identifica y se verifica (contenido y destino) antes de entregarlo; si llega con el envase roto o con posible contaminación, se retiene o rechaza según el procedimiento, se evalúa la condición y se documenta. Las exigencias de transporte se presentan según su carácter: un requisito del Codex es una recomendación técnica salvo que una disposición peruana aplicable lo haga obligatorio, y la NTS 234 (P07) debe revisarse junto con las suspensiones temporales de la R. M. 936-2025 (P08).",
+          "keyPoints": [
+            "Identifica y verifica contenido y destino antes de entregar un pedido.",
+            "Envase roto o posible contaminación: retén o rechaza, evalúa y documenta.",
+            "Un requisito del Codex es una recomendación técnica, salvo que la norma peruana lo haga obligatorio.",
+            "Revisa la NTS 234 junto con la R. M. 936-2025, que suspendió numerales de forma temporal."
+          ],
+          "items": ["M04-05", "M04-16", "M04-17", "M04-18", "M04-20"]
+        }
+      ]
+    },
+    {
+      "code": "M05",
+      "courseCode": "BPM-M05",
+      "title": "Módulo 5. Supervisión, registros y control de BPM",
+      "description": "Inspección, checklist, hallazgos y acciones correctivas. Contenido en validación por el equipo de Ingeniería Agroindustrial (UPN).",
+      "units": [
+        {
+          "title": "Inspección interna y checklist",
+          "content": "La inspección interna de BPM verifica prácticas y condiciones sanitarias para detectar desviaciones y orientar correcciones; apoya la gestión del establecimiento, a diferencia de la vigilancia oficial, que realiza la autoridad competente. En el checklist, «No cumple» significa que el criterio aplicable fue verificado y no se satisface; «No aplica» se usa solo cuando el criterio no corresponde a las operaciones y se justifica. La clasificación de riesgo (R1, R2, R3) ayuda a priorizar; R3 es alto riesgo de contaminación.",
+          "keyPoints": [
+            "La inspección interna detecta desviaciones y orienta correcciones.",
+            "«No cumple»: el criterio se verificó y no se satisface en la condición observada.",
+            "«No aplica»: el criterio no corresponde a las operaciones y se justifica.",
+            "R1, R2 y R3 ayudan a priorizar; R3 es alto riesgo de contaminación."
+          ],
+          "items": ["M05-01", "M05-02", "M05-03", "M05-04", "M05-10", "M05-11"]
+        },
+        {
+          "title": "Hallazgos y registros",
+          "content": "Un buen hallazgo describe de forma objetiva el área, la condición observada y la evidencia disponible; «cocina sucia» no basta. Cuando una medición sale fuera del criterio se registra el valor, la fecha y la hora, la identificación del equipo y las observaciones. Un registro útil es legible, fechable, identificable y respalda hechos observados, y un checklist completado sin observar los procesos no es una verificación objetiva.",
+          "keyPoints": [
+            "Describe objetivamente el área, la condición observada y la evidencia.",
+            "Mediciones fuera de criterio: valor, fecha y hora, equipo y observaciones.",
+            "Un registro útil es legible, fechable, identificable y respalda hechos observados.",
+            "Un checklist sin observar los procesos compromete la confiabilidad de los datos."
+          ],
+          "items": ["M05-05", "M05-06", "M05-12", "M05-15", "M05-17"]
+        },
+        {
+          "title": "Acciones correctivas",
+          "content": "El hallazgo documenta la desviación y la acción correctiva responde a ella; requiere comprobación. Ante residuos de alimentos en una superficie se impide su uso hasta corregir y verificar la higiene. El seguimiento incluye responsable, medida ejecutada, fecha y evidencia de verificación. Si el mismo problema se repite se investigan las causas y se revisa la eficacia del PHS. Ante una desviación en refrigeración se protege o separa el alimento, se registra, se corrige y se comprueba la medida.",
+          "keyPoints": [
+            "El hallazgo documenta la desviación; la acción correctiva responde y se comprueba.",
+            "Impide el uso de la superficie hasta corregir y verificar la higiene.",
+            "Seguimiento: responsable, medida ejecutada, fecha y evidencia de verificación.",
+            "Si un problema se repite, investiga las causas y revisa la eficacia del PHS."
+          ],
+          "items": ["M05-07", "M05-08", "M05-09", "M05-13", "M05-14", "M05-18"]
+        },
+        {
+          "title": "Verificación y seguimiento",
+          "content": "Atender una alerta no equivale a corregir la incidencia: visualizar o responder una alerta no demuestra que se resolvió el problema sanitario. Muchos checklists completos con hallazgos repetidos indican que la frecuencia de registros no equivale a cumplimiento y que debe revisarse la eficacia de las correcciones. La guía de observación I05 sirve durante el pilotaje para observar el contexto, la interacción con el aplicativo, las prácticas y las barreras de adopción.",
+          "keyPoints": [
+            "Alerta atendida no es incidencia corregida.",
+            "Muchos registros no equivalen a cumplimiento: revisa si las correcciones funcionan.",
+            "La guía I05 observa contexto, uso del aplicativo, prácticas y barreras de adopción."
+          ],
+          "items": ["M05-16", "M05-19", "M05-20"]
+        }
+      ]
+    }
+  ]
+}

@@ -45,6 +45,8 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Put(base+"/courses/{courseID}/progress", h.saveProgress)
 		r.Post(base+"/courses/{courseID}/study/answers", h.study)
 		r.Post(base+"/courses/{courseID}/attempts", h.attempt)
+		r.Post(base+"/courses/{courseID}/evaluations", h.startEvaluation)
+		r.Get(base+"/courses/{courseID}/bank", h.bank)
 		r.Get(base+"/courses/{courseID}/draft", h.getDraft)
 		r.Put(base+"/courses/{courseID}/draft", h.putDraft)
 		r.Post(base+"/courses/{courseID}/publish", h.publish)
@@ -74,6 +76,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &incomplete):
 		response.Error(w, 422, id, response.APIError{Code: "TRAINING_DRAFT_INCOMPLETE", Message: "El borrador no está listo para publicarse.", Fields: incomplete.Fields})
 	case h.failPlus(w, id, err):
+	case errors.Is(err, domain.ErrEvaluationNotStarted):
+		conflict("TRAINING_EVALUATION_NOT_STARTED", "Primero inicia la evaluación para recibir sus preguntas.")
+	case errors.Is(err, domain.ErrNoBank):
+		response.Error(w, 422, id, response.APIError{Code: "TRAINING_NO_QUESTION_BANK", Message: "Este curso no usa el banco oficial de preguntas."})
 	case errors.Is(err, domain.ErrVideoInvalid):
 		response.Error(w, 422, id, response.APIError{Code: "TRAINING_VIDEO_INVALID", Message: "El archivo cargado no coincide con el video reservado."})
 	case errors.Is(err, domain.ErrDenied):

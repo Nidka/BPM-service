@@ -244,6 +244,10 @@ type courseViewDTO struct {
 	Questions   []learnQuestionDTO `json:"questions"`
 	Progress    progressDTO        `json:"progress"`
 	Certificate *certificateDTO    `json:"certificate"`
+	// QuestionBank describe el banco oficial de preguntas del curso; null en un curso común.
+	QuestionBank *questionBankDTO `json:"questionBank"`
+	// Review son las preguntas que toca repasar (null sin banco).
+	Review *reviewDTO `json:"review"`
 }
 
 func courseView(v domain.CourseView) courseViewDTO {
@@ -260,6 +264,10 @@ func courseView(v domain.CourseView) courseViewDTO {
 	}
 	for _, q := range v.Questions {
 		out.Questions = append(out.Questions, learnQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, DisplayOrder: q.DisplayOrder})
+	}
+	if v.Bank != nil {
+		out.QuestionBank = &questionBankDTO{Version: v.Bank.Version, ItemsPerAttempt: v.Bank.ItemsPerAttempt, PoolSize: v.Bank.PoolSize}
+		out.Review = &reviewDTO{DueCount: v.Review.DueCount, QuestionIDs: append([]string{}, v.Review.QuestionIDs...)}
 	}
 	return out
 }
@@ -278,6 +286,12 @@ type studyDTO struct {
 	Correct       bool   `json:"correct"`
 	CorrectOption int    `json:"correctOption"`
 	Explanation   string `json:"explanation"`
+	// Datos del ítem del banco oficial (se omiten en preguntas comunes). La respuesta ya se dio, por eso es seguro enviarlos.
+	ItemCode string      `json:"itemCode,omitempty"`
+	Bloom    string      `json:"bloom,omitempty"`
+	Sources  []sourceDTO `json:"sources,omitempty"`
+	// XPEarned es el XP de práctica ganado con esta respuesta (primer acierto del ítem).
+	XPEarned int `json:"xpEarned,omitempty"`
 }
 
 type attemptDTO struct {
@@ -296,6 +310,14 @@ type resultDTO struct {
 	Correct        bool   `json:"correct"`
 	CorrectOption  int    `json:"correctOption"`
 	Explanation    string `json:"explanation"`
+	// Datos del ítem del banco oficial; la evaluación ya terminó. selectedOption y correctOption son posiciones de
+	// "options", que trae las alternativas en el orden en que se mostraron.
+	ItemCode     string      `json:"itemCode,omitempty"`
+	Bloom        string      `json:"bloom,omitempty"`
+	BankVersion  int         `json:"bankVersion,omitempty"`
+	QuestionText string      `json:"questionText,omitempty"`
+	Options      []string    `json:"options,omitempty"`
+	Sources      []sourceDTO `json:"sources,omitempty"`
 }
 
 type outcomeDTO struct {
@@ -332,7 +354,8 @@ func outcome(o application.AttemptOutcome) outcomeDTO {
 	out := outcomeDTO{Attempt: attemptDTO{ID: o.ID, AttemptType: o.AttemptType, Score: o.Score, Passed: o.Passed, CompletedAt: stamp(o.CompletedAt), XPEarned: o.XPEarned},
 		Results: make([]resultDTO, 0, len(o.Results)), Progress: progress(o.Progress), Certificate: certificate(o.Certificate), Achievements: achievementList(o.Achievements), NextCourse: nextCourse(o.NextCourse)}
 	for _, r := range o.Results {
-		out.Results = append(out.Results, resultDTO{QuestionID: r.QuestionID, SelectedOption: r.SelectedOption, Correct: r.Correct, CorrectOption: r.CorrectOption, Explanation: r.Explanation})
+		out.Results = append(out.Results, resultDTO{QuestionID: r.QuestionID, SelectedOption: r.SelectedOption, Correct: r.Correct, CorrectOption: r.CorrectOption, Explanation: r.Explanation,
+			ItemCode: r.ItemCode, Bloom: r.Bloom, BankVersion: r.BankVersion, QuestionText: r.QuestionText, Options: r.Options, Sources: sources(r.Sources)})
 	}
 	return out
 }
@@ -372,6 +395,8 @@ type draftQuestionDTO struct {
 	CorrectOption int      `json:"correctOption"`
 	Explanation   string   `json:"explanation"`
 	DisplayOrder  int      `json:"displayOrder"`
+	// ItemCode identifica un ítem del banco oficial: es de solo lectura (el servidor conserva su contenido).
+	ItemCode string `json:"itemCode,omitempty"`
 }
 
 type draftDTO struct {
@@ -389,7 +414,7 @@ func draft(d domain.Draft) draftDTO {
 		out.Lessons = append(out.Lessons, draftLessonDTO{ID: l.ID, Title: l.Title, Content: l.Content, DisplayOrder: l.DisplayOrder, VideoMediaID: nullable(l.VideoMediaID), ExternalVideo: externalVideo(l.ExternalVideo), KeyPoints: keyPoints(l.KeyPoints), CaptionsVTT: captions(l.Captions)})
 	}
 	for _, q := range d.Questions {
-		out.Questions = append(out.Questions, draftQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, CorrectOption: q.CorrectOption, Explanation: q.Explanation, DisplayOrder: q.DisplayOrder})
+		out.Questions = append(out.Questions, draftQuestionDTO{ID: q.ID, LessonID: nullable(q.LessonID), QuestionText: q.Text, Options: q.Options, CorrectOption: q.CorrectOption, Explanation: q.Explanation, DisplayOrder: q.DisplayOrder, ItemCode: q.ItemCode})
 	}
 	return out
 }

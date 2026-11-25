@@ -111,6 +111,7 @@ func (s *Service) SaveDraft(ctx context.Context, user, org, courseID string, in 
 		if e = s.checkVideos(ctx, db, org, in.Lessons); e != nil {
 			return e
 		}
+		in.Questions = keepBankItems(draft.Questions, in.Questions)
 		in.Lessons = keepKeyPoints(draft.Lessons, in.Lessons)
 		in.Lessons = keepCaptions(draft.Lessons, in.Lessons)
 		if out, e = db.ReplaceDraft(ctx, org, user, draft, in); e != nil {
