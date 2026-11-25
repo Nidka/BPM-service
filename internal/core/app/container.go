@@ -9,12 +9,14 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/core/database/postgres"
 	"github.com/Nidka/BPM-service/internal/core/httpserver"
+	httpmiddleware "github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
 	firebaseauth "github.com/Nidka/BPM-service/internal/core/integrations/firebase"
 	"github.com/Nidka/BPM-service/internal/core/integrations/r2"
 	"github.com/Nidka/BPM-service/internal/features/alerts"
 	"github.com/Nidka/BPM-service/internal/features/checklists"
 	"github.com/Nidka/BPM-service/internal/features/identity"
 	"github.com/Nidka/BPM-service/internal/features/incidents"
+	"github.com/Nidka/BPM-service/internal/features/mail"
 	"github.com/Nidka/BPM-service/internal/features/media"
 	"github.com/Nidka/BPM-service/internal/features/normative"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
@@ -132,10 +134,31 @@ func NewContainer(
 		return fail(err)
 	}
 
+	// Correo transaccional propio. Sin RESEND_API_KEY (o sin Firebase Admin) las rutas responden MAIL_UNAVAILABLE y el cliente
+	// usa el envío de Firebase; el arranque nunca depende de este proveedor.
+	var mailLinks mail.LinkGeneratorPort
+	if cfg.Firebase.Enabled {
+		links, linksErr := mail.NewLinks(ctx, cfg.Firebase)
+		if linksErr != nil {
+			logger.Warn("transactional mail links unavailable; clients will use the Firebase fallback")
+		} else {
+			mailLinks = links
+		}
+	}
+	mailRoutes := mail.Routes(mail.Dependencies{
+		Authenticate: httpmiddleware.Authenticate(container.TokenVerifier, identityModule.Sessions),
+		Links:        mailLinks,
+		Mailer:       mail.NewMailer(cfg.Email),
+		AppURL:       cfg.Email.AppPublicURL,
+		TrustProxy:   cfg.HTTP.TrustProxyHeaders,
+		Logger:       logger,
+	})
+
 	router := httpserver.NewRouter(cfg, logger, httpserver.Dependencies{
 		Database: container.Database,
 		APIRoutes: []httpserver.APIRouteRegistrar{
 			identityModule.RegisterRoutes,
+			mailRoutes,
 			alerts.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			notifications.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			organizations.RoutesWithSeeder(container.Database, container.TokenVerifier, logger, cfg.Email.InvitationAcceptURL, cfg.Email.ResendAPIKey != "" && cfg.Email.From != "", training.NewOrganizationSeeder(container.Database), identityModule.Sessions),

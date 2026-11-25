@@ -10,6 +10,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/outbox"
 	"github.com/Nidka/BPM-service/internal/features/alerts"
 	alertpg "github.com/Nidka/BPM-service/internal/features/alerts/adapters/postgres"
+	"github.com/Nidka/BPM-service/internal/features/mail"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/notifications/adapters/fcm"
 	notificationpg "github.com/Nidka/BPM-service/internal/features/notifications/adapters/postgres"
@@ -71,9 +72,13 @@ func RunWorker(ctx context.Context) error {
 	evaluator := alerts.New(pool, logger)
 	var invitationSender organizationapp.MailSender
 	if providers["EMAIL"] != nil {
-		invitationSender = invitationMail{providers["EMAIL"]}
+		// Mismo remitente, reply-to y plantilla de marca que el correo transaccional de la API.
+		invitationSender = mail.NewInvitationSender(cfg.Email)
 	}
-	invitationMailer := organizations.InvitationMailer(pool, invitationSender, cfg.Email.From, cfg.Email.InvitationAcceptURL)
+	invitationMailer := organizations.InvitationMailer(pool, invitationSender, cfg.Email.From, cfg.Email.InvitationAcceptURL).
+		WithTemplate(func(c organizationapp.InvitationContent) (string, string, string) {
+			return mail.RenderInvitation(cfg.Email.AppPublicURL, c.Email, c.OrganizationName, c.Link, c.ExpiresAt)
+		})
 	runner := outbox.NewRunner(outbox.NewPostgres(pool), map[string]outbox.Handler{
 		"operations.receipt.recorded.v1": func(ctx context.Context, v outbox.Event) error {
 			return evaluator.EvaluateReceipt(ctx, v.OrganizationID, v.AggregateID, time.Now().UTC())
@@ -120,13 +125,6 @@ func RunWorker(ctx context.Context) error {
 			tick()
 		}
 	}
-}
-
-// invitationMail adapta el proveedor de correo de notificaciones al puerto de invitaciones.
-type invitationMail struct{ provider application.Provider }
-
-func (m invitationMail) Send(ctx context.Context, key, from, to, subject, text string) (string, error) {
-	return m.provider.Send(ctx, key, notificationdomain.Message{From: from, To: to, Subject: subject, Text: text})
 }
 
 // weeklyReportMailer adapta el proveedor de correo de notificaciones al puerto del reporte semanal.

@@ -336,7 +336,7 @@ Seguridad: token de 256 bits aleatorios; solo se guarda su SHA-256. El token sin
 únicamente en el evento de outbox `organizations.invitation.requested.v1` (misma transacción
 que la invitación) y se borra del payload al enviarse, reenviarse, revocarse o aceptarse.
 **Sin proveedor de correo** (sin `RESEND_API_KEY`/`RESEND_FROM_EMAIL`, caso actual en producción) crear y reenviar funcionan igual: la API no encola el evento de outbox (así el token no queda guardado sin enviarse) y el enlace se comparte con `acceptUrl`/`token`. Con proveedor, además se encola el correo.
-El worker (`bpm-worker`) envía el correo por Resend (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) con
+El worker (`bpm-worker`) envía el correo por Resend (`RESEND_API_KEY`, `MAIL_FROM` —`RESEND_FROM_EMAIL` sigue como alias—, `MAIL_REPLY_TO`, `APP_PUBLIC_URL`; plantilla HTML de marca en `specs/MAIL.md`) con
 clave de idempotencia `bpm-invitation/<dedupKey>`, descarta eventos sustituidos y difiere
 mientras no haya proveedor. Variable opcional `INVITATION_ACCEPT_URL` (página del cliente
 que recibe `?token=`); sin ella el correo incluye el token tal cual. Los eventos de outbox

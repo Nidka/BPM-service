@@ -148,12 +148,16 @@ MEDIA_ALLOWED_MIME_TYPES=image/jpeg,image/png,image/webp,application/pdf
 TRAINING_VIDEO_MAX_BYTES=314572800
 
 RESEND_API_KEY=
-RESEND_FROM_EMAIL=
+MAIL_FROM=BPM <noreply@appbpm.com>
+MAIL_REPLY_TO=
+APP_PUBLIC_URL=https://appbpm.com
 SENTRY_DSN=
 ```
 
 Reglas:
 
+- Correo propio (`specs/MAIL.md`): `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_REPLY_TO` y `APP_PUBLIC_URL` deben existir tanto en la API
+  como en el worker; sin clave la API sigue funcionando y el cliente usa el envío de Firebase.
 - No crear `PORT`: Railway lo inyecta automáticamente.
 - No crear `APP_VERSION`: la API usa `RAILWAY_GIT_COMMIT_SHA` como versión.
 - Sustituir todos los valores `REAL` y `SECRETO` antes de desplegar.

@@ -107,9 +107,20 @@ type R2Config struct {
 	TrainingVideoMaxBytes int64
 }
 
+// DefaultMailFrom es el remitente de los correos transaccionales cuando no se configura MAIL_FROM.
+const DefaultMailFrom = "BPM <noreply@appbpm.com>"
+
+// DefaultAppPublicURL es el origen público de la app web que atiende /auth/accion.
+const DefaultAppPublicURL = "https://appbpm.com"
+
 type EmailConfig struct {
 	ResendAPIKey string
-	From         string
+	// From es el remitente (MAIL_FROM; RESEND_FROM_EMAIL se acepta como alias heredado). Nunca queda vacío.
+	From string
+	// ReplyTo es la dirección de respuesta opcional (MAIL_REPLY_TO).
+	ReplyTo string
+	// AppPublicURL es el origen público de la app (APP_PUBLIC_URL) con el que se construyen los enlaces de los correos.
+	AppPublicURL string
 	// InvitationAcceptURL es la página del cliente que recibe ?token= (opcional). Con ella la API devuelve acceptUrl al crear/reenviar.
 	InvitationAcceptURL string
 }
@@ -256,7 +267,9 @@ func loadFrom(getenv func(string) string) (Config, error) {
 		},
 		Email: EmailConfig{
 			ResendAPIKey:        strings.TrimSpace(getenv("RESEND_API_KEY")),
-			From:                strings.TrimSpace(getenv("RESEND_FROM_EMAIL")),
+			From:                firstNonEmpty(strings.TrimSpace(getenv("MAIL_FROM")), strings.TrimSpace(getenv("RESEND_FROM_EMAIL")), DefaultMailFrom),
+			ReplyTo:             strings.TrimSpace(getenv("MAIL_REPLY_TO")),
+			AppPublicURL:        strings.TrimRight(firstNonEmpty(strings.TrimSpace(getenv("APP_PUBLIC_URL")), DefaultAppPublicURL), "/"),
 			InvitationAcceptURL: strings.TrimSpace(getenv("INVITATION_ACCEPT_URL")),
 		},
 		Observability: ObservabilityConfig{
@@ -281,13 +294,17 @@ func (c Config) Validate() error {
 	if c.Worker.FCMEnabled && !c.Firebase.Enabled {
 		errs = append(errs, errors.New("FCM_ENABLED requires FIREBASE_ENABLED"))
 	}
-	if c.Email.ResendAPIKey != "" && c.Email.From == "" {
-		errs = append(errs, errors.New("RESEND_FROM_EMAIL is required for Resend"))
+	if _, e := mail.ParseAddress(c.Email.From); e != nil || strings.ContainsAny(c.Email.From, "\r\n") {
+		errs = append(errs, errors.New("MAIL_FROM is invalid"))
 	}
-	if c.Email.From != "" {
-		if _, e := mail.ParseAddress(c.Email.From); e != nil || strings.ContainsAny(c.Email.From, "\r\n") {
-			errs = append(errs, errors.New("RESEND_FROM_EMAIL is invalid"))
+	if c.Email.ReplyTo != "" {
+		if _, e := mail.ParseAddress(c.Email.ReplyTo); e != nil || strings.ContainsAny(c.Email.ReplyTo, "\r\n") {
+			errs = append(errs, errors.New("MAIL_REPLY_TO is invalid"))
 		}
+	}
+	if u, e := url.Parse(c.Email.AppPublicURL); e != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" ||
+		u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		errs = append(errs, errors.New("APP_PUBLIC_URL must be an http(s) origin without path, credentials or query"))
 	}
 	if c.Email.InvitationAcceptURL != "" {
 		if u, e := url.Parse(c.Email.InvitationAcceptURL); e != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
@@ -397,4 +414,13 @@ func splitCSV(value string) []string {
 		}
 	}
 	return result
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }

@@ -80,3 +80,32 @@ func TestAccountInputValidationNeverAccessesDatabase(t *testing.T) {
 		}
 	}
 }
+
+type htmlMail struct {
+	fakeMail
+	subject, html string
+}
+
+func (f *htmlMail) SendHTML(_ context.Context, _, _, to, subject, text, html string) (string, error) {
+	f.calls++
+	f.to, f.text, f.subject, f.html = to, text, subject, html
+	return "id", nil
+}
+
+func TestInvitationMailerUsesHTMLTemplateWhenAvailable(t *testing.T) {
+	store, mail := &fakeOutbox{current: true}, &htmlMail{}
+	tpl := func(c InvitationContent) (string, string, string) {
+		return "Asunto " + c.OrganizationName, "texto " + c.Link, "<p>" + c.Link + "</p>"
+	}
+	if e := NewInvitationMailer(store, mail, "x", "https://app.example.com/aceptar").WithTemplate(tpl).Handle(context.Background(), event()); e != nil {
+		t.Fatal(e)
+	}
+	if mail.to != "a@example.com" || mail.subject != "Asunto Uno" || !strings.Contains(mail.html, "https://app.example.com/aceptar?token=tok") || store.scrubs != 1 {
+		t.Fatal("no se usó la plantilla HTML", mail)
+	}
+	// Sin URL de aceptación no hay enlace que mostrar: se conserva el texto plano heredado.
+	store, mail = &fakeOutbox{current: true}, &htmlMail{}
+	if e := NewInvitationMailer(store, mail, "x", "").WithTemplate(tpl).Handle(context.Background(), event()); e != nil || mail.html != "" || mail.fakeMail.calls != 1 {
+		t.Fatal("sin URL debe usar texto", e, mail)
+	}
+}

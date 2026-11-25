@@ -110,6 +110,115 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/auth/email/verification:
+    post:
+      tags: [Identidad]
+      summary: Enviar el correo de verificación de BPM a la cuenta autenticada
+      description: >-
+        Envía, desde BPM (Resend), el correo «Confirma tu correo» en español con un enlace a
+        https://appbpm.com/auth/accion?mode=verifyEmail&oobCode=…&lang=es. El destinatario sale siempre del ID token Firebase
+        (no se acepta cuerpo ni correo del cliente). Si el correo ya está verificado responde 202 ALREADY_VERIFIED sin enviar.
+        Límite: 5 solicitudes por IP (ráfaga) y 3 por cuenta cada 10 minutos (429 RATE_LIMITED).
+        **Respaldo:** 503 MAIL_UNAVAILABLE significa que no se pudo enviar (sin RESEND_API_KEY, Resend o Firebase Admin no
+        disponibles); el cliente debe usar el envío de Firebase (accounts:sendOobCode). Nunca se registran enlaces, códigos,
+        cuerpos ni direcciones.
+      operationId: sendVerificationEmail
+      security:
+        - FirebaseBearer: []
+      responses:
+        "202":
+          description: Correo enviado (SENT) o ya verificado (ALREADY_VERIFIED).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status: { type: string, enum: [SENT, ALREADY_VERIFIED] }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          description: VALIDATION_ERROR; la cuenta no tiene correo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: RATE_LIMITED (con Retry-After).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: MAIL_UNAVAILABLE (usar el envío de Firebase) o AUTHENTICATION_UNAVAILABLE.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/auth/email/password-reset:
+    post:
+      tags: [Identidad]
+      summary: Enviar el correo para crear una nueva contraseña
+      description: >-
+        Ruta pública. Responde 202 ACCEPTED exista o no una cuenta con ese correo (no revela qué correos están registrados);
+        solo envía si la cuenta existe. El correo «Crea tu nueva contraseña» enlaza a
+        https://appbpm.com/auth/accion?mode=resetPassword&oobCode=…&lang=es. Límite: 5 solicitudes por IP (ráfaga) y 3 por
+        correo cada 15 minutos (429 RATE_LIMITED). **Respaldo:** 503 MAIL_UNAVAILABLE indica que el cliente debe usar
+        accounts:sendOobCode de Firebase. Durante una caída de Resend, 503 solo aparece para correos con cuenta; es la única
+        diferencia observable.
+      operationId: sendPasswordResetEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        "202":
+          description: Solicitud aceptada; si la cuenta existe recibirá el correo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status: { type: string, enum: [ACCEPTED] }
+        "400":
+          description: INVALID_REQUEST (JSON estricto, campos desconocidos o cuerpo demasiado grande).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: VALIDATION_ERROR con fields.email (formato inválido).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: RATE_LIMITED (con Retry-After).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: MAIL_UNAVAILABLE; usar el envío de Firebase.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/auth/logout:
     post:
       tags: [Identidad]

@@ -148,3 +148,34 @@ func TestTrainingVideoMaxBytesBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestMailConfigurationDefaultsAndValidation(t *testing.T) {
+	values := map[string]string{"DATABASE_URL": "postgres://test:test@localhost/bpm_test"}
+	load := func() (Config, error) { return loadFrom(func(k string) string { return values[k] }) }
+	cfg, err := load()
+	if err != nil || cfg.Email.From != "BPM <noreply@appbpm.com>" || cfg.Email.AppPublicURL != "https://appbpm.com" || cfg.Email.ReplyTo != "" || cfg.Email.ResendAPIKey != "" {
+		t.Fatal("valores por defecto del correo", cfg.Email, err)
+	}
+	values["MAIL_FROM"], values["MAIL_REPLY_TO"], values["APP_PUBLIC_URL"], values["RESEND_API_KEY"] = "BPM <hola@example.com>", "ayuda@example.com", "https://app.example.com/", "re_x"
+	if cfg, err = load(); err != nil || cfg.Email.From != "BPM <hola@example.com>" || cfg.Email.ReplyTo != "ayuda@example.com" || cfg.Email.AppPublicURL != "https://app.example.com" {
+		t.Fatal(cfg.Email, err)
+	}
+	// RESEND_FROM_EMAIL se conserva como alias heredado.
+	delete(values, "MAIL_FROM")
+	values["RESEND_FROM_EMAIL"] = "BPM <legacy@example.com>"
+	if cfg, err = load(); err != nil || cfg.Email.From != "BPM <legacy@example.com>" {
+		t.Fatal(cfg.Email, err)
+	}
+	for _, bad := range []struct{ k, v string }{{"MAIL_FROM", "no-es-correo"}, {"MAIL_REPLY_TO", "x\ny@z.pe"}, {"APP_PUBLIC_URL", "ftp://appbpm.com"}, {"APP_PUBLIC_URL", "https://appbpm.com/ruta"}, {"APP_PUBLIC_URL", "https://u:p@appbpm.com"}} {
+		old := values[bad.k]
+		values[bad.k] = bad.v
+		if _, err = load(); err == nil {
+			t.Fatal("aceptó", bad)
+		}
+		if old == "" {
+			delete(values, bad.k)
+		} else {
+			values[bad.k] = old
+		}
+	}
+}

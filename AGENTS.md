@@ -15,7 +15,8 @@ Antes de modificar código, leer en este orden:
 11. `specs/OPENAPI.md`
 12. `specs/MIGRATIONS.md`
 13. `specs/SECURITY.md`
-14. `.env.example`
+14. `specs/MAIL.md`
+15. `.env.example`
 
 Reglas obligatorias:
 
@@ -81,3 +82,6 @@ implementados localmente; leer `specs/REPORTS.md`. Requieren V10.
 El banco oficial de 100 preguntas BPM (ruta por unidades, práctica con repaso espaciado y evaluación sorteada de 5 ítems
 con alternativas barajadas por el servidor, V19) está en la última sección de `specs/TRAINING.md`; el contenido se
 instala por organización con `cmd/catalogo-bpm`. Requiere V19 antes de desplegar la API.
+
+Correo transaccional propio (verificar correo, nueva contraseña, invitaciones) por Resend con respaldo a Firebase: leer
+`specs/MAIL.md` (`internal/features/mail`; rutas `/auth/email/*`; variables `MAIL_FROM`, `MAIL_REPLY_TO`, `APP_PUBLIC_URL`).

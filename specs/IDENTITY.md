@@ -152,3 +152,7 @@ internal/features/identity/
 4. Registro de dispositivos FCM.
 5. Autorización reutilizable por rol, tenant y local.
 
+
+## Correo propio
+
+Los correos de verificación de correo y de nueva contraseña los envía BPM por Resend (`POST /auth/email/verification` y `POST /auth/email/password-reset`), con respaldo al envío de Firebase en el cliente. Ver `specs/MAIL.md`.
