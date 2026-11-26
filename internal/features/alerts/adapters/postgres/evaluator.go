@@ -15,6 +15,8 @@ type candidate struct {
 	location                 *string
 	episode                  string
 	snapshot                 map[string]any
+	// title y message son el texto específico del aviso; vacíos usan el texto genérico del tipo.
+	title, message string
 }
 
 // EvaluationRules limita la selección a cien reglas, sin mantener bloqueos durante otra regla.
@@ -87,7 +89,10 @@ func emit(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, c candidate
 	snapshot["pushEnabled"] = v.PushEnabled
 	raw, _ := json.Marshal(snapshot)
 	dedup := fmt.Sprintf("rule:%s:%d:%s:%s:%s", v.ID, v.RowVersion, c.source, c.episode, c.user)
-	title, message := content(v.Type)
+	title, message := c.title, c.message
+	if title == "" || message == "" {
+		title, message = domain.GenericText(v.Type)
+	}
 	var id string
 	e := tx.QueryRow(ctx, `INSERT INTO alerts(organization_id,location_id,recipient_user_id,alert_type,title,message,source_type,source_id,rule_id,rule_version,dedup_key,context_snapshot,created_at)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(organization_id,dedup_key)DO NOTHING RETURNING id::text`, org, c.location, c.user, v.Type, title, message, c.sourceType, c.source, v.ID, v.RowVersion, dedup, raw, now).Scan(&id)
 	if e == pgx.ErrNoRows {
@@ -124,33 +129,24 @@ func enqueueWebhook(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, c
 	return outbox.Enqueue(ctx, tx, outbox.Event{OrganizationID: org, Type: WebhookAlertEvent, AggregateType: "alert", AggregateID: alertID,
 		DedupKey: fmt.Sprintf("webhook:%s:%d:%s:%s", v.ID, v.RowVersion, c.source, c.episode), Payload: payload, CreatedAt: now, ExpiresAt: now.Add(23 * time.Hour)})
 }
-func content(kind string) (string, string) {
-	switch kind {
-	case "TEMPERATURE_DANGER":
-		return "Temperatura dentro del intervalo de alerta", "Revisa la medición y el criterio configurado de la recepción."
-	case "CHECKLIST_MISSING":
-		return "Control diario pendiente", "Revisa el control diario pendiente de la sede."
-	case "ORGANIZATION_INACTIVE":
-		return "Empresa sin actividad reciente", "Revisa la actividad operativa de la empresa."
-	default:
-		return "Capacitación asignada", "Revisa la capacitación que tienes asignada."
-	}
-}
 func (r *store) temperature(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, receipt string, now time.Time) error {
 	var cfg struct {
 		Min float64 `json:"minimumTemperatureCelsius"`
 		Max float64 `json:"maximumTemperatureCelsius"`
 	}
 	json.Unmarshal(v.Configuration, &cfg)
-	rows, e := tx.Query(ctx, `SELECT i.id::text,r.location_id::text,i.temperature_celsius::text FROM supply_receipt_items i JOIN supply_receipts r ON r.organization_id=i.organization_id AND r.id=i.receipt_id JOIN locations l ON l.organization_id=r.organization_id AND l.id=r.location_id AND l.status='ACTIVE' WHERE i.organization_id=$1 AND r.id=$2 AND ($3::uuid IS NULL OR r.location_id=$3) AND i.temperature_celsius BETWEEN $4 AND $5 ORDER BY i.id FOR SHARE OF i,r,l`, org, receipt, v.LocationID, cfg.Min, cfg.Max)
+	rows, e := tx.Query(ctx, `SELECT i.id::text,r.location_id::text,i.temperature_celsius::text,l.name,l.timezone,r.received_at,COALESCE(pr.name,''),COALESCE(pr.category,'') FROM supply_receipt_items i JOIN supply_receipts r ON r.organization_id=i.organization_id AND r.id=i.receipt_id JOIN locations l ON l.organization_id=r.organization_id AND l.id=r.location_id AND l.status='ACTIVE' LEFT JOIN products pr ON pr.organization_id=i.organization_id AND pr.id=i.product_id WHERE i.organization_id=$1 AND r.id=$2 AND ($3::uuid IS NULL OR r.location_id=$3) AND i.temperature_celsius BETWEEN $4 AND $5 ORDER BY i.id FOR SHARE OF i,r,l`, org, receipt, v.LocationID, cfg.Min, cfg.Max)
 	if e != nil {
 		return e
 	}
-	type item struct{ id, site, temp string }
+	type item struct {
+		id, site, temp, siteName, zone, product, category string
+		receivedAt                                        time.Time
+	}
 	items := []item{}
 	for rows.Next() {
 		var i item
-		if e = rows.Scan(&i.id, &i.site, &i.temp); e != nil {
+		if e = rows.Scan(&i.id, &i.site, &i.temp, &i.siteName, &i.zone, &i.receivedAt, &i.product, &i.category); e != nil {
 			rows.Close()
 			return e
 		}
@@ -166,8 +162,9 @@ func (r *store) temperature(ctx context.Context, tx pgx.Tx, org string, v domain
 		if e != nil {
 			return e
 		}
+		title, message := domain.BuildText(domain.TextFacts{Type: v.Type, Site: i.siteName, Subject: i.product, Category: i.category, Temperature: i.temp, At: &i.receivedAt, Zone: i.zone})
 		for _, u := range users {
-			if e = emit(ctx, tx, org, v, candidate{source: i.id, sourceType: "RECEIPT_ITEM", user: u, location: &i.site, snapshot: map[string]any{"temperatureCelsius": i.temp}}, now); e != nil {
+			if e = emit(ctx, tx, org, v, candidate{source: i.id, sourceType: "RECEIPT_ITEM", user: u, location: &i.site, title: title, message: message, snapshot: map[string]any{"temperatureCelsius": i.temp}}, now); e != nil {
 				return e
 			}
 		}
@@ -179,18 +176,18 @@ func (r *store) checklists(ctx context.Context, tx pgx.Tx, org string, v domain.
 		After string `json:"afterLocalTime"`
 	}
 	json.Unmarshal(v.Configuration, &cfg)
-	rows, e := tx.Query(ctx, `SELECT a.id::text,a.location_id::text,l.timezone,a.created_at FROM checklist_assignments a JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id AND l.status='ACTIVE' JOIN checklist_templates t ON t.organization_id=a.organization_id AND t.id=a.template_id AND t.status='ACTIVE' WHERE a.organization_id=$1 AND a.active AND a.frequency='DAILY' AND ($2::uuid IS NULL OR a.location_id=$2) AND EXISTS(SELECT 1 FROM checklist_template_versions v WHERE v.organization_id=a.organization_id AND v.template_id=a.template_id AND v.status='PUBLISHED') ORDER BY a.id FOR SHARE OF a,l,t`, org, v.LocationID)
+	rows, e := tx.Query(ctx, `SELECT a.id::text,a.location_id::text,l.timezone,a.created_at,l.name,t.name FROM checklist_assignments a JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id AND l.status='ACTIVE' JOIN checklist_templates t ON t.organization_id=a.organization_id AND t.id=a.template_id AND t.status='ACTIVE' WHERE a.organization_id=$1 AND a.active AND a.frequency='DAILY' AND ($2::uuid IS NULL OR a.location_id=$2) AND EXISTS(SELECT 1 FROM checklist_template_versions v WHERE v.organization_id=a.organization_id AND v.template_id=a.template_id AND v.status='PUBLISHED') ORDER BY a.id FOR SHARE OF a,l,t`, org, v.LocationID)
 	if e != nil {
 		return e
 	}
 	type assignment struct {
-		id, site, zone string
-		created        time.Time
+		id, site, zone, siteName, template string
+		created                            time.Time
 	}
 	items := []assignment{}
 	for rows.Next() {
 		var i assignment
-		if e = rows.Scan(&i.id, &i.site, &i.zone, &i.created); e != nil {
+		if e = rows.Scan(&i.id, &i.site, &i.zone, &i.created, &i.siteName, &i.template); e != nil {
 			rows.Close()
 			return e
 		}
@@ -222,8 +219,9 @@ func (r *store) checklists(ctx context.Context, tx pgx.Tx, org string, v domain.
 		if e != nil {
 			return e
 		}
+		title, message := domain.BuildText(domain.TextFacts{Type: v.Type, Site: i.siteName, Subject: i.template, AfterLocalTime: cfg.After})
 		for _, u := range users {
-			if e = emit(ctx, tx, org, v, candidate{source: i.id, sourceType: "CHECKLIST_ASSIGNMENT", user: u, location: &i.site, episode: start.UTC().Format(time.RFC3339), snapshot: map[string]any{"periodStart": start.UTC(), "periodEnd": end.UTC()}}, now); e != nil {
+			if e = emit(ctx, tx, org, v, candidate{source: i.id, sourceType: "CHECKLIST_ASSIGNMENT", user: u, location: &i.site, title: title, message: message, episode: start.UTC().Format(time.RFC3339), snapshot: map[string]any{"periodStart": start.UTC(), "periodEnd": end.UTC()}}, now); e != nil {
 				return e
 			}
 		}
@@ -255,18 +253,21 @@ func (r *store) inactivity(ctx context.Context, tx pgx.Tx, org string, v domain.
 	return nil
 }
 func (r *store) training(ctx context.Context, tx pgx.Tx, org string, v domain.Rule, now time.Time) error {
-	rows, e := tx.Query(ctx, `SELECT x.id::text,x.location_id::text,u.id FROM training_assignments x JOIN training_courses c ON c.organization_id=x.organization_id AND c.id=x.course_id AND c.status='PUBLISHED' JOIN organization_memberships m ON m.organization_id=x.organization_id AND m.status='ACTIVE' AND m.role IN ('CHEF','WORKER') JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE' LEFT JOIN locations l ON l.organization_id=x.organization_id AND l.id=x.location_id WHERE x.organization_id=$1 AND x.status='ACTIVE' AND x.created_at>=$2 AND x.created_at<=$4 AND ($3::uuid IS NULL OR x.location_id=$3) AND (x.location_id IS NULL OR l.status='ACTIVE') AND (x.target_user_id IS NULL OR x.target_user_id=u.id) AND (x.target_role IS NULL OR x.target_role=m.role) AND (x.location_id IS NULL OR EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=x.organization_id AND ml.user_id=u.id AND ml.location_id=x.location_id)) ORDER BY x.id,u.id FOR SHARE OF x,c,u,m`, org, v.CreatedAt, v.LocationID, now)
+	rows, e := tx.Query(ctx, `SELECT x.id::text,x.location_id::text,u.id,c.title,x.due_at,COALESCE(l.timezone,'') FROM training_assignments x JOIN training_courses c ON c.organization_id=x.organization_id AND c.id=x.course_id AND c.status='PUBLISHED' JOIN organization_memberships m ON m.organization_id=x.organization_id AND m.status='ACTIVE' AND m.role IN ('CHEF','WORKER') JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE' LEFT JOIN locations l ON l.organization_id=x.organization_id AND l.id=x.location_id WHERE x.organization_id=$1 AND x.status='ACTIVE' AND x.created_at>=$2 AND x.created_at<=$4 AND ($3::uuid IS NULL OR x.location_id=$3) AND (x.location_id IS NULL OR l.status='ACTIVE') AND (x.target_user_id IS NULL OR x.target_user_id=u.id) AND (x.target_role IS NULL OR x.target_role=m.role) AND (x.location_id IS NULL OR EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=x.organization_id AND ml.user_id=u.id AND ml.location_id=x.location_id)) ORDER BY x.id,u.id FOR SHARE OF x,c,u,m`, org, v.CreatedAt, v.LocationID, now)
 	if e != nil {
 		return e
 	}
 	items := []candidate{}
 	for rows.Next() {
 		var c candidate
+		var course, zone string
+		var due *time.Time
 		c.sourceType = "TRAINING_ASSIGNMENT"
-		if e = rows.Scan(&c.source, &c.location, &c.user); e != nil {
+		if e = rows.Scan(&c.source, &c.location, &c.user, &course, &due, &zone); e != nil {
 			rows.Close()
 			return e
 		}
+		c.title, c.message = domain.BuildText(domain.TextFacts{Type: v.Type, Subject: course, DueAt: due, Zone: zone})
 		items = append(items, c)
 	}
 	e = rows.Err()

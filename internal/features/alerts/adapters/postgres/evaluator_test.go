@@ -28,8 +28,8 @@ func TestReceiptDangerBoundarySnapshotDedupAndRevocation(t *testing.T) {
 	s := application.New(r)
 	v := rule(t, ctx, p, 1, "TEMPERATURE_DANGER", `{"minimumTemperatureCelsius":4,"maximumTemperatureCelsius":60}`, nil)
 	exec(t, ctx, p, `INSERT INTO suppliers(id,organization_id,name)VALUES($1,$2,'Proveedor')`, uid(10), org)
-	exec(t, ctx, p, `INSERT INTO products(id,organization_id,name,unit)VALUES($1,$2,'Producto','KG')`, uid(11), org)
-	exec(t, ctx, p, `INSERT INTO supply_receipts(id,organization_id,location_id,supplier_id,received_by,received_at,client_operation_id,client_created_at)VALUES($1,$2,$3,$4,'worker',NOW(),$5,NOW())`, uid(12), org, site, uid(10), uid(13))
+	exec(t, ctx, p, `INSERT INTO products(id,organization_id,name,unit,category)VALUES($1,$2,'Pollo','KG','Carnes')`, uid(11), org)
+	exec(t, ctx, p, `INSERT INTO supply_receipts(id,organization_id,location_id,supplier_id,received_by,received_at,client_operation_id,client_created_at)VALUES($1,$2,$3,$4,'worker','2026-11-10T15:35:00Z',$5,NOW())`, uid(12), org, site, uid(10), uid(13))
 	for i, temp := range []any{4, 60, 3.99, 60.01, nil} {
 		exec(t, ctx, p, `INSERT INTO supply_receipt_items(id,organization_id,receipt_id,product_id,quantity,temperature_celsius,decision)VALUES($1,$2,$3,$4,1,$5,'ACCEPTED')`, uid(20+i), org, uid(12), uid(11), temp)
 	}
@@ -60,6 +60,14 @@ func TestReceiptDangerBoundarySnapshotDedupAndRevocation(t *testing.T) {
 	count, e = s.Count(ctx, "worker", org)
 	if e != nil || count != 0 {
 		t.Fatal(count, e)
+	}
+	// El aviso nuevo lleva texto específico (sede, producto, categoría, valor y hora local de la sede).
+	var title, message string
+	if e = p.QueryRow(ctx, `SELECT title,message FROM alerts WHERE source_id=$1 AND recipient_user_id='chef'`, uid(20)).Scan(&title, &message); e != nil {
+		t.Fatal(e)
+	}
+	if title != "Temperatura fuera de rango · Principal" || message != "Pollo (Carnes): 4 °C · 10:35" {
+		t.Fatalf("texto de temperatura: %q / %q", title, message)
 	}
 	var alerts, outbox int
 	p.QueryRow(ctx, `SELECT count(*) FROM alerts`).Scan(&alerts)
@@ -131,6 +139,13 @@ func TestScheduledChecklistDSTDraftAndCompletion(t *testing.T) {
 	if e = p.QueryRow(ctx, `SELECT alert_recipient_authorized($1,$2,'admin')`, org, adminPage.Items[0].ID).Scan(&adminOK); e != nil || !adminOK {
 		t.Fatal("aviso del ADMIN no autorizado", adminOK, e)
 	}
+	var title, message string
+	if e = p.QueryRow(ctx, `SELECT title,message FROM alerts LIMIT 1`).Scan(&title, &message); e != nil {
+		t.Fatal(e)
+	}
+	if title != "Control pendiente: Control · Principal" || message != "Aún no se registra el control de hoy. Hora configurada: 12:00." {
+		t.Fatalf("texto de control pendiente: %q / %q", title, message)
+	}
 	var start, end time.Time
 	if e = p.QueryRow(ctx, `SELECT(context_snapshot->>'periodStart')::timestamptz,(context_snapshot->>'periodEnd')::timestamptz FROM alerts`).Scan(&start, &end); e != nil || end.Sub(start) != 25*time.Hour {
 		t.Fatal(start, end, e)
@@ -164,6 +179,13 @@ func TestTrainingConjunctiveTargetsAndServerActivityEpisode(t *testing.T) {
 		if e != nil || n != 1 {
 			t.Fatal(user, n, e)
 		}
+	}
+	var trainingTitle, trainingMessage string
+	if e := p.QueryRow(ctx, `SELECT title,message FROM alerts WHERE source_id=$1 AND recipient_user_id='chef'`, uid(12)).Scan(&trainingTitle, &trainingMessage); e != nil {
+		t.Fatal(e)
+	}
+	if trainingTitle != "Capacitación asignada: Curso" || trainingMessage != "Complétala en la Academia." {
+		t.Fatalf("texto de capacitación sin vencimiento: %q / %q", trainingTitle, trainingMessage)
 	}
 	exec(t, ctx, p, `UPDATE training_assignments SET status='COMPLETED' WHERE id=$1`, uid(12))
 	page, e := s.Inbox(ctx, "chef", org, "ALL", pagination.Request{})
