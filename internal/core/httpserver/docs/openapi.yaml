@@ -2989,12 +2989,29 @@ paths:
       tags: [Reportes]
       operationId: exportChecklistHistoryCsv
       summary: Exportar el historial de checklists en CSV (RF-17)
-      description: ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. Streaming UTF-8 sin datos de personas; los textos que inician con =, +, -, @, tabulador o retorno de carro se prefijan con comilla simple. Máximo 50000 filas (422 EXPORT_TOO_LARGE).
+      description: "ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. Streaming UTF-8 (con marca BOM) sin datos de personas. Encabezado en español, en este orden: ID de ejecución, Fecha local, Enviado el, ID de sede, Sede, Control, Área, Versión de la plantilla, Cumplimiento (%). Fechas dd/MM/aaaa y horas dd/MM/aaaa HH:mm (24 h) en la hora local de la sede. Los textos que inician con =, +, -, @, tabulador o retorno de carro se prefijan con comilla simple. Máximo 50000 filas (422 EXPORT_TOO_LARGE)."
       security: [{FirebaseBearer: []}]
       responses:
         "200":
           description: Archivo CSV adjunto (Cache-Control no-store).
           content: {text/csv: {schema: {type: string}}}
+        default: {$ref: "#/components/responses/ReportsError"}
+  /api/v1/organizations/{organizationID}/reports/compliance/export.pdf:
+    parameters:
+    - $ref: "#/components/parameters/OrganizationID"
+    - {in: query, name: from, required: true, schema: {type: string, format: date}}
+    - {in: query, name: to, required: true, description: "Máximo 366 días.", schema: {type: string, format: date}}
+    - {in: query, name: locationId, schema: {type: string, format: uuid}}
+    get:
+      tags: [Reportes]
+      operationId: exportChecklistHistoryPdf
+      summary: Exportar el historial de checklists en PDF
+      description: "Mismo contenido, autorización (ADMIN, CHEF solo sus sedes y SUPER_ADMIN), período y alcance que el CSV, como documento A4 en español: resumen del período (controles, cumplimiento promedio, cumplimiento por sede) y tabla de controles con horas locales de la sede. Sin datos de personas. Se genera completo antes de responder (Content-Length). Máximo 5000 controles (422 EXPORT_TOO_LARGE; usar el CSV para períodos mayores). Se audita como CHECKLIST_HISTORY_EXPORTED_PDF."
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200":
+          description: Archivo PDF adjunto, checklists_<from>_<to>.pdf (Cache-Control no-store).
+          content: {application/pdf: {schema: {type: string, format: binary}}}
         default: {$ref: "#/components/responses/ReportsError"}
   /api/v1/organizations/{organizationID}/reports/summary:
     parameters:

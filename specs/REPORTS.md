@@ -39,21 +39,56 @@ Roles: ADMIN, CHEF, SUPER_ADMIN. 200:
 `days` es la serie de la empresa; `locations[].days` la de cada sede. Errores: 403, 404
 `REPORT_LOCATION_NOT_FOUND` (sede inexistente, ajena o fuera del alcance del CHEF), 422.
 
-## 2. Exportación CSV del historial (RF-17)
+## 2. Exportación CSV y PDF del historial (RF-17)
+
+### 2.1 CSV
 
 `GET /organizations/{organizationID}/reports/compliance/export.csv?from&to[&locationId]`
 Roles: ADMIN, CHEF (solo sus sedes), SUPER_ADMIN. Respuesta en streaming
 `200 text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="checklists_<from>_<to>.csv"`,
-`Cache-Control: no-store`. UTF-8, separador coma, comillas dobles según `encoding/csv`. Primera fila de
-encabezado con las columnas:
-`runId,localDate,submittedAtUtc,locationId,locationName,templateName,area,templateVersion,compliancePercent`.
-Solo ejecuciones `SUBMITTED`, ordenadas por `submittedAt`. **No** incluye personas (ni nombres ni
-correos). Los textos que empiezan por `=`, `+`, `-`, `@`, tabulador o retorno de carro se prefijan
+`Cache-Control: no-store`. UTF-8 **con marca BOM** (`EF BB BF`, para que Excel muestre las tildes; los
+clientes pueden ignorarla), separador coma, comillas dobles según `encoding/csv`. Primera fila de
+encabezado en español, siempre en este orden (el orden de columnas no cambió):
+
+| # | Encabezado | Contenido |
+|---:|---|---|
+| 1 | `ID de ejecución` | UUID de la ejecución |
+| 2 | `Fecha local` | `dd/MM/aaaa`, día local de la sede |
+| 3 | `Enviado el` | `dd/MM/aaaa HH:mm` (24 h) en la hora local de la sede (`locations.timezone`; `America/Lima` si falta) |
+| 4 | `ID de sede` | UUID de la sede |
+| 5 | `Sede` | nombre de la sede |
+| 6 | `Control` | nombre de la plantilla |
+| 7 | `Área` | área de la plantilla |
+| 8 | `Versión de la plantilla` | entero |
+| 9 | `Cumplimiento (%)` | número con 2 decimales y punto (`86.50`) |
+
+Cabecera literal: `ID de ejecución,Fecha local,Enviado el,ID de sede,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)`.
+(Antes: `runId,localDate,submittedAtUtc,locationId,locationName,templateName,area,templateVersion,compliancePercent`,
+con fechas ISO y horas UTC.) Solo ejecuciones `SUBMITTED`, ordenadas por `submittedAt`. **No** incluye personas
+(ni nombres ni correos). Los textos que empiezan por `=`, `+`, `-`, `@`, tabulador o retorno de carro se prefijan
 con una comilla simple para evitar inyección de fórmulas. Límite: 50 000 filas; si el período las
 supera responde `422 EXPORT_TOO_LARGE` (antes de enviar nada) y el cliente debe acortar el período o
 filtrar por sede. Los errores previos al primer byte usan el JSON uniforme; si el flujo se corta
 después, el archivo queda truncado (el cliente debe validar que la descarga terminó). Cada
 exportación se audita (`CHECKLIST_HISTORY_EXPORTED`).
+
+### 2.2 PDF
+
+`GET /organizations/{organizationID}/reports/compliance/export.pdf?from&to[&locationId]`
+Mismos roles, parámetros, período (máx. 366 días), alcance de sedes y errores que el CSV (403, 404
+`REPORT_LOCATION_NOT_FOUND`, 400/422 de validación, todos con el JSON uniforme). Respuesta
+`200 application/pdf`, `Content-Disposition: attachment; filename="checklists_<from>_<to>.pdf"`,
+`Content-Length`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`. El PDF se arma completo en
+memoria antes del primer byte (no es streaming), por eso su límite es menor: **5 000 controles**
+(`422 EXPORT_TOO_LARGE` con mensaje propio; para períodos mayores usar el CSV). Documento A4 en español,
+generado por el servidor con un escritor PDF mínimo propio (`adapters/pdf`, Helvetica estándar, sin
+dependencias): encabezado con empresa, período, sede (o «Todas las sedes») y fecha de generación en hora de
+Lima; tres indicadores (controles finalizados, cumplimiento promedio, sedes con controles); tabla
+«Cumplimiento por sede» (si hay más de una; hasta 12 filas) y tabla «Detalle de controles» con las columnas
+Enviado el, Sede, Control, Área, Versión y Cumplimiento (%), con el encabezado repetido en cada página y pie
+«Página i de n». Las horas son locales de la sede (`dd/MM/aaaa HH:mm`). Un período sin controles produce un PDF
+válido con el aviso «No hay controles finalizados en este período.». Sin personas. Se audita como
+`CHECKLIST_HISTORY_EXPORTED_PDF`.
 
 ## 3. Reporte de cumplimiento por empresa y período (RF-28)
 
@@ -205,5 +240,5 @@ no hay.
 | 404 | `TRAINING_COURSE_NOT_FOUND` | Curso no publicado de la empresa |
 | 404 | `CERTIFICATE_NOT_FOUND` | Código desconocido o mal formado |
 | 409 | `IDEMPOTENCY_CONFLICT`, `USAGE_SESSION_CONFLICT` | Uso: UUID reutilizado, sesión ajena |
-| 422 | `REPORT_NO_DATA`, `REPORT_THRESHOLD_NOT_MET`, `EXPORT_TOO_LARGE` | Constancia o exportación |
+| 422 | `REPORT_NO_DATA`, `REPORT_THRESHOLD_NOT_MET`, `EXPORT_TOO_LARGE` | Constancia o exportación (CSV > 50 000 filas, PDF > 5 000) |
 | 400 | `INVALID_REQUEST`, `INVALID_PAGINATION` | Estructura, parámetros o cursor inválidos |

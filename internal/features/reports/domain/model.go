@@ -16,10 +16,12 @@ const (
 	MaxExportDays      = 366
 	MaxCertificateDays = 366
 	MaxExportRows      = 50000
-	DefaultThreshold   = 80.0
-	MinThreshold       = 1.0
-	MaxThreshold       = 100.0
-	DateLayout         = "2006-01-02"
+	// MaxPDFExportRows limita el PDF (se arma en memoria y es un documento para leer, no para procesar).
+	MaxPDFExportRows = 5000
+	DefaultThreshold = 80.0
+	MinThreshold     = 1.0
+	MaxThreshold     = 100.0
+	DateLayout       = "2006-01-02"
 )
 
 // Errores comparables que los adaptadores HTTP traducen a códigos estables.
@@ -30,6 +32,7 @@ var (
 	ErrCertificateNotFound = errors.New("constancia no disponible")
 	ErrNoData              = errors.New("sin ejecuciones en el período")
 	ErrExportTooLarge      = errors.New("exportación demasiado grande")
+	ErrPDFTooLarge         = errors.New("exportación PDF demasiado grande")
 )
 
 // ThresholdError indica que el cumplimiento promedio no alcanza el umbral.

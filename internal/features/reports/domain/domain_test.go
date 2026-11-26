@@ -99,3 +99,33 @@ func TestCorreoSemanalSinDatosPersonales(t *testing.T) {
 		t.Fatal(body)
 	}
 }
+
+func TestRecordUsaHoraLocalYFormatoEspanol(t *testing.T) {
+	at := time.Date(2026, 1, 2, 3, 5, 0, 0, time.UTC)
+	r := ExportRow{RunID: "r", LocalDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), SubmittedAt: at, Zone: "America/Lima", TemplateVersion: 3, CompliancePercent: 100}
+	rec := r.Record()
+	if rec[1] != "01/01/2026" || rec[2] != "01/01/2026 22:05" || rec[7] != "3" || rec[8] != "100.00" {
+		t.Fatalf("formato: %v", rec)
+	}
+	r.Zone = "No/Existe"
+	if got := r.SubmittedLocal(); got != "01/01/2026 22:05" {
+		t.Fatalf("una zona inválida debe usar America/Lima: %s", got)
+	}
+	r.Zone = "Asia/Tokyo"
+	if got := r.SubmittedLocal(); got != "02/01/2026 12:05" {
+		t.Fatalf("zona de la sede: %s", got)
+	}
+}
+
+func TestStatsDelDocumento(t *testing.T) {
+	d := ExportDocument{Rows: []ExportRow{
+		{LocationName: "B", CompliancePercent: 100}, {LocationName: "A", CompliancePercent: 80}, {LocationName: "A", CompliancePercent: 90},
+	}}
+	s := d.Stats()
+	if s.Runs != 3 || s.Average == nil || *s.Average != 90 || len(s.Sites) != 2 || s.Sites[0].Name != "A" || s.Sites[0].Average != 85 || s.Sites[0].Runs != 2 {
+		t.Fatalf("%+v", s)
+	}
+	if empty := (ExportDocument{}).Stats(); empty.Average != nil || empty.Runs != 0 || len(empty.Sites) != 0 {
+		t.Fatalf("vacío: %+v", empty)
+	}
+}

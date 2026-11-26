@@ -195,6 +195,24 @@ func TestCumplimientoZonaHorariaTenantYRoles(t *testing.T) {
 	if rec := sink.rows[0].Record(); !strings.HasPrefix(rec[4], "'=") || len(rec) != len(domain.ExportHeader) {
 		t.Fatalf("sin escape: %v", rec)
 	}
+	if sink.rows[0].Zone == "" {
+		t.Fatal("la fila exportada debe traer la zona horaria de la sede")
+	}
+	// Exportación PDF: mismas filas y alcance, auditada con su propia acción.
+	doc, err := svc.ExportRunsDocument(ctx, "chef", orgA, in)
+	if err != nil || len(doc.Rows) != 2 || doc.OrganizationName == "" || doc.GeneratedAt.IsZero() {
+		t.Fatalf("pdf: %v %+v", err, doc)
+	}
+	var audited int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action='CHECKLIST_HISTORY_EXPORTED_PDF' AND actor_user_id='chef'`).Scan(&audited); err != nil || audited != 1 {
+		t.Fatalf("auditoría del PDF: %d %v", audited, err)
+	}
+	if _, err = svc.ExportRunsDocument(ctx, "worker", orgA, in); !errors.Is(err, domain.ErrDenied) {
+		t.Fatalf("worker no exporta PDF: %v", err)
+	}
+	if _, err = svc.WithExportLimit(2).ExportRunsDocument(ctx, "admin", orgA, in); !errors.Is(err, domain.ErrPDFTooLarge) {
+		t.Fatalf("límite de filas del PDF: %v", err)
+	}
 	denied := &collector{}
 	if err = svc.ExportRuns(ctx, "worker", orgA, in, denied); !errors.Is(err, domain.ErrDenied) || denied.begun {
 		t.Fatal("worker no exporta")

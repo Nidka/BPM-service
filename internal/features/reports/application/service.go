@@ -251,26 +251,8 @@ type ExportSink interface {
 // ExportRuns es el RF-17: exporta el historial de ejecuciones finalizadas en streaming.
 func (s *Service) ExportRuns(ctx context.Context, user, org string, in PeriodInput, sink ExportSink) error {
 	return s.work.Within(ctx, func(db Store) error {
-		a, err := s.authorize(ctx, db, user, org, canReport)
+		scope, _, err := s.prepareExport(ctx, db, user, org, in, s.exportMax, domain.ErrExportTooLarge, "CHECKLIST_HISTORY_EXPORTED")
 		if err != nil {
-			return err
-		}
-		scope, err := scopeFor(a, org, in, domain.MaxExportDays)
-		if err != nil {
-			return err
-		}
-		if _, err = requireLocation(ctx, db, scope); err != nil {
-			return err
-		}
-		n, err := db.CountExportRows(ctx, scope, s.exportMax)
-		if err != nil {
-			return err
-		}
-		if n > s.exportMax {
-			return domain.ErrExportTooLarge
-		}
-		entity := scope.Period.From.Format(domain.DateLayout) + ".." + scope.Period.To.Format(domain.DateLayout)
-		if err = db.Audit(ctx, org, user, "CHECKLIST_HISTORY_EXPORTED", "CHECKLIST_RUN", entity); err != nil {
 			return err
 		}
 		if err = sink.Begin(); err != nil {
@@ -278,6 +260,67 @@ func (s *Service) ExportRuns(ctx context.Context, user, org string, in PeriodInp
 		}
 		return db.StreamExportRows(ctx, scope, sink.Row)
 	})
+}
+
+// ExportRunsDocument arma el contenido del reporte PDF del historial. Aplica la misma autorización, período, alcance de
+// sedes y auditoría que el CSV, con un máximo de filas menor (domain.MaxPDFExportRows) porque el documento se arma en
+// memoria; si se supera responde domain.ErrPDFTooLarge antes de leer filas.
+func (s *Service) ExportRunsDocument(ctx context.Context, user, org string, in PeriodInput) (domain.ExportDocument, error) {
+	var doc domain.ExportDocument
+	err := s.work.Within(ctx, func(db Store) error {
+		scope, names, err := s.prepareExport(ctx, db, user, org, in, s.pdfMax(), domain.ErrPDFTooLarge, "CHECKLIST_HISTORY_EXPORTED_PDF")
+		if err != nil {
+			return err
+		}
+		doc.Period = scope.Period
+		doc.GeneratedAt = s.now().UTC()
+		if scope.LocationID != "" {
+			doc.LocationName = names[scope.LocationID]
+		}
+		if doc.OrganizationName, err = db.OrganizationName(ctx, org); err != nil {
+			return err
+		}
+		doc.Rows = []domain.ExportRow{}
+		return db.StreamExportRows(ctx, scope, func(r domain.ExportRow) error {
+			doc.Rows = append(doc.Rows, r)
+			return nil
+		})
+	})
+	return doc, err
+}
+
+// prepareExport autoriza, valida período y sede, comprueba el límite de filas (tooLarge si se supera) y audita la
+// exportación. Es común al CSV y al PDF para que ambos apliquen exactamente las mismas reglas de acceso.
+func (s *Service) prepareExport(ctx context.Context, db Store, user, org string, in PeriodInput, limit int, tooLarge error, action string) (domain.Scope, map[string]string, error) {
+	a, err := s.authorize(ctx, db, user, org, canReport)
+	if err != nil {
+		return domain.Scope{}, nil, err
+	}
+	scope, err := scopeFor(a, org, in, domain.MaxExportDays)
+	if err != nil {
+		return domain.Scope{}, nil, err
+	}
+	names, err := requireLocation(ctx, db, scope)
+	if err != nil {
+		return domain.Scope{}, nil, err
+	}
+	n, err := db.CountExportRows(ctx, scope, limit)
+	if err != nil {
+		return domain.Scope{}, nil, err
+	}
+	if n > limit {
+		return domain.Scope{}, nil, tooLarge
+	}
+	entity := scope.Period.From.Format(domain.DateLayout) + ".." + scope.Period.To.Format(domain.DateLayout)
+	if err = db.Audit(ctx, org, user, action, "CHECKLIST_RUN", entity); err != nil {
+		return domain.Scope{}, nil, err
+	}
+	return scope, names, nil
+}
+
+// pdfMax es el máximo de filas del PDF: nunca supera el del CSV ni domain.MaxPDFExportRows.
+func (s *Service) pdfMax() int {
+	return min(s.exportMax, domain.MaxPDFExportRows)
 }
 
 // WithExportLimit reduce el máximo de filas exportables (nunca por encima de domain.MaxExportRows).

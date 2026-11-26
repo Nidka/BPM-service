@@ -24,6 +24,17 @@ import (
 type Handler struct {
 	service *application.Service
 	logger  *slog.Logger
+	// renderPDF arma el PDF del historial; sin él la ruta .pdf no se registra.
+	renderPDF PDFRenderer
+}
+
+// PDFRenderer convierte el contenido del reporte en un archivo PDF.
+type PDFRenderer func(domain.ExportDocument) ([]byte, error)
+
+// WithPDF habilita la exportación PDF con el renderizador indicado.
+func (h *Handler) WithPDF(render PDFRenderer) *Handler {
+	h.renderPDF = render
+	return h
 }
 
 // New crea el handler.
@@ -40,6 +51,9 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		const base = "/organizations/{organizationID}/reports"
 		r.Get(base+"/compliance", h.compliance)
 		r.Get(base+"/compliance/export.csv", h.export)
+		if h.renderPDF != nil {
+			r.Get(base+"/compliance/export.pdf", h.exportPDF)
+		}
 		r.Get(base+"/summary", h.summary)
 		r.Get(base+"/kpis", h.kpis)
 		r.Get(base+"/training/courses", h.trainingCourses)
@@ -65,6 +79,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		response.Error(w, 422, id, response.APIError{Code: "REPORT_NO_DATA", Message: "No hay controles finalizados en el período."})
 	case errors.Is(err, domain.ErrExportTooLarge):
 		response.Error(w, 422, id, response.APIError{Code: "EXPORT_TOO_LARGE", Message: fmt.Sprintf("La exportación supera %d filas. Reduce el período o filtra por sede.", domain.MaxExportRows)})
+	case errors.Is(err, domain.ErrPDFTooLarge):
+		response.Error(w, 422, id, response.APIError{Code: "EXPORT_TOO_LARGE", Message: fmt.Sprintf("El PDF admite hasta %d controles. Reduce el período o filtra por sede, o descarga el CSV.", domain.MaxPDFExportRows)})
 	case errors.Is(err, domain.ErrDenied):
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "Tu cuenta no tiene permiso para esta operación."})
 	case errors.Is(err, domain.ErrLocationNotFound):
@@ -335,6 +351,9 @@ func (h *Handler) verify(w http.ResponseWriter, r *http.Request) {
 	data(w, 200, publicCertificateDTO{true, c.OrganizationName, date(c.PeriodStart), date(c.PeriodEnd), c.AverageCompliance, c.Threshold, iso(c.IssuedAt), c.VerificationCode})
 }
 
+// utf8BOM es la marca de orden de bytes que antecede al CSV.
+const utf8BOM = "\uFEFF"
+
 // csvSink escribe el CSV en streaming; las cabeceras HTTP se fijan solo cuando la exportación procede.
 type csvSink struct {
 	w       http.ResponseWriter
@@ -350,6 +369,10 @@ func (s *csvSink) Begin() error {
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Content-Type-Options", "nosniff")
 	s.w.WriteHeader(200)
+	// La marca BOM de UTF-8 hace que Excel muestre bien las tildes; los clientes pueden ignorarla.
+	if _, err := s.w.Write([]byte(utf8BOM)); err != nil {
+		return err
+	}
 	s.out = csv.NewWriter(s.w)
 	return s.out.Write(domain.ExportHeader)
 }
@@ -401,6 +424,43 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil && h.logger != nil {
 		h.logger.Error("reports export interrupted", "requestId", middleware.RequestIDFromContext(r.Context()), "errorType", fmt.Sprintf("%T", err))
+	}
+}
+
+// exportPDF entrega el mismo historial que el CSV como un documento PDF (resumen y tabla). Aplica la misma
+// autorización, validación de período, alcance de sedes y auditoría; el PDF se arma completo antes de enviar el
+// primer byte, así que cualquier error usa el JSON uniforme.
+func (h *Handler) exportPDF(w http.ResponseWriter, r *http.Request) {
+	user, org, ok := h.identity(w, r)
+	if !ok {
+		return
+	}
+	in, ok := h.period(w, r)
+	if !ok {
+		return
+	}
+	doc, err := h.service.ExportRunsDocument(r.Context(), user, org, in)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	body, err := h.renderPDF(doc)
+	if err != nil {
+		if h.logger != nil {
+			h.logger.Error("reports pdf render failed", "requestId", middleware.RequestIDFromContext(r.Context()), "errorType", fmt.Sprintf("%T", err))
+		}
+		response.Error(w, 500, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INTERNAL_ERROR", Message: "No se pudo generar el PDF. Inténtalo de nuevo."})
+		return
+	}
+	hd := w.Header()
+	hd.Set("Content-Type", "application/pdf")
+	hd.Set("Content-Disposition", `attachment; filename="checklists_`+safeFilePart(in.From)+"_"+safeFilePart(in.To)+`.pdf"`)
+	hd.Set("Content-Length", strconv.Itoa(len(body)))
+	hd.Set("Cache-Control", "no-store")
+	hd.Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(200)
+	if _, err = w.Write(body); err != nil && h.logger != nil {
+		h.logger.Error("reports pdf interrupted", "requestId", middleware.RequestIDFromContext(r.Context()), "errorType", fmt.Sprintf("%T", err))
 	}
 }
 

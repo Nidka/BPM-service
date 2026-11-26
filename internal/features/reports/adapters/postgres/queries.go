@@ -217,7 +217,7 @@ func (s *store) CountExportRows(ctx context.Context, sc domain.Scope, limit int)
 // StreamExportRows recorre el historial con un cursor, sin cargarlo completo en memoria.
 func (s *store) StreamExportRows(ctx context.Context, sc domain.Scope, fn func(domain.ExportRow) error) error {
 	rows, err := s.tx.Query(ctx, `WITH `+scopeCTE+`
- SELECT r.id::text, (r.submitted_at AT TIME ZONE s.tz)::date, r.submitted_at, s.id::text, s.name, t.name, t.area, v.version_number, r.compliance_percent::float8`+exportFrom+runsFilter+`
+ SELECT r.id::text, (r.submitted_at AT TIME ZONE s.tz)::date, r.submitted_at, s.id::text, s.name, t.name, t.area, v.version_number, r.compliance_percent::float8, s.tz`+exportFrom+runsFilter+`
  ORDER BY r.submitted_at, r.id`, periodArgs(sc)...)
 	if err != nil {
 		return err
@@ -225,7 +225,7 @@ func (s *store) StreamExportRows(ctx context.Context, sc domain.Scope, fn func(d
 	defer rows.Close()
 	for rows.Next() {
 		var v domain.ExportRow
-		if err = rows.Scan(&v.RunID, &v.LocalDate, &v.SubmittedAt, &v.LocationID, &v.LocationName, &v.TemplateName, &v.Area, &v.TemplateVersion, &v.CompliancePercent); err != nil {
+		if err = rows.Scan(&v.RunID, &v.LocalDate, &v.SubmittedAt, &v.LocationID, &v.LocationName, &v.TemplateName, &v.Area, &v.TemplateVersion, &v.CompliancePercent, &v.Zone); err != nil {
 			return err
 		}
 		if err = fn(v); err != nil {

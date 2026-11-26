@@ -1,4 +1,4 @@
-// Package reports compone los reportes BPM: cumplimiento por día/sede/empresa, exportación CSV,
+// Package reports compone los reportes BPM: cumplimiento por día/sede/empresa, exportación CSV y PDF,
 // KPIs, avance de capacitación, constancias de cumplimiento y el correo semanal.
 package reports
 
@@ -9,6 +9,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
 	httpadapter "github.com/Nidka/BPM-service/internal/features/reports/adapters/http"
+	"github.com/Nidka/BPM-service/internal/features/reports/adapters/pdf"
 	"github.com/Nidka/BPM-service/internal/features/reports/adapters/postgres"
 	"github.com/Nidka/BPM-service/internal/features/reports/application"
 	"github.com/go-chi/chi/v5"
@@ -29,7 +30,7 @@ func RequireSchema(ctx context.Context, pool *pgxpool.Pool) error {
 // Routes devuelve el registrador de rutas de reportes.
 func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.Logger, sessions ...contracts.SessionValidator) func(chi.Router) {
 	repository := postgres.New(pool)
-	handler := httpadapter.New(application.New(repository, repository), logger)
+	handler := httpadapter.New(application.New(repository, repository), logger).WithPDF(pdf.Render)
 	return func(r chi.Router) { handler.Register(r, middleware.Authenticate(verifier, sessions...)) }
 }
 

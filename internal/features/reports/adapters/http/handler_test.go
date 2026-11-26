@@ -1,17 +1,20 @@
 package reportshttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
+	"github.com/Nidka/BPM-service/internal/features/reports/adapters/pdf"
 	"github.com/Nidka/BPM-service/internal/features/reports/application"
 	"github.com/Nidka/BPM-service/internal/features/reports/domain"
 	"github.com/go-chi/chi/v5"
@@ -39,11 +42,14 @@ func (fakeStore) LocationNames(context.Context, domain.Scope) (map[string]string
 	return map[string]string{}, nil
 }
 func (fakeStore) Audit(context.Context, string, string, string, string, string) error { return nil }
-func (fakeStore) CountExportRows(context.Context, domain.Scope, int) (int, error)     { return 2, nil }
+func (fakeStore) OrganizationName(context.Context, string) (string, error) {
+	return "Empresa Demo", nil
+}
+func (fakeStore) CountExportRows(context.Context, domain.Scope, int) (int, error) { return 2, nil }
 func (fakeStore) StreamExportRows(_ context.Context, _ domain.Scope, fn func(domain.ExportRow) error) error {
 	at := time.Date(2026, 1, 2, 3, 0, 0, 0, time.UTC)
 	for _, name := range []string{"=EVIL()", "Sede, \"con\" comas"} {
-		if err := fn(domain.ExportRow{RunID: "r", LocationID: "l", LocationName: name, TemplateName: "T", Area: "A", LocalDate: at, SubmittedAt: at, TemplateVersion: 1, CompliancePercent: 100}); err != nil {
+		if err := fn(domain.ExportRow{RunID: "r", LocationID: "l", LocationName: name, TemplateName: "T", Area: "A", LocalDate: at, SubmittedAt: at, Zone: "America/Lima", TemplateVersion: 1, CompliancePercent: 100}); err != nil {
 			return err
 		}
 	}
@@ -75,7 +81,7 @@ func (fakeVerifier) CertificateByCode(context.Context, string) (domain.PublicCer
 func router() http.Handler {
 	work := fakeWork{fakeStore{roles: map[string]string{"org|admin": "ADMIN", "org|chef": "CHEF", "org|worker": "WORKER"}}}
 	r := chi.NewRouter()
-	New(application.New(work, fakeVerifier{}), nil).Register(r, middleware.Authenticate(verifier{}))
+	New(application.New(work, fakeVerifier{}), nil).WithPDF(pdf.Render).Register(r, middleware.Authenticate(verifier{}))
 	return r
 }
 
@@ -113,6 +119,12 @@ func TestContratoHTTP(t *testing.T) {
 		{"sin token", "GET", base + "/compliance" + period, "", "", "UNAUTHENTICATED", 401},
 		{"worker", "GET", base + "/compliance" + period, "worker", "", "ACCESS_DENIED", 403},
 		{"worker exporta", "GET", base + "/compliance/export.csv" + period, "worker", "", "ACCESS_DENIED", 403},
+		{"pdf sin token", "GET", base + "/compliance/export.pdf" + period, "", "", "UNAUTHENTICATED", 401},
+		{"worker exporta pdf", "GET", base + "/compliance/export.pdf" + period, "worker", "", "ACCESS_DENIED", 403},
+		{"pdf de otra empresa", "GET", "/organizations/otra/reports/compliance/export.pdf" + period, "admin", "", "ACCESS_DENIED", 403},
+		{"pdf con parámetro desconocido", "GET", base + "/compliance/export.pdf" + period + "&x=1", "admin", "", "INVALID_REQUEST", 400},
+		{"pdf sin fechas", "GET", base + "/compliance/export.pdf", "admin", "", "VALIDATION_ERROR", 422},
+		{"pdf con sede inválida", "GET", base + "/compliance/export.pdf" + period + "&locationId=x", "admin", "", "REPORT_LOCATION_NOT_FOUND", 404},
 		{"chef sin constancias", "POST", base + "/certificates", "chef", `{"from":"2026-01-01","to":"2026-01-31"}`, "ACCESS_DENIED", 403},
 		{"otra empresa", "GET", "/organizations/otra/reports/kpis", "admin", "", "ACCESS_DENIED", 403},
 		{"parámetro desconocido", "GET", base + "/compliance" + period + "&x=1", "admin", "", "INVALID_REQUEST", 400},
@@ -159,9 +171,20 @@ func TestContratoHTTP(t *testing.T) {
 		if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/csv") || !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") || rec.Header().Get("Cache-Control") != "no-store" {
 			t.Fatalf("cabeceras: %d %v", rec.Code, rec.Header())
 		}
-		rows, err := csv.NewReader(rec.Body).ReadAll()
-		if err != nil || len(rows) != 3 || rows[0][0] != "runId" || rows[1][4] != "'=EVIL()" || rows[2][4] != `Sede, "con" comas` {
+		raw := rec.Body.String()
+		if !strings.HasPrefix(raw, "\uFEFF") {
+			t.Fatalf("el CSV debe comenzar con la marca BOM de UTF-8: %q", raw[:8])
+		}
+		rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(raw, "\uFEFF"))).ReadAll()
+		if err != nil || len(rows) != 3 || rows[0][0] != "ID de ejecución" || rows[1][4] != "'=EVIL()" || rows[2][4] != `Sede, "con" comas` {
 			t.Fatalf("csv: %v %v", rows, err)
+		}
+		if strings.Join(rows[0], ",") != "ID de ejecución,Fecha local,Enviado el,ID de sede,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)" {
+			t.Fatalf("encabezado: %v", rows[0])
+		}
+		// 03:00 UTC del 02/01 es 22:00 del 01/01 en Lima: la hora del CSV es local, no UTC.
+		if rows[1][2] != "01/01/2026 22:00" || rows[1][8] != "100.00" {
+			t.Fatalf("fila: %v", rows[1])
 		}
 		for _, h := range rows[0] {
 			if strings.Contains(strings.ToLower(h), "email") || strings.Contains(strings.ToLower(h), "performed") {
@@ -169,4 +192,77 @@ func TestContratoHTTP(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestExportPDF(t *testing.T) {
+	const base = "/organizations/org/reports/compliance/export.pdf"
+	period := "?from=2026-01-01&to=2026-01-31"
+	for _, user := range []string{"admin", "chef"} {
+		rec := call("GET", base+period, user, "")
+		body := rec.Body.Bytes()
+		if rec.Code != 200 || rec.Header().Get("Content-Type") != "application/pdf" {
+			t.Fatalf("%s: %d %v", user, rec.Code, rec.Header())
+		}
+		if !bytes.HasPrefix(body, []byte("%PDF-")) || !bytes.HasSuffix(bytes.TrimSpace(body), []byte("%%EOF")) {
+			t.Fatalf("%s no parece un PDF: %q", user, body[:16])
+		}
+		if rec.Header().Get("Content-Disposition") != `attachment; filename="checklists_2026-01-01_2026-01-31.pdf"` ||
+			rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Content-Length") != strconv.Itoa(len(body)) {
+			t.Fatalf("cabeceras: %v", rec.Header())
+		}
+	}
+}
+
+// emptyStore devuelve un período sin controles finalizados.
+type emptyStore struct{ fakeStore }
+
+func (emptyStore) CountExportRows(context.Context, domain.Scope, int) (int, error) { return 0, nil }
+func (emptyStore) StreamExportRows(context.Context, domain.Scope, func(domain.ExportRow) error) error {
+	return nil
+}
+
+func TestExportPDFVacio(t *testing.T) {
+	work := fakeWork{store: fakeStore{roles: map[string]string{"org|admin": "ADMIN"}}}
+	r := chi.NewRouter()
+	svc := application.New(emptyWork{emptyStore{work.store}}, fakeVerifier{})
+	New(svc, nil).WithPDF(pdf.Render).Register(r, middleware.Authenticate(verifier{}))
+	req := httptest.NewRequest("GET", "/organizations/org/reports/compliance/export.pdf?from=2026-01-01&to=2026-01-31", nil)
+	req.Header.Set("Authorization", "Bearer admin")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != 200 || !bytes.HasPrefix(rec.Body.Bytes(), []byte("%PDF-")) {
+		t.Fatalf("pdf vacío: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+type emptyWork struct{ store emptyStore }
+
+func (w emptyWork) Within(_ context.Context, fn func(application.Store) error) error {
+	return fn(w.store)
+}
+
+// bigStore simula más filas que el máximo del PDF pero dentro del máximo del CSV.
+type bigStore struct{ fakeStore }
+
+func (bigStore) CountExportRows(_ context.Context, _ domain.Scope, limit int) (int, error) {
+	return limit + 1, nil
+}
+
+type bigWork struct{ store bigStore }
+
+func (w bigWork) Within(_ context.Context, fn func(application.Store) error) error {
+	return fn(w.store)
+}
+
+func TestExportPDFDemasiadoGrande(t *testing.T) {
+	r := chi.NewRouter()
+	svc := application.New(bigWork{bigStore{fakeStore{roles: map[string]string{"org|admin": "ADMIN"}}}}, fakeVerifier{})
+	New(svc, nil).WithPDF(pdf.Render).Register(r, middleware.Authenticate(verifier{}))
+	req := httptest.NewRequest("GET", "/organizations/org/reports/compliance/export.pdf?from=2026-01-01&to=2026-01-31", nil)
+	req.Header.Set("Authorization", "Bearer admin")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != 422 || code(t, rec) != "EXPORT_TOO_LARGE" || strings.HasPrefix(rec.Header().Get("Content-Type"), "application/pdf") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
 }
