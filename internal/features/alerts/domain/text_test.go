@@ -50,3 +50,30 @@ func TestBuildTextTruncatesTitle(t *testing.T) {
 		t.Fatalf("título sin recortar: %d", utf8.RuneCountInString(title))
 	}
 }
+
+func TestSpecificLegacyText(t *testing.T) {
+	at := time.Date(2026, 11, 10, 20, 35, 0, 0, time.UTC)
+	gt, gm := GenericText("TEMPERATURE_DANGER")
+	title, msg, ok := SpecificLegacyText("TEMPERATURE_DANGER", gt, gm, "Sede Centro", "America/Lima", LegacyFacts{Subject: "Pollo", Category: "Carnes", Temperature: "12.00", At: &at})
+	if !ok || title != "Temperatura fuera de rango · Sede Centro" || msg != "Pollo (Carnes): 12 °C · 15:35" {
+		t.Fatalf("temperatura: %v %q %q", ok, title, msg)
+	}
+	gt, gm = GenericText("TRAINING_ASSIGNED")
+	if title, _, ok = SpecificLegacyText("TRAINING_ASSIGNED", gt, gm, "", "", LegacyFacts{Subject: "Inocuidad"}); !ok || title != "Capacitación asignada: Inocuidad" {
+		t.Fatalf("capacitación: %v %q", ok, title)
+	}
+	// Sin datos resolubles, con texto ya específico o con tipos sin versión específica se conserva lo guardado.
+	for name, c := range map[string]struct{ kind, title, msg string }{
+		"sin datos":         {"TRAINING_ASSIGNED", gt, gm},
+		"texto específico":  {"TRAINING_ASSIGNED", "Capacitación asignada: Otro", "Vence 01/12/2026"},
+		"título modificado": {"TRAINING_ASSIGNED", gt, "Otro mensaje"},
+		"inactividad":       {"ORGANIZATION_INACTIVE", "Empresa sin actividad reciente", "Revisa la actividad operativa de la empresa."},
+	} {
+		if _, _, ok := SpecificLegacyText(c.kind, c.title, c.msg, "Sede", "UTC", LegacyFacts{}); ok {
+			t.Errorf("%s: no debe reescribirse", name)
+		}
+	}
+	if _, _, ok := SpecificLegacyText("TEMPERATURE_DANGER", "Temperatura dentro del intervalo de alerta", "Revisa la medición y el criterio configurado de la recepción.", "S", "UTC", LegacyFacts{}); ok {
+		t.Error("temperatura sin producto ni valor no debe reescribirse")
+	}
+}

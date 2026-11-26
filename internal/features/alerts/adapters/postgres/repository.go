@@ -208,10 +208,24 @@ func (r *store) Rules(ctx context.Context, u, o, l string, p pagination.Request)
 	return
 }
 
-const alertColumns = `a.id::text,a.alert_type,a.title,a.message,CASE WHEN a.attended_at IS NOT NULL THEN 'ATTENDED' WHEN a.viewed_at IS NOT NULL THEN 'VIEWED' ELSE 'PENDING' END,a.created_at,a.viewed_at,a.attended_at,a.location_id::text,COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(a.source_type,''),COALESCE(a.source_id,''),(SELECT i.receipt_id::text FROM supply_receipt_items i WHERE a.source_type='RECEIPT_ITEM' AND i.organization_id=a.organization_id AND i.id::text=a.source_id),alert_source_pending(a.organization_id,a.id)`
+const alertColumns = `a.id::text,a.alert_type,a.title,a.message,CASE WHEN a.attended_at IS NOT NULL THEN 'ATTENDED' WHEN a.viewed_at IS NOT NULL THEN 'VIEWED' ELSE 'PENDING' END,a.created_at,a.viewed_at,a.attended_at,a.location_id::text,COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(a.source_type,''),COALESCE(a.source_id,''),(SELECT i.receipt_id::text FROM supply_receipt_items i WHERE a.source_type='RECEIPT_ITEM' AND i.organization_id=a.organization_id AND i.id::text=a.source_id),alert_source_pending(a.organization_id,a.id),COALESCE(
+ (SELECT json_build_object('subject',pr.name,'category',pr.category,'temperature',COALESCE(a.context_snapshot->>'temperatureCelsius',i.temperature_celsius::text),'at',r.received_at) FROM supply_receipt_items i JOIN supply_receipts r ON r.organization_id=i.organization_id AND r.id=i.receipt_id LEFT JOIN products pr ON pr.organization_id=i.organization_id AND pr.id=i.product_id WHERE a.source_type='RECEIPT_ITEM' AND i.organization_id=a.organization_id AND i.id::text=a.source_id),
+ (SELECT json_build_object('subject',co.title,'dueAt',ta.due_at) FROM training_assignments ta JOIN training_courses co ON co.organization_id=ta.organization_id AND co.id=ta.course_id WHERE a.source_type='TRAINING_ASSIGNMENT' AND ta.organization_id=a.organization_id AND ta.id::text=a.source_id),
+ (SELECT json_build_object('subject',t.name,'afterLocalTime',a.context_snapshot->'configuration'->>'afterLocalTime') FROM checklist_assignments ca JOIN checklist_templates t ON t.organization_id=ca.organization_id AND t.id=ca.template_id WHERE a.source_type='CHECKLIST_ASSIGNMENT' AND ca.organization_id=a.organization_id AND ca.id::text=a.source_id))::text`
 
+// scanAlert lee un aviso. Si es un aviso antiguo con el texto genérico y la fuente permite resolverlo, devuelve el
+// texto específico (la fila almacenada no se modifica); en cualquier otro caso devuelve el texto guardado.
 func scanAlert(row pgx.Row) (v domain.Alert, e error) {
-	e = row.Scan(&v.ID, &v.Type, &v.Title, &v.Message, &v.Status, &v.CreatedAt, &v.ViewedAt, &v.AttendedAt, &v.LocationID, &v.LocationName, &v.Timezone, &v.SourceType, &v.SourceID, &v.SourceParentID, &v.SourceAvailable)
+	var legacy *string
+	e = row.Scan(&v.ID, &v.Type, &v.Title, &v.Message, &v.Status, &v.CreatedAt, &v.ViewedAt, &v.AttendedAt, &v.LocationID, &v.LocationName, &v.Timezone, &v.SourceType, &v.SourceID, &v.SourceParentID, &v.SourceAvailable, &legacy)
+	if e == nil && legacy != nil {
+		var facts domain.LegacyFacts
+		if json.Unmarshal([]byte(*legacy), &facts) == nil {
+			if title, message, ok := domain.SpecificLegacyText(v.Type, v.Title, v.Message, v.LocationName, v.Timezone, facts); ok {
+				v.Title, v.Message = title, message
+			}
+		}
+	}
 	return v, failure(e)
 }
 func detail(ctx context.Context, tx pgx.Tx, u, o, id string) (domain.Alert, error) {

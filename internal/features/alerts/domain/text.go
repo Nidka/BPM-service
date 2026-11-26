@@ -143,3 +143,38 @@ func truncate(v string, max int) string {
 	}
 	return strings.TrimRightFunc(string([]rune(v)[:max-1]), unicode.IsSpace) + "…"
 }
+
+// LegacyFacts son los datos que permiten redactar al leer un aviso antiguo; los resuelve el adaptador sin tocar la fila.
+type LegacyFacts struct {
+	Subject        string     `json:"subject"`
+	Category       string     `json:"category"`
+	Temperature    string     `json:"temperature"`
+	At             *time.Time `json:"at"`
+	DueAt          *time.Time `json:"dueAt"`
+	AfterLocalTime string     `json:"afterLocalTime"`
+}
+
+// SpecificLegacyText devuelve el texto específico de un aviso creado cuando aún se guardaba el texto genérico.
+// Solo reescribe si título y mensaje son exactamente los genéricos del tipo y los datos de la fuente alcanzan para
+// un texto con contenido (si no, ok es falso y se conserva lo guardado). Nunca modifica la fila almacenada.
+func SpecificLegacyText(kind, title, message, site, zone string, f LegacyFacts) (string, string, bool) {
+	gt, gm := GenericText(kind)
+	if title != gt || message != gm || kind == "ORGANIZATION_INACTIVE" {
+		return title, message, false
+	}
+	facts := TextFacts{Type: kind, Site: site, Subject: f.Subject, Category: f.Category, Temperature: f.Temperature, At: f.At, DueAt: f.DueAt, Zone: zone, AfterLocalTime: f.AfterLocalTime}
+	switch kind {
+	case "TEMPERATURE_DANGER":
+		if formatTemperature(f.Temperature) == "" && cleanLine(f.Subject) == "" {
+			return title, message, false
+		}
+	case "CHECKLIST_MISSING", "TRAINING_ASSIGNED":
+		if cleanLine(f.Subject) == "" {
+			return title, message, false
+		}
+	default:
+		return title, message, false
+	}
+	t, m := BuildText(facts)
+	return t, m, true
+}

@@ -237,3 +237,54 @@ func TestReceiptSourceRechecksChangedMeasurement(t *testing.T) {
 		t.Fatal("changed measurement remains deliverable", pending, e)
 	}
 }
+
+// Los avisos creados antes del texto específico se leen con el texto específico si la fuente se puede resolver;
+// la fila almacenada no cambia (el respaldo genérico sin datos se prueba en el dominio).
+func TestLegacyGenericTextIsImprovedAtReadTime(t *testing.T) {
+	ctx, p := database(t)
+	seed(t, ctx, p)
+	s := application.New(New(p))
+	rule(t, ctx, p, 1, "TEMPERATURE_DANGER", `{"minimumTemperatureCelsius":4,"maximumTemperatureCelsius":60}`, nil)
+	rule(t, ctx, p, 2, "TRAINING_ASSIGNED", `{}`, nil)
+	exec(t, ctx, p, `INSERT INTO suppliers(id,organization_id,name)VALUES($1,$2,'Proveedor')`, uid(10), org)
+	exec(t, ctx, p, `INSERT INTO products(id,organization_id,name,unit,category)VALUES($1,$2,'Pollo','KG','Carnes')`, uid(11), org)
+	exec(t, ctx, p, `INSERT INTO supply_receipts(id,organization_id,location_id,supplier_id,received_by,received_at,client_operation_id,client_created_at)VALUES($1,$2,$3,$4,'worker','2026-11-10T15:35:00Z',$5,NOW())`, uid(12), org, site, uid(10), uid(13))
+	exec(t, ctx, p, `INSERT INTO supply_receipt_items(id,organization_id,receipt_id,product_id,quantity,temperature_celsius,decision)VALUES($1,$2,$3,$4,1,12,'ACCEPTED')`, uid(20), org, uid(12), uid(11))
+	exec(t, ctx, p, `INSERT INTO training_courses(id,organization_id,code,title,status)VALUES($1,$2,'C','Inocuidad alimentaria','PUBLISHED')`, uid(30), org)
+	exec(t, ctx, p, `INSERT INTO training_assignments(id,organization_id,course_id,location_id,target_user_id,created_at)VALUES($1,$2,$3,$4,'chef',NOW())`, uid(31), org, uid(30), site)
+	if e := s.EvaluateReceipt(ctx, org, uid(12), time.Now().UTC()); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.EvaluateScheduled(ctx, time.Now().Add(time.Minute)); e != nil {
+		t.Fatal(e)
+	}
+	// Se simula un aviso de antes del cambio: texto genérico guardado.
+	exec(t, ctx, p, `UPDATE alerts SET title='Temperatura dentro del intervalo de alerta',message='Revisa la medición y el criterio configurado de la recepción.' WHERE alert_type='TEMPERATURE_DANGER'`)
+	exec(t, ctx, p, `UPDATE alerts SET title='Capacitación asignada',message='Revisa la capacitación que tienes asignada.' WHERE alert_type='TRAINING_ASSIGNED'`)
+	read := func() map[string][2]string {
+		page, e := s.Inbox(ctx, "chef", org, "ALL", pagination.Request{})
+		if e != nil {
+			t.Fatal(e)
+		}
+		out := map[string][2]string{}
+		for _, a := range page.Items {
+			out[a.Type] = [2]string{a.Title, a.Message}
+			d, e := s.Detail(ctx, "chef", org, a.ID)
+			if e != nil || d.Title != a.Title || d.Message != a.Message {
+				t.Fatal("el detalle debe coincidir con la lista", d, e)
+			}
+		}
+		return out
+	}
+	got := read()
+	if got["TEMPERATURE_DANGER"] != [2]string{"Temperatura fuera de rango · Principal", "Pollo (Carnes): 12 °C · 10:35"} {
+		t.Fatalf("temperatura heredada: %v", got["TEMPERATURE_DANGER"])
+	}
+	if got["TRAINING_ASSIGNED"] != [2]string{"Capacitación asignada: Inocuidad alimentaria", "Complétala en la Academia."} {
+		t.Fatalf("capacitación heredada: %v", got["TRAINING_ASSIGNED"])
+	}
+	var stored string
+	if e := p.QueryRow(ctx, `SELECT title FROM alerts WHERE alert_type='TEMPERATURE_DANGER' AND recipient_user_id='chef'`).Scan(&stored); e != nil || stored != "Temperatura dentro del intervalo de alerta" {
+		t.Fatalf("la fila almacenada no debe cambiar: %q %v", stored, e)
+	}
+}
