@@ -21,7 +21,7 @@ type storedMessage struct {
 	OrganizationID string `json:"organizationId"`
 	RecipientHash  string `json:"recipientHash"`
 	TokenHash      string `json:"tokenHash,omitempty"`
-	// Texto y navegación del push: solo datos de negocio (sede, plantilla, producto, curso, medición).
+	// Texto y navegación del push: solo datos de negocio (sede, plantilla, producto, curso, categoría de incidencia, medición, plazo).
 	PushTitle  string `json:"pushTitle,omitempty"`
 	PushBody   string `json:"pushBody,omitempty"`
 	AlertType  string `json:"alertType,omitempty"`
@@ -199,14 +199,14 @@ func (r *Repository) Reconcile(ctx context.Context, now time.Time) error {
 	return nil
 }
 
-// pushContent resuelve los datos de negocio del aviso (sede, plantilla, producto, curso, medición) y arma el
+// pushContent resuelve los datos de negocio del aviso (sede, plantilla, producto, curso, categoría de incidencia, medición, plazo) y arma el
 // texto del push. No lee nombres, correos ni teléfonos de personas; el rol del destinatario solo elige la ruta.
 // Los identificadores de la fuente se convierten a uuid solo si tienen ese formato (CASE evita errores de cast).
 func (r *Repository) pushContent(ctx context.Context, tx pgx.Tx, org, id string) (domain.PushContent, error) {
 	f := domain.PushFacts{}
 	const uuidRe = `'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'`
 	source := `CASE WHEN a.source_id ~ ` + uuidRe + ` THEN a.source_id::uuid END`
-	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,''),COALESCE(pr.category,''),ta.due_at
+	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,ic.name,''),COALESCE(pr.category,''),COALESCE(ta.due_at,ca2.due_at)
 FROM alerts a
 LEFT JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id
 LEFT JOIN organization_memberships m ON m.organization_id=a.organization_id AND m.user_id=a.recipient_user_id
@@ -216,6 +216,9 @@ LEFT JOIN supply_receipt_items ri ON a.source_type='RECEIPT_ITEM' AND ri.organiz
 LEFT JOIN products pr ON pr.organization_id=ri.organization_id AND pr.id=ri.product_id
 LEFT JOIN training_assignments ta ON a.source_type='TRAINING_ASSIGNMENT' AND ta.organization_id=a.organization_id AND ta.id=`+source+`
 LEFT JOIN training_courses co ON co.organization_id=ta.organization_id AND co.id=ta.course_id
+LEFT JOIN incidents inc ON a.source_type='INCIDENT' AND inc.organization_id=a.organization_id AND inc.id=`+source+`
+LEFT JOIN incident_catalog ic ON ic.organization_id=inc.organization_id AND ic.id=inc.catalog_id
+LEFT JOIN corrective_actions ca2 ON a.source_type='INCIDENT' AND ca2.organization_id=a.organization_id AND ca2.incident_id=inc.id AND ca2.id::text=a.context_snapshot->>'actionId'
 WHERE a.organization_id=$1 AND a.id=$2`, org, id).Scan(&f.AlertType, &f.SourceType, &f.SourceID, &f.LocationID, &f.SiteName, &f.Zone, &f.RecipientRole, &f.Temperature, &f.InactivityDays, &f.Subject, &f.Category, &f.DueAt)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return domain.BuildPush(domain.PushFacts{}), nil

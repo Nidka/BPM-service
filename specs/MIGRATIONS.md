@@ -177,3 +177,12 @@ con clave `organizations/plataforma/training/videos/...`) y agrega `training_les
 con el video privado y el de YouTube). No reescribe datos. Aplicar antes de desplegar la API: la Academia falla al arrancar
 si falta (`training migration V20 is required`). Los objetos de R2 se copian aparte y se verifican con
 `cmd/catalogo-bpm -videos` (ver TRAINING.md, «Catálogo base»).
+
+## Aviso de incidencia asignada (V21)
+
+`V21__alerts_incident_assigned.sql` es aditiva y no cambia tablas (`alerts.alert_type` y `alerts.source_type` son VARCHAR
+sin CHECK): reemplaza `alert_recipient_authorized` (conservando V14) y `alert_source_pending` (de V7) para reconocer el tipo
+`INCIDENT_ASSIGNED` (fuente `INCIDENT`) y crea la función marcadora `alert_incident_assigned_supported()`. Aplicar después de V7
+con `ON_ERROR_STOP=1` (o con `scripts/aplicar-migraciones.sh`). **Desplegar el backend antes de esta migración es seguro**: el
+emisor de `incidents` consulta la marca; sin ella omite el aviso con una advertencia y la asignación se confirma igual. Ver
+[NOTIFICATIONS.md](NOTIFICATIONS.md) e [INCIDENTS.md](INCIDENTS.md).

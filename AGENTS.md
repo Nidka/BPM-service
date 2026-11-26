@@ -83,5 +83,8 @@ El banco oficial de 100 preguntas BPM (ruta por unidades, práctica con repaso e
 con alternativas barajadas por el servidor, V19) está en la última sección de `specs/TRAINING.md`; el contenido se
 instala por organización con `cmd/catalogo-bpm`. Requiere V19 antes de desplegar la API.
 
+El aviso push/bandeja de incidencia asignada (`INCIDENT_ASSIGNED`) requiere V21; el backend es seguro sin ella (omite el aviso con una
+advertencia). Ver MIGRATIONS.md.
+
 Correo transaccional propio (verificar correo, nueva contraseña, invitaciones) por Resend con respaldo a Firebase: leer
 `specs/MAIL.md` (`internal/features/mail`; rutas `/auth/email/*`; variables `MAIL_FROM`, `MAIL_REPLY_TO`, `APP_PUBLIC_URL`).

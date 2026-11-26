@@ -16,7 +16,9 @@ conserva la carga, confirmación, descarga y eliminación privada de fotos.
 - WORKER ve únicamente los reportes propios o incidencias con una acción asignada,
   siempre dentro de sus sedes vigentes. La lista filtra esa visibilidad en SQL.
 - ASSIGN exige supervisor, responsable elegible, descripción y plazo futuro.
-  Crea una acción PENDING y cambia OPEN a ASSIGNED.
+  Crea una acción PENDING y cambia OPEN a ASSIGNED. Además avisa al responsable (push y bandeja,
+  tipo `INCIDENT_ASSIGNED`, ver ALERTS.md/NOTIFICATIONS.md) salvo que se asigne a sí mismo; el aviso es de
+  mejor esfuerzo, requiere V21 y su ausencia o fallo nunca impide la asignación.
 - START y RESOLVE los ejecuta exclusivamente el responsable. START cambia a
   IN_PROGRESS; RESOLVE exige explicación y cambia a RESOLVED.
 - VERIFY y RETURN requieren supervisor distinto del responsable. RETURN exige

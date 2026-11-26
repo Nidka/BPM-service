@@ -28,6 +28,7 @@ const (
 	AlertTemperatureDanger    = "TEMPERATURE_DANGER"
 	AlertOrganizationInactive = "ORGANIZATION_INACTIVE"
 	AlertTrainingAssigned     = "TRAINING_ASSIGNED"
+	AlertIncidentAssigned     = "INCIDENT_ASSIGNED"
 )
 
 // PushFacts son datos de negocio ya resueltos por el adaptador. Nunca incluye datos personales de quien
@@ -37,13 +38,14 @@ type PushFacts struct {
 	SourceType string
 	SourceID   string
 	LocationID string
-	// SiteName es el nombre de la sede; Subject el de la plantilla, el producto o el curso según el tipo.
+	// SiteName es el nombre de la sede; Subject el de la plantilla, el producto, el curso o la categoría de la
+	// incidencia según el tipo.
 	SiteName, Subject, Category string
 	// Temperature llega como texto numérico de PostgreSQL (por ejemplo "12.00").
 	Temperature string
 	// InactivityDays es el umbral configurado en la regla (texto entero).
 	InactivityDays string
-	// DueAt y Zone formatean el vencimiento de una capacitación en la zona de la sede.
+	// DueAt y Zone formatean el vencimiento (capacitación o plazo de la acción correctiva) en la zona de la sede.
 	DueAt *time.Time
 	Zone  string
 	// RecipientRole solo decide la ruta (ADMIN opera desde Empresa); no se muestra.
@@ -101,6 +103,15 @@ func BuildPush(f PushFacts) PushContent {
 		out.Title = withSuffix("Capacitación asignada", ": ", subject)
 		out.Body = trainingBody(site, f.DueAt, f.Zone)
 		out.Route = "aprender"
+	case AlertIncidentAssigned:
+		out.Title = withSuffix("Te asignaron una incidencia", ": ", subject)
+		out.Body = incidentBody(site, f.DueAt, f.Zone)
+		if f.SourceType == "INCIDENT" && out.EntityID != "" {
+			out.Route = "control/incidencias"
+			if f.RecipientRole == "ADMIN" {
+				out.Route = "empresa/incidencias"
+			}
+		}
 	}
 	out.Title = Truncate(out.Title, PushTitleMax)
 	out.Body = Truncate(out.Body, PushBodyMax)
@@ -138,6 +149,27 @@ func trainingBody(site string, due *time.Time, zone string) string {
 		body = site + " · " + body
 	}
 	return body
+}
+
+// incidentBody compone «Sede · Plazo 25/11/2026 20:30» con el plazo en la zona de la sede; omite lo que no se conoce.
+func incidentBody(site string, due *time.Time, zone string) string {
+	deadline := ""
+	if due != nil {
+		loc, e := time.LoadLocation(zone)
+		if e != nil {
+			loc = time.UTC
+		}
+		deadline = "Plazo " + due.In(loc).Format("02/01/2006 15:04")
+	}
+	switch {
+	case site != "" && deadline != "":
+		return site + " · " + deadline
+	case deadline != "":
+		return deadline
+	case site != "":
+		return site + " · Revisa la acción correctiva asignada."
+	}
+	return "Revisa la acción correctiva asignada."
 }
 
 // formatTemperature quita ceros sobrantes ("12.00" → "12", "4.50" → "4.5"); un valor no numérico se descarta.

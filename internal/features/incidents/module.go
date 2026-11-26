@@ -17,6 +17,6 @@ func RequireSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	return postgres.New(pool).RequireSchema(ctx)
 }
 func Routes(pool *pgxpool.Pool, verifier contracts.TokenVerifier, logger *slog.Logger, sessions ...contracts.SessionValidator) func(chi.Router) {
-	h := httpadapter.New(application.New(postgres.New(pool)), logger)
+	h := httpadapter.New(application.New(postgres.New(pool).WithLogger(logger)), logger)
 	return func(r chi.Router) { h.Register(r, middleware.Authenticate(verifier, sessions...)) }
 }

@@ -39,7 +39,17 @@ func TestBuildPushPorTipo(t *testing.T) {
 			"Capacitación asignada: Higiene personal", "Sede Centro · Vence el 02/12/2026. Complétala en la Academia.", "aprender", "TRAINING_ASSIGNMENT", idAsign},
 		{"capacitación sin sede ni plazo", PushFacts{AlertType: "TRAINING_ASSIGNED", SourceType: "TRAINING_ASSIGNMENT", SourceID: idAsign, Subject: "BPM básico"},
 			"Capacitación asignada: BPM básico", "Complétala en la Academia.", "aprender", "TRAINING_ASSIGNMENT", idAsign},
-		{"tipo desconocido", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro"},
+		{"incidencia asignada WORKER", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: idItem, LocationID: idSite, SiteName: "Sede Centro", Subject: "Superficie sucia", DueAt: &due, Zone: "America/Lima", RecipientRole: "WORKER"},
+			"Te asignaron una incidencia: Superficie sucia", "Sede Centro · Plazo 02/12/2026 22:00", "control/incidencias", "INCIDENT", idItem},
+		{"incidencia asignada CHEF", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro", Subject: "Plaga", DueAt: &due, Zone: "America/Lima", RecipientRole: "CHEF"},
+			"Te asignaron una incidencia: Plaga", "Sede Centro · Plazo 02/12/2026 22:00", "control/incidencias", "INCIDENT", idItem},
+		{"incidencia asignada ADMIN", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro", Subject: "Plaga", DueAt: &due, Zone: "America/Lima", RecipientRole: "ADMIN"},
+			"Te asignaron una incidencia: Plaga", "Sede Centro · Plazo 02/12/2026 22:00", "empresa/incidencias", "INCIDENT", idItem},
+		{"incidencia asignada sin sede ni plazo", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: idItem, RecipientRole: "WORKER"},
+			"Te asignaron una incidencia", "Revisa la acción correctiva asignada.", "control/incidencias", "INCIDENT", idItem},
+		{"incidencia asignada sin id válido", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: "no-uuid", SiteName: "Sede Centro", Subject: "Plaga"},
+			"Te asignaron una incidencia: Plaga", "Sede Centro · Revisa la acción correctiva asignada.", "avisos", "INCIDENT", ""},
+		{"tipo desconocido", PushFacts{AlertType: "OTRO_TIPO", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro"},
 			GenericPushTitle, GenericPushBody, "avisos", "INCIDENT", idItem},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -67,6 +77,7 @@ func TestBuildPushLongitudYRunas(t *testing.T) {
 		{AlertType: "TEMPERATURE_DANGER", SiteName: long, Subject: long, Category: long, Temperature: "1"},
 		{AlertType: "CHECKLIST_MISSING", SiteName: long, Subject: long},
 		{AlertType: "TRAINING_ASSIGNED", SiteName: long, Subject: long},
+		{AlertType: "INCIDENT_ASSIGNED", SiteName: long, Subject: long},
 	} {
 		got := BuildPush(f)
 		if utf8.RuneCountInString(got.Title) > PushTitleMax || utf8.RuneCountInString(got.Body) > PushBodyMax || !utf8.ValidString(got.Title+got.Body) {

@@ -8,13 +8,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log/slog"
 	"strings"
 )
 
-type Repository struct{ pool *pgxpool.Pool }
+type Repository struct {
+	pool   *pgxpool.Pool
+	logger *slog.Logger
+}
 type store struct {
-	tx    pgx.Tx
-	actor domain.Actor
+	tx     pgx.Tx
+	actor  domain.Actor
+	logger *slog.Logger
 }
 
 func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
@@ -45,7 +50,7 @@ func (r *Repository) Within(ctx context.Context, fn func(application.Store) erro
 		return e
 	}
 	defer tx.Rollback(context.Background())
-	if e = fn(&store{tx: tx}); e != nil {
+	if e = fn(&store{tx: tx, logger: r.logger}); e != nil {
 		return e
 	}
 	return tx.Commit(ctx)

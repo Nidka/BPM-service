@@ -24,6 +24,12 @@ const catalogID = "30000000-0000-0000-0000-000000000001"
 func uid(kind, n int) string { return fmt.Sprintf("%08d-0000-0000-0000-%012d", kind, n) }
 func database(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
+	return databaseWith(t)
+}
+
+// databaseWith agrega migraciones posteriores a V6 (V7, V14, V21...) al esquema aislado de la prueba.
+func databaseWith(t *testing.T, extra ...string) (context.Context, *pgxpool.Pool) {
+	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL required")
@@ -54,7 +60,7 @@ func database(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(e)
 	}
 	t.Cleanup(pool.Close)
-	for _, name := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql"} {
+	for _, name := range append([]string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql"}, extra...) {
 		if name == "V6__incidents.sql" && New(pool).RequireSchema(ctx) == nil {
 			t.Fatal("operaciones arrancan sin V6")
 		}

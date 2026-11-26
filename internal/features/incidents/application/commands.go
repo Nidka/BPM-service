@@ -111,6 +111,12 @@ func (s *Service) Act(ctx context.Context, user, org, id, key string, input doma
 		if e = db.Audit(ctx, a, org, "incident."+c.ActionType, id); e != nil {
 			return out, e
 		}
+		if c.ActionType == "ASSIGN" {
+			// Aviso al responsable (push/bandeja). Mejor esfuerzo: sin V21 o ante un fallo no afecta la asignación.
+			if e = db.NotifyAssigned(ctx, a, org, out, s.now().UTC().Truncate(time.Microsecond)); e != nil {
+				return out, e
+			}
+		}
 		if c.ActionType == "VERIFY" && len(out.Actions) == 1 && out.Actions[0].SelfValidated() {
 			// Autovalidación del único validador posible: queda distinguida en la auditoría.
 			return out, db.Audit(ctx, a, org, "incident.SELF_VERIFY", id)

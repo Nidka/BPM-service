@@ -46,7 +46,7 @@ func fixture(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(e)
 	}
 	t.Cleanup(p.Close)
-	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V14__alerts_admin_operates.sql"} {
+	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V14__alerts_admin_operates.sql", "V21__alerts_incident_assigned.sql"} {
 		b, e := os.ReadFile("../../../../../migraciones/" + n)
 		if e != nil {
 			t.Fatal(e)
@@ -291,6 +291,8 @@ func TestStagePushEspecificoPorTipo(t *testing.T) {
 	exec(t, ctx, p, `INSERT INTO supply_receipt_items(id,organization_id,receipt_id,product_id,quantity,temperature_celsius,decision)VALUES($1,'org',$2,$3,1,12,'ACCEPTED')`, item, rec, prod)
 	exec(t, ctx, p, `INSERT INTO training_courses(id,organization_id,code,title)VALUES($1,'org','C1','Higiene personal')`, course)
 	exec(t, ctx, p, `INSERT INTO training_assignments(id,organization_id,course_id,target_role)VALUES($1,'org',$2,'WORKER')`, tasg, course)
+	const incident, action = "70000000-0000-0000-0000-00000000000b", "70000000-0000-0000-0000-00000000000c"
+	seedIncident(t, ctx, p, site, incident, action)
 	now := time.Now().UTC()
 	for i, tc := range []struct {
 		kind, sourceType, source, location, snapshot string
@@ -300,6 +302,7 @@ func TestStagePushEspecificoPorTipo(t *testing.T) {
 		{"CHECKLIST_MISSING", "CHECKLIST_ASSIGNMENT", asg, site, `{}`, "Control pendiente: Apertura de cocina", "Aún no se registra el control de hoy · Sede Centro", "control/programacion/" + asg},
 		{"ORGANIZATION_INACTIVE", "ORGANIZATION", "org", "", `{"configuration":{"inactivityDays":5}}`, "Sin actividad reciente en BPM", "No hay actividad desde hace 5 días. Revisa la operación.", "empresa"},
 		{"TRAINING_ASSIGNED", "TRAINING_ASSIGNMENT", tasg, "", `{}`, "Capacitación asignada: Higiene personal", "Complétala en la Academia.", "aprender"},
+		{"INCIDENT_ASSIGNED", "INCIDENT", incident, site, `{"actionId":"` + action + `"}`, "Te asignaron una incidencia: Superficie sucia", "Sede Centro · Plazo 25/11/2026 20:30", "empresa/incidencias"},
 		{"OTRO_TIPO", "", "", "", `{}`, domain.GenericPushTitle, domain.GenericPushBody, "avisos"},
 	} {
 		id := fmt.Sprintf("80000000-0000-0000-0000-%012d", i+1)
@@ -343,5 +346,56 @@ func TestStagePushEspecificoPorTipo(t *testing.T) {
 	}
 	if v.Message.Push.Title != "Sin actividad reciente en BPM" || v.Message.Push.Route != "empresa" || v.Message.Push.Type != "ORGANIZATION_INACTIVE" || v.Message.Push.SourceType != "ORGANIZATION" {
 		t.Fatalf("entrega sin texto específico: %+v", v.Message.Push)
+	}
+}
+
+// seedIncident crea una incidencia ASSIGNED con una acción PENDING cuyo plazo es 25/11/2026 20:30 en Lima.
+func seedIncident(t *testing.T, ctx context.Context, p *pgxpool.Pool, site, incident, action string) {
+	t.Helper()
+	const catalog = "70000000-0000-0000-0000-00000000000d"
+	exec(t, ctx, p, `INSERT INTO incident_catalog(id,organization_id,code,name,area,normative_criterion,risk_level)VALUES($1,'org','SUP','Superficie sucia','Cocina','Criterio','LOW')`, catalog)
+	exec(t, ctx, p, `INSERT INTO incidents(id,organization_id,location_id,catalog_id,reported_by,status,client_operation_id,client_created_at)VALUES($1,'org',$2,$3,'u','ASSIGNED',$4,NOW())`, incident, site, catalog, "70000000-0000-0000-0000-00000000000e")
+	exec(t, ctx, p, `INSERT INTO corrective_actions(id,organization_id,incident_id,responsible_user_id,description,due_at)VALUES($1,'org',$2,'u','Limpiar','2026-11-26T01:30:00Z')`, action, incident)
+}
+
+// TestIncidentAssignedStageClaimYVigencia recorre el flujo completo del aviso de incidencia asignada: se prepara la
+// entrega FCM con su texto, ruta e id de incidencia, y deja de ser vigente cuando el responsable inicia la acción.
+func TestIncidentAssignedStageClaimYVigencia(t *testing.T) {
+	ctx, p := fixture(t)
+	r := New(p)
+	if _, e := application.NewDevices(r).Register(ctx, "u", "org", input("one")); e != nil {
+		t.Fatal(e)
+	}
+	const site, incident, action, id = "70000000-0000-0000-0000-000000000001", "70000000-0000-0000-0000-00000000000b", "70000000-0000-0000-0000-00000000000c", "80000000-0000-0000-0000-0000000000aa"
+	exec(t, ctx, p, `INSERT INTO locations(id,organization_id,name,address,timezone)VALUES($1,'org','Sede Centro','Calle 1','America/Lima')`, site)
+	seedIncident(t, ctx, p, site, incident, action)
+	exec(t, ctx, p, `INSERT INTO alerts(id,organization_id,location_id,recipient_user_id,alert_type,title,message,source_type,source_id,dedup_key,context_snapshot)VALUES($1,'org',$2,'u','INCIDENT_ASSIGNED','Aviso','Revisa BPM','INCIDENT',$3,'incident-assigned:'||$4::text,jsonb_build_object('actionId',$4::text,'pushEnabled',true,'emailEnabled',false))`, id, site, incident, action)
+	var authorized, pending bool
+	if e := p.QueryRow(ctx, `SELECT alert_recipient_authorized('org',$1,'u'),alert_source_pending('org',$1)`, id).Scan(&authorized, &pending); e != nil || !authorized || !pending {
+		t.Fatal("el responsable debe estar autorizado y vigente", authorized, pending, e)
+	}
+	// Otro usuario de la misma empresa no queda autorizado a leer ese aviso.
+	if e := p.QueryRow(ctx, `SELECT alert_recipient_authorized('org',$1,'v')`, id).Scan(&authorized); e != nil || authorized {
+		t.Fatal("aviso visible para un tercero", e)
+	}
+	now := time.Now().UTC()
+	if e := r.Stage(ctx, "org", id, "", now); e != nil {
+		t.Fatal(e)
+	}
+	v, e := r.Claim(ctx, []string{"FCM"}, now)
+	if e != nil || v == nil {
+		t.Fatal("entrega FCM ausente", v, e)
+	}
+	got := v.Message.Push
+	if got.Title != "Te asignaron una incidencia: Superficie sucia" || got.Body != "Sede Centro · Plazo 25/11/2026 20:30" || got.Route != "empresa/incidencias" || got.EntityID != incident || got.SiteID != site || got.Type != "INCIDENT_ASSIGNED" || got.SourceType != "INCIDENT" {
+		t.Fatalf("push de incidencia: %+v", got)
+	}
+	if ok, e := r.Eligible(ctx, *v); e != nil || !ok {
+		t.Fatal("la entrega debe ser elegible antes de iniciar", ok, e)
+	}
+	// Con la acción iniciada el aviso ya no es vigente y no se entrega.
+	exec(t, ctx, p, `UPDATE corrective_actions SET status='IN_PROGRESS' WHERE id=$1`, action)
+	if e := p.QueryRow(ctx, `SELECT alert_source_pending('org',$1)`, id).Scan(&pending); e != nil || pending {
+		t.Fatal("el aviso sigue vigente tras iniciar", e)
 	}
 }

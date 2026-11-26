@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/Nidka/BPM-service/internal/features/incidents/domain"
 	"github.com/Nidka/BPM-service/internal/shared/application/pagination"
+	"time"
 )
 
 type AuthorizationStore interface {
@@ -38,8 +39,15 @@ type ReceiptStore interface {
 	Event(context.Context, domain.Actor, string, string, string, string, string, string, string, []byte) error
 	Audit(context.Context, domain.Actor, string, string, string) error
 }
+
+// NotificationStore emite el aviso al responsable de una acción recién asignada. Es de mejor esfuerzo: no devuelve
+// error por esquema sin migrar ni por fallos del aviso, para no impedir la asignación.
+type NotificationStore interface {
+	NotifyAssigned(ctx context.Context, actor domain.Actor, org string, v domain.Incident, now time.Time) error
+}
 type Store interface {
 	AuthorizationStore
+	NotificationStore
 	CatalogStore
 	IncidentStore
 	ReceiptStore

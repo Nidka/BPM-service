@@ -65,6 +65,7 @@ antes de este cambio) usa el texto genérico «Tienes un aviso en BPM» / «Abre
 | `CHECKLIST_MISSING` | `Control pendiente: {plantilla}` | `Aún no se registra el control de hoy · {sede}` | `control/programacion/{assignmentId}` |
 | `ORGANIZATION_INACTIVE` | `Sin actividad reciente en BPM` | `No hay actividad desde hace {N} días. Revisa la operación.` | `empresa` |
 | `TRAINING_ASSIGNED` | `Capacitación asignada: {curso}` | `{sede} · Vence el dd/MM/aaaa. Complétala en la Academia.` | `aprender` |
+| `INCIDENT_ASSIGNED` | `Te asignaron una incidencia: {categoría}` | `{sede} · Plazo dd/MM/aaaa HH:mm` (hora de la sede) | `empresa/incidencias` (ADMIN) o `control/incidencias` (CHEF/WORKER) |
 | otro | texto genérico | texto genérico | `avisos` |
 
 Las partes ausentes se omiten (sin sede, sin plazo, sin medición). El mensaje FCM lleva el bloque `notification`
@@ -72,8 +73,10 @@ Las partes ausentes se omiten (sin sede, sin plazo, sin medición). El mensaje F
 `alertId` para reemplazar repeticiones. `data` conserva `alertId`, `organizationId` y `recipientHash` y agrega,
 cuando existen: `type` (tipo de aviso), `sourceType`, `entityId` (id de la fuente), `siteId` y `route`. `route` usa
 las rutas existentes del frontend; el cliente debe validarla contra su lista de rutas y, si no la reconoce,
-abrir `avisos`. Las incidencias y otros módulos aún no emiten avisos externos: se agregan como un tipo nuevo en
-`BuildPush` cuando exista su emisor.
+abrir `avisos`. Para `INCIDENT_ASSIGNED` (V21) `entityId` es el id de la incidencia, `sourceType` es `INCIDENT` y `siteId` la sede; el texto
+lleva solo la categoría del catálogo, la sede y el plazo de la acción (sin nombre del reportante ni del responsable). Lo emite
+`features/incidents` al asignar (ver ALERTS.md); sin V21 no se emite y el resto de avisos no cambia. Otros módulos aún no
+emiten avisos externos: se agregan como un tipo nuevo en `BuildPush` cuando exista su emisor.
 
 ## API privada de dispositivos
 
