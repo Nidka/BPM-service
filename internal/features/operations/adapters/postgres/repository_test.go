@@ -403,6 +403,15 @@ func TestDailyOperationsLegacyAndRequiredSchema(t *testing.T) {
 
 func TestDailyOperationsAllKeysetPagesAndLiteralQueries(t *testing.T) {
 	ctx, pool := database(t)
+	// La clave de paginación se calcula en Go con strings.ToLower (Unicode) y el orden en PostgreSQL con lower():
+	// con LC_CTYPE=C/POSIX este último no convierte «É»/«Á» y la paginación omite filas (ver specs/MIGRATIONS.md, V17).
+	var ctype string
+	if e := pool.QueryRow(ctx, `SELECT datctype FROM pg_database WHERE datname=current_database()`).Scan(&ctype); e != nil {
+		t.Fatal(e)
+	}
+	if ctype == "C" || ctype == "POSIX" {
+		t.Skipf("requiere una base con LC_CTYPE UTF-8 (es %q); ver specs/MIGRATIONS.md", ctype)
+	}
 	seed(t, ctx, pool)
 	s := application.New(New(pool))
 	catalog(t, ctx, s)

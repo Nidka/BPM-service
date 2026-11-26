@@ -29,3 +29,13 @@ local.properties
 # Backups locales de la base (scripts/aplicar-migraciones.ps1).
 *.dump
 backups/
+
+# Salidas de compilación, capturas y temporales.
+bin/
+dist/
+node_modules/
+screenshots/
+capturas/
+*.log
+*.apk
+*.aab
