@@ -48,22 +48,20 @@ Roles: ADMIN, CHEF (solo sus sedes), SUPER_ADMIN. Respuesta en streaming
 `200 text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="checklists_<from>_<to>.csv"`,
 `Cache-Control: no-store`. UTF-8 **con marca BOM** (`EF BB BF`, para que Excel muestre las tildes; los
 clientes pueden ignorarla), separador coma, comillas dobles según `encoding/csv`. Primera fila de
-encabezado en español, siempre en este orden (el orden de columnas no cambió):
+encabezado en español, con estas columnas en este orden:
 
 | # | Encabezado | Contenido |
 |---:|---|---|
-| 1 | `ID de ejecución` | UUID de la ejecución |
-| 2 | `Fecha local` | `dd/MM/aaaa`, día local de la sede |
-| 3 | `Enviado el` | `dd/MM/aaaa HH:mm` (24 h) en la hora local de la sede (`locations.timezone`; `America/Lima` si falta) |
-| 4 | `ID de sede` | UUID de la sede |
-| 5 | `Sede` | nombre de la sede |
-| 6 | `Control` | nombre de la plantilla |
-| 7 | `Área` | área de la plantilla |
-| 8 | `Versión de la plantilla` | entero |
-| 9 | `Cumplimiento (%)` | número con 2 decimales y punto (`86.50`) |
+| 1 | `Fecha local` | `dd/MM/aaaa`, día local de la sede |
+| 2 | `Enviado el` | `dd/MM/aaaa HH:mm` (24 h) en la hora local de la sede (`locations.timezone`; `America/Lima` si falta) |
+| 3 | `Sede` | nombre de la sede |
+| 4 | `Control` | nombre de la plantilla |
+| 5 | `Área` | área de la plantilla |
+| 6 | `Versión de la plantilla` | entero |
+| 7 | `Cumplimiento (%)` | número con 2 decimales y punto (`86.50`) |
 
-Cabecera literal: `ID de ejecución,Fecha local,Enviado el,ID de sede,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)`.
-(Antes: `runId,localDate,submittedAtUtc,locationId,locationName,templateName,area,templateVersion,compliancePercent`,
+Cabecera literal: `Fecha local,Enviado el,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)`.
+Sin identificadores internos (UUID de ejecución ni de sede) ni personas. (Primera versión: `runId,localDate,submittedAtUtc,locationId,locationName,templateName,area,templateVersion,compliancePercent`,
 con fechas ISO y horas UTC.) Solo ejecuciones `SUBMITTED`, ordenadas por `submittedAt`. **No** incluye personas
 (ni nombres ni correos). Los textos que empiezan por `=`, `+`, `-`, `@`, tabulador o retorno de carro se prefijan
 con una comilla simple para evitar inyección de fórmulas. Límite: 50 000 filas; si el período las
@@ -85,7 +83,7 @@ generado por el servidor con un escritor PDF mínimo propio (`adapters/pdf`, Hel
 dependencias): encabezado con empresa, período, sede (o «Todas las sedes») y fecha de generación en hora de
 Lima; tres indicadores (controles finalizados, cumplimiento promedio, sedes con controles); tabla
 «Cumplimiento por sede» (si hay más de una; hasta 12 filas) y tabla «Detalle de controles» con las columnas
-Enviado el, Sede, Control, Área, Versión y Cumplimiento (%), con el encabezado repetido en cada página y pie
+Enviado el, Sede, Control, Área, Versión y Cumplimiento (%); los nombres largos de sede, control y área se parten en varias líneas (hasta 6) para leerse completos; el encabezado se repite en cada página y hay pie
 «Página i de n». Las horas son locales de la sede (`dd/MM/aaaa HH:mm`). Un período sin controles produce un PDF
 válido con el aviso «No hay controles finalizados en este período.». Sin personas. Se audita como
 `CHECKLIST_HISTORY_EXPORTED_PDF`.

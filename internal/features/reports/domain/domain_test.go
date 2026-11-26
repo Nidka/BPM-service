@@ -16,7 +16,7 @@ func TestCSVTextNeutralizaFormulas(t *testing.T) {
 	}
 	r := ExportRow{RunID: "r", LocationName: "=HYPERLINK(\"x\")", TemplateName: "@a", Area: "-b", SubmittedAt: time.Now(), LocalDate: time.Now(), TemplateVersion: 2, CompliancePercent: 87.5}
 	rec := r.Record()
-	if rec[4][0] != '\'' || rec[5][0] != '\'' || rec[6][0] != '\'' || rec[8] != "87.50" || len(rec) != len(ExportHeader) {
+	if rec[2][0] != '\'' || rec[3][0] != '\'' || rec[4][0] != '\'' || rec[6] != "87.50" || len(rec) != len(ExportHeader) {
 		t.Fatalf("registro inseguro: %v", rec)
 	}
 }
@@ -104,7 +104,7 @@ func TestRecordUsaHoraLocalYFormatoEspanol(t *testing.T) {
 	at := time.Date(2026, 1, 2, 3, 5, 0, 0, time.UTC)
 	r := ExportRow{RunID: "r", LocalDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), SubmittedAt: at, Zone: "America/Lima", TemplateVersion: 3, CompliancePercent: 100}
 	rec := r.Record()
-	if rec[1] != "01/01/2026" || rec[2] != "01/01/2026 22:05" || rec[7] != "3" || rec[8] != "100.00" {
+	if rec[0] != "01/01/2026" || rec[1] != "01/01/2026 22:05" || rec[5] != "3" || rec[6] != "100.00" || len(rec) != 7 {
 		t.Fatalf("formato: %v", rec)
 	}
 	r.Zone = "No/Existe"

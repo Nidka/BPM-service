@@ -2989,7 +2989,7 @@ paths:
       tags: [Reportes]
       operationId: exportChecklistHistoryCsv
       summary: Exportar el historial de checklists en CSV (RF-17)
-      description: "ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. Streaming UTF-8 (con marca BOM) sin datos de personas. Encabezado en español, en este orden: ID de ejecución, Fecha local, Enviado el, ID de sede, Sede, Control, Área, Versión de la plantilla, Cumplimiento (%). Fechas dd/MM/aaaa y horas dd/MM/aaaa HH:mm (24 h) en la hora local de la sede. Los textos que inician con =, +, -, @, tabulador o retorno de carro se prefijan con comilla simple. Máximo 50000 filas (422 EXPORT_TOO_LARGE)."
+      description: "ADMIN, CHEF (solo sus sedes) y SUPER_ADMIN. Streaming UTF-8 (con marca BOM) sin datos de personas. Encabezado en español, en este orden y sin identificadores internos: Fecha local, Enviado el, Sede, Control, Área, Versión de la plantilla, Cumplimiento (%). Fechas dd/MM/aaaa y horas dd/MM/aaaa HH:mm (24 h) en la hora local de la sede. Los textos que inician con =, +, -, @, tabulador o retorno de carro se prefijan con comilla simple. Máximo 50000 filas (422 EXPORT_TOO_LARGE)."
       security: [{FirebaseBearer: []}]
       responses:
         "200":

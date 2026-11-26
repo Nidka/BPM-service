@@ -192,7 +192,7 @@ func TestCumplimientoZonaHorariaTenantYRoles(t *testing.T) {
 	if err = svc.ExportRuns(ctx, "chef", orgA, in, sink); err != nil || !sink.begun || len(sink.rows) != 2 {
 		t.Fatalf("export: %v %+v", err, sink)
 	}
-	if rec := sink.rows[0].Record(); !strings.HasPrefix(rec[4], "'=") || len(rec) != len(domain.ExportHeader) {
+	if rec := sink.rows[0].Record(); !strings.HasPrefix(rec[2], "'=") || len(rec) != len(domain.ExportHeader) {
 		t.Fatalf("sin escape: %v", rec)
 	}
 	if sink.rows[0].Zone == "" {

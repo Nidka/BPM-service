@@ -25,10 +25,14 @@ const (
 	contentW   = A4Width - 2*margin
 	footerY    = A4Height - 28
 	bottomEdge = A4Height - 52
-	rowH       = 16.0
-	headH      = 20.0
-	fontSize   = 8.5
-	cellPad    = 5.0
+	rowH       = 16.0 // altura mínima de una fila de una sola línea
+	lineH      = 10.5 // interlineado dentro de una celda con texto en varias líneas
+	rowPadY    = 3.5
+	// maxCellLines evita que un nombre desmesurado ocupe media página.
+	maxCellLines = 6
+	headH        = 20.0
+	fontSize     = 8.5
+	cellPad      = 5.0
 	// maxSiteRows limita el desglose por sede para que el resumen quepa en la primera página.
 	maxSiteRows = 12
 )
@@ -189,20 +193,35 @@ func (b *builder) sites(sites []domain.SiteStat) {
 	b.y += 22
 }
 
-// row dibuja una fila con bandas alternas; onBreak se invoca cuando la tabla continúa en una página nueva.
+// row dibuja una fila con bandas alternas. Los textos largos (sede, control, área) se parten en varias líneas dentro
+// de su columna para que el nombre completo sea legible; la fila crece según su celda más alta. onBreak se invoca
+// cuando la tabla continúa en una página nueva.
 func (b *builder) row(cols []column, index int, cells []string, onBreak func()) {
-	if b.ensure(rowH) && onBreak != nil {
+	lines := make([][]string, len(cols))
+	most := 1
+	for i, c := range cols {
+		if c.right {
+			lines[i] = []string{cells[i]}
+			continue
+		}
+		lines[i] = Wrap(Regular, fontSize, c.width-2*cellPad, cells[i], maxCellLines)
+		most = max(most, len(lines[i]))
+	}
+	h := max(rowH, float64(most)*lineH+2*rowPadY)
+	if b.ensure(h) && onBreak != nil {
 		onBreak()
 	}
 	if index%2 == 1 {
-		b.page.Rect(margin, b.y, contentW, rowH, band)
+		b.page.Rect(margin, b.y, contentW, h, band)
 	}
 	x := margin
 	for i, c := range cols {
-		b.cell(x, b.y+11, c, Regular, ink, cells[i])
+		for k, line := range lines[i] {
+			b.cell(x, b.y+rowPadY+8+float64(k)*lineH, c, Regular, ink, line)
+		}
 		x += c.width
 	}
-	b.y += rowH
+	b.y += h
 }
 
 func (b *builder) detail(rows []domain.ExportRow) {

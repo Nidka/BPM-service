@@ -15,9 +15,9 @@ const (
 	fallbackZone = "America/Lima"
 )
 
-// ExportHeader son las columnas del CSV del historial de checklists, en español y en el mismo orden que siempre
-// (id de ejecución, fecha local, envío, id de sede, sede, control, área, versión, cumplimiento). No incluye personas.
-var ExportHeader = []string{"ID de ejecución", "Fecha local", "Enviado el", "ID de sede", "Sede", "Control", "Área", "Versión de la plantilla", "Cumplimiento (%)"}
+// ExportHeader son las columnas del CSV del historial de checklists, en español y sin identificadores internos
+// (fecha local, envío, sede, control, área, versión, cumplimiento). No incluye personas.
+var ExportHeader = []string{"Fecha local", "Enviado el", "Sede", "Control", "Área", "Versión de la plantilla", "Cumplimiento (%)"}
 
 // ExportRow es una ejecución finalizada del historial exportable.
 type ExportRow struct {
@@ -58,10 +58,8 @@ func CSVText(v string) string {
 // Record serializa la fila; los textos se escapan y los números son seguros por construcción.
 func (r ExportRow) Record() []string {
 	return []string{
-		r.RunID,
 		r.LocalDate.Format(ExportDateLayout),
 		r.SubmittedLocal(),
-		r.LocationID,
 		CSVText(r.LocationName),
 		CSVText(r.TemplateName),
 		CSVText(r.Area),

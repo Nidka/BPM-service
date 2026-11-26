@@ -176,14 +176,14 @@ func TestContratoHTTP(t *testing.T) {
 			t.Fatalf("el CSV debe comenzar con la marca BOM de UTF-8: %q", raw[:8])
 		}
 		rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(raw, "\uFEFF"))).ReadAll()
-		if err != nil || len(rows) != 3 || rows[0][0] != "ID de ejecución" || rows[1][4] != "'=EVIL()" || rows[2][4] != `Sede, "con" comas` {
+		if err != nil || len(rows) != 3 || rows[0][0] != "Fecha local" || rows[1][2] != "'=EVIL()" || rows[2][2] != `Sede, "con" comas` {
 			t.Fatalf("csv: %v %v", rows, err)
 		}
-		if strings.Join(rows[0], ",") != "ID de ejecución,Fecha local,Enviado el,ID de sede,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)" {
+		if strings.Join(rows[0], ",") != "Fecha local,Enviado el,Sede,Control,Área,Versión de la plantilla,Cumplimiento (%)" {
 			t.Fatalf("encabezado: %v", rows[0])
 		}
 		// 03:00 UTC del 02/01 es 22:00 del 01/01 en Lima: la hora del CSV es local, no UTC.
-		if rows[1][2] != "01/01/2026 22:00" || rows[1][8] != "100.00" {
+		if rows[1][1] != "01/01/2026 22:00" || rows[1][6] != "100.00" {
 			t.Fatalf("fila: %v", rows[1])
 		}
 		for _, h := range rows[0] {

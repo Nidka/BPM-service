@@ -169,3 +169,49 @@ func TestMetadatosEnUTF16(t *testing.T) {
 		t.Fatalf("título: %s", buf.String())
 	}
 }
+
+func TestWrapPartePorPalabrasYPalabrasLargas(t *testing.T) {
+	lines := Wrap(Regular, 8.5, 80, "Control de apertura de cocina y almacén del turno mañana", 6)
+	if len(lines) < 2 {
+		t.Fatalf("debe partirse en varias líneas: %v", lines)
+	}
+	if strings.Join(lines, " ") != "Control de apertura de cocina y almacén del turno mañana" {
+		t.Fatalf("no debe perder texto: %v", lines)
+	}
+	for _, l := range lines {
+		if TextWidth(Regular, 8.5, l) > 80 {
+			t.Fatalf("línea más ancha que la columna: %q", l)
+		}
+	}
+	long := Wrap(Regular, 8.5, 60, strings.Repeat("W", 40), 10)
+	if len(long) < 2 || strings.Join(long, "") != strings.Repeat("W", 40) {
+		t.Fatalf("una palabra larga se parte por caracteres: %v", long)
+	}
+	capped := Wrap(Regular, 8.5, 60, strings.Repeat("palabra ", 50), 3)
+	if len(capped) != 3 || !strings.HasSuffix(capped[2], "…") {
+		t.Fatalf("límite de líneas: %v", capped)
+	}
+	if got := Wrap(Regular, 8.5, 60, "  ", 3); len(got) != 1 || got[0] != "" {
+		t.Fatalf("vacío: %v", got)
+	}
+}
+
+func TestRenderMuestraNombresLargosCompletos(t *testing.T) {
+	doc := sample(2)
+	doc.Rows[0].TemplateName = "Control integral de apertura de cocina, almacén seco y cámaras frigoríficas del turno mañana"
+	doc.Rows[0].LocationName = "Sede Delivery Miraflores Avenida Larco"
+	pdf, err := Render(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkStructure(t, pdf)
+	text := strings.Join(streams(t, pdf), "\n")
+	if strings.Contains(text, "…") || strings.Contains(text, "\\205") {
+		t.Fatalf("no debe truncar con puntos suspensivos:\n%s", text)
+	}
+	for _, word := range []string{"frigor\\355ficas", "Larco", "ma\\361ana"} {
+		if !strings.Contains(text, word) {
+			t.Errorf("falta %s", word)
+		}
+	}
+}

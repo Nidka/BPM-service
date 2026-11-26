@@ -251,3 +251,50 @@ func (d *Document) WriteTo(w io.Writer) (int64, error) {
 	n, err := w.Write(out.Bytes())
 	return int64(n), err
 }
+
+// Wrap reparte s en líneas de a lo sumo maxWidth puntos, cortando en los espacios; una palabra más ancha que la
+// columna se parte por caracteres. Si hay más de maxLines líneas, la última se recorta con «…».
+func Wrap(f Font, size, maxWidth float64, s string, maxLines int) []string {
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return []string{""}
+	}
+	var lines []string
+	cur := ""
+	flush := func() {
+		if cur != "" {
+			lines = append(lines, cur)
+			cur = ""
+		}
+	}
+	for _, w := range words {
+		for TextWidth(f, size, w) > maxWidth { // palabra más ancha que la columna
+			flush()
+			cut := 1
+			for cut < len([]rune(w)) && TextWidth(f, size, string([]rune(w)[:cut+1])) <= maxWidth {
+				cut++
+			}
+			lines = append(lines, string([]rune(w)[:cut]))
+			w = string([]rune(w)[cut:])
+		}
+		switch {
+		case w == "":
+		case cur == "":
+			cur = w
+		case TextWidth(f, size, cur+" "+w) <= maxWidth:
+			cur += " " + w
+		default:
+			flush()
+			cur = w
+		}
+	}
+	flush()
+	if maxLines > 0 && len(lines) > maxLines {
+		lines = lines[:maxLines]
+		lines[maxLines-1] = Fit(f, size, maxWidth, lines[maxLines-1]+"…")
+		if !strings.HasSuffix(lines[maxLines-1], "…") {
+			lines[maxLines-1] += "…"
+		}
+	}
+	return lines
+}
