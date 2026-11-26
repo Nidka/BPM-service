@@ -1,8 +1,11 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"github.com/Nidka/BPM-service/internal/features/notifications/domain"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,3 +67,26 @@ func TestDispatcherAcceptanceDoesNotMeanReadOrDelivered(t *testing.T) {
 }
 
 func (r *deliveryRepository) Reconcile(context.Context, time.Time) error { return nil }
+
+// El registro de entregas solo lleva identificadores del aviso, canal, estado y código: nunca token ni correo.
+func TestDispatcherLogsOutcomeWithoutSecrets(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	row := domain.Delivery{ID: "d", AlertID: "alert-1", Channel: "FCM", Message: domain.Message{To: "secret-token", Subject: "Texto privado"}}
+	r := &deliveryRepository{row: row, eligible: true}
+	s := NewDispatcher(r, map[string]Provider{"FCM": &sender{}}, "").WithLogger(logger)
+	if e := s.SendDue(context.Background(), time.Now()); e != nil {
+		t.Fatal(e)
+	}
+	out := buf.String()
+	for _, want := range []string{`"alertId":"alert-1"`, `"channel":"FCM"`, `"status":"SENT"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("falta %s en %s", want, out)
+		}
+	}
+	for _, secret := range []string{"secret-token", "Texto privado", "accepted"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("el registro filtra %q: %s", secret, out)
+		}
+	}
+}

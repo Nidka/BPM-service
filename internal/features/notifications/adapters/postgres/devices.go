@@ -10,12 +10,23 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log/slog"
 )
 
-type Repository struct{ pool *pgxpool.Pool }
+// Repository persiste dispositivos y entregas. logger es opcional: solo registra conteos y códigos, nunca tokens ni textos.
+type Repository struct {
+	pool   *pgxpool.Pool
+	logger *slog.Logger
+}
 type deviceStore struct{ tx pgx.Tx }
 
-func New(p *pgxpool.Pool) *Repository { return &Repository{p} }
+func New(p *pgxpool.Pool) *Repository { return &Repository{pool: p} }
+
+// WithLogger activa el registro de la preparación de entregas (qué canales y cuántos dispositivos se prepararon).
+func (r *Repository) WithLogger(l *slog.Logger) *Repository {
+	r.logger = l
+	return r
+}
 func (r *Repository) Within(ctx context.Context, fn func(application.DeviceStore) error) error {
 	tx, e := r.pool.Begin(ctx)
 	if e != nil {

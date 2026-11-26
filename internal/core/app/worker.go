@@ -68,7 +68,7 @@ func RunWorker(ctx context.Context) error {
 		weeklyMailer = weeklyReportMailer{provider: providers["EMAIL"], from: cfg.Email.From}
 	}
 	weekly := reports.NewWeeklyJob(pool, weeklyMailer)
-	dispatcher := application.NewDispatcher(notificationpg.New(pool), providers, cfg.Email.From)
+	dispatcher := application.NewDispatcher(notificationpg.New(pool).WithLogger(logger), providers, cfg.Email.From).WithLogger(logger)
 	evaluator := alerts.New(pool, logger)
 	var invitationSender organizationapp.MailSender
 	if providers["EMAIL"] != nil {

@@ -44,11 +44,15 @@ func (r *Repository) stage(ctx context.Context, org, id, from string, now time.T
 	var emailEnabled, pushEnabled bool
 	e = tx.QueryRow(ctx, `SELECT a.recipient_user_id,u.email,COALESCE((a.context_snapshot->>'emailEnabled')::boolean,false),COALESCE((a.context_snapshot->>'pushEnabled')::boolean,false) FROM alerts a JOIN application_users u ON u.id=a.recipient_user_id WHERE a.organization_id=$1 AND a.id=$2 AND a.attended_at IS NULL AND alert_recipient_authorized($1,a.id,a.recipient_user_id) AND alert_source_pending($1,a.id) FOR SHARE OF a`, org, id).Scan(&user, &email, &emailEnabled, &pushEnabled)
 	if errors.Is(e, pgx.ErrNoRows) {
+		if r.logger != nil && !pushOnly {
+			r.logger.Info("aviso sin entregas: destinatario o fuente ya no vigente, o aviso atendido", "alertId", id)
+		}
 		return tx.Commit(ctx)
 	}
 	if e != nil {
 		return e
 	}
+	fcmTargets := 0
 	base := storedMessage{AlertID: id, OrganizationID: org, RecipientHash: tokenHash(user)}
 	insert := func(channel, key, device string, v storedMessage) error {
 		raw, e := json.Marshal(v)
@@ -94,6 +98,7 @@ func (r *Repository) stage(ctx context.Context, org, id, from string, now time.T
 				return e
 			}
 		}
+		fcmTargets = len(targets)
 		for _, t := range targets {
 			v := base
 			v.PushToken = t.token
@@ -107,6 +112,9 @@ func (r *Repository) stage(ctx context.Context, org, id, from string, now time.T
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return e
+	}
+	if r.logger != nil && !pushOnly {
+		r.logger.Info("entregas del aviso preparadas", "alertId", id, "emailEnabled", emailEnabled, "pushEnabled", pushEnabled, "fcmDevices", fcmTargets)
 	}
 	if emailEnabled && from == "" && !pushOnly {
 		return application.ErrUnavailable

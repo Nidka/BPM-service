@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/Nidka/BPM-service/internal/features/notifications/domain"
+	"log/slog"
 	"time"
 )
 
@@ -30,6 +31,7 @@ type Dispatcher struct {
 	providers  map[string]Provider
 	from       string
 	clock      func() time.Time
+	logger     *slog.Logger
 }
 
 func NewDispatcher(r DeliveryRepository, p map[string]Provider, from string, clocks ...func() time.Time) *Dispatcher {
@@ -37,7 +39,14 @@ func NewDispatcher(r DeliveryRepository, p map[string]Provider, from string, clo
 	if len(clocks) > 0 && clocks[0] != nil {
 		clock = clocks[0]
 	}
-	return &Dispatcher{r, p, from, clock}
+	return &Dispatcher{repository: r, providers: p, from: from, clock: clock}
+}
+
+// WithLogger activa el registro del resultado de cada entrega (canal, estado y código seguro). Nunca registra
+// tokens, correos, textos del aviso ni cuerpos del proveedor.
+func (s *Dispatcher) WithLogger(l *slog.Logger) *Dispatcher {
+	s.logger = l
+	return s
 }
 func (s *Dispatcher) Dispatch(ctx context.Context, org, id string, now time.Time) error {
 	if !domain.ValidOrganization(org) || !domain.ValidID(id) {
@@ -91,6 +100,9 @@ func (s *Dispatcher) SendDue(ctx context.Context, _ time.Time) error {
 		}
 		if e = s.repository.Finish(ctx, v, out, s.clock().UTC()); e != nil {
 			return e
+		}
+		if s.logger != nil {
+			s.logger.Info("entrega de aviso procesada", "alertId", v.AlertID, "channel", v.Channel, "status", out.Status, "code", out.Code, "attempts", v.Attempts)
 		}
 	}
 	return nil

@@ -48,6 +48,11 @@ una transacción; su envío ocurre después.
 - Los errores y logs conservan códigos seguros; no se registran tokens, correos,
   cuerpos de proveedores ni credenciales.
 
+- El worker registra (nivel INFO, sin tokens, correos ni textos) `entregas del aviso preparadas` (`alertId`, canales activos y
+  `fcmDevices`: cuántos dispositivos Android activos recibirán el push; `0` significa que el destinatario no tiene un
+  dispositivo registrado y por tanto no hay push), `aviso sin entregas` (destinatario/fuente ya no vigente o aviso atendido)
+  y `entrega de aviso procesada` (`channel`, `status` SENT/CANCELLED/FAILED/PENDING/UNCERTAIN y `code`).
+
 Referencias oficiales: [idempotencia de Resend y ventana de 24h](https://resend.com/docs/dashboard/emails/idempotency-keys),
 [envío mediante Firebase Admin](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk).
 
