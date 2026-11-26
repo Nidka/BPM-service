@@ -295,6 +295,7 @@ reasigna a nadie: deja de listarse como activa y no puede asignarse a miembros.
 | `GET /organizations/{org}/invitations?status=&query=&pageSize=&pageToken=` | gestor |
 | `POST /organizations/{org}/invitations/{id}/resend` | gestor |
 | `POST /organizations/{org}/invitations/{id}/revoke` | gestor |
+| `POST /invitations/preview` | pública (sin `Authorization`) |
 | `POST /invitations/accept` | cualquier usuario BPM activo con correo verificado |
 
 Crear: `{id (UUID cliente), email, role, locationIds}` (mismas reglas que PATCH de miembro).
@@ -320,6 +321,14 @@ correo; funciona con pendientes y vencidas. 409 `INVITATION_NOT_PENDING` si est�
 revocada; 429 `INVITATION_RESEND_TOO_SOON` si pasó menos de 1 minuto desde el último envío.
 Sin cuerpo. Revocar: pendiente/vencida -> REVOKED (idempotente); aceptada ->
 409 `INVITATION_NOT_PENDING`. Ambas devuelven `{"data": <invitación>}`.
+
+Vista previa pública: `POST /invitations/preview`, cuerpo `{"token": "<43 caracteres>"}` (máx. 1 KiB, sin campos extra),
+sin `Authorization`, para que el cliente muestre «Te invitaron a {empresa} como {rol}» y precargue el correo en la pantalla de
+ingreso. Solo una invitación PENDING no vencida responde 200 `{"data":{"organizationName","role","email","expiresAt","status":"PENDING"}}`
+(nombre comercial o razón social de una organización activa; nada de sedes, ids ni de quien invitó). Se busca por SHA-256 del token como
+en aceptar. Errores iguales a aceptar: 404 `INVITATION_NOT_FOUND` (inexistente, mal formado, token sustituido por un reenvío u
+organización inactiva), 409 `INVITATION_EXPIRED`, `INVITATION_ALREADY_USED`, `INVITATION_REVOKED`; los errores no revelan correo ni
+empresa. `Cache-Control: no-store`. Limitada por IP (0,2 solicitudes/s, ráfaga 5; 429 `RATE_LIMITED`) y el token nunca se registra.
 
 Aceptar: cuerpo `{"token": "<43 caracteres base64url>"}`. El correo del token Firebase
 verificado y el del perfil BPM deben coincidir (sin distinguir mayúsculas) con el de la

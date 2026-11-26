@@ -57,6 +57,13 @@ type Invitation struct {
 	AcceptedBy string
 }
 
+// InvitationPreview es lo único que se muestra de una invitación vigente a quien aún no inició sesión:
+// el nombre de la organización, el rol, el correo invitado y el vencimiento. Nada de sedes, ids ni quien invitó.
+type InvitationPreview struct {
+	OrganizationName, Role, Email, Status string
+	ExpiresAt                             time.Time
+}
+
 // Accepted es el resultado de aceptar una invitación.
 type Accepted struct {
 	OrganizationID, Role string

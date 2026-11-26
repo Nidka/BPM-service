@@ -344,6 +344,24 @@ func (h *Handler) invitationAction(w http.ResponseWriter, r *http.Request, run f
 	response.JSON(w, 200, map[string]any{"data": invitation(inv)})
 }
 
+// previewInvitation es público: devuelve organización, rol, correo y vencimiento de una invitación vigente para que
+// el cliente muestre «Te invitaron a …» y precargue el correo. Cuerpo máximo 1 KiB; el token nunca se registra.
+func (h *Handler) previewInvitation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	var v struct {
+		Token string `json:"token"`
+	}
+	if !httprequest.DecodeJSON(w, r, &v, 1024) {
+		return
+	}
+	out, e := h.service.PreviewInvitation(r.Context(), v.Token)
+	if e != nil {
+		h.fail(w, r, e)
+		return
+	}
+	response.JSON(w, 200, map[string]any{"data": map[string]any{"organizationName": out.OrganizationName, "role": out.Role, "email": out.Email, "expiresAt": iso(out.ExpiresAt), "status": out.Status}})
+}
+
 func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	uid, ok := h.actor(w, r)
 	if !ok {

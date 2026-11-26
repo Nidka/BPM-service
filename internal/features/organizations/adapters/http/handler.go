@@ -17,10 +17,18 @@ import (
 type Handler struct {
 	service *application.Service
 	logger  *slog.Logger
+	// previewLimit limita por IP la consulta pública de invitaciones; nil la deja pasar.
+	previewLimit func(http.Handler) http.Handler
+}
+
+// WithPreviewLimit fija el limitador por IP de POST /invitations/preview (público).
+func (h *Handler) WithPreviewLimit(limit func(http.Handler) http.Handler) *Handler {
+	h.previewLimit = limit
+	return h
 }
 
 func New(service *application.Service, logger *slog.Logger) *Handler {
-	return &Handler{service, logger}
+	return &Handler{service: service, logger: logger}
 }
 
 type organizationDTO struct {
@@ -89,6 +97,13 @@ func entries(input []domain.Entry) []entryDTO {
 	return out
 }
 func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
+	// Pública (sin Authorization): solo muestra lo mínimo de una invitación vigente.
+	r.Group(func(r chi.Router) {
+		if h.previewLimit != nil {
+			r.Use(h.previewLimit)
+		}
+		r.Post("/invitations/preview", h.previewInvitation)
+	})
 	r.Group(func(r chi.Router) {
 		r.Use(auth)
 		r.Get("/organizations", h.list)

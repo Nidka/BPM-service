@@ -339,6 +339,16 @@ func TestAccountsManagement(t *testing.T) {
 	_, err = svc.AcceptInvitation(ctx, "invitee", "invitee@example.invalid", tk)
 	is(err, domain.ErrInvitationNotFound, "unknown token")
 
+	// Vista previa pública: invitación vigente (solo datos mínimos) y errores como aceptar.
+	pv, err := svc.PreviewInvitation(ctx, token)
+	if err != nil || pv.OrganizationName != "Uno SAC" || pv.Role != "WORKER" || pv.Email != "invitee@example.invalid" || pv.Status != domain.InvitationPending || !pv.ExpiresAt.After(time.Now()) {
+		t.Fatal("preview vigente", pv, err)
+	}
+	_, err = svc.PreviewInvitation(ctx, "short")
+	is(err, domain.ErrInvitationNotFound, "preview malformed token")
+	_, err = svc.PreviewInvitation(ctx, tk)
+	is(err, domain.ErrInvitationNotFound, "preview unknown token")
+
 	// Reenviar: espera mínima, nuevo token invalida el anterior.
 	_, err = svc.ResendInvitation(ctx, other, org1, inv1)
 	is(err, domain.ErrResendTooSoon, "resend too soon")
@@ -353,6 +363,8 @@ func TestAccountsManagement(t *testing.T) {
 	}
 	_, err = svc.AcceptInvitation(ctx, "invitee", "invitee@example.invalid", token)
 	is(err, domain.ErrInvitationNotFound, "old token after resend")
+	_, err = svc.PreviewInvitation(ctx, token)
+	is(err, domain.ErrInvitationNotFound, "preview old token after resend")
 	pool.QueryRow(ctx, `SELECT count(*) FROM outbox_events WHERE aggregate_id=$1 AND payload ? 'token'`, inv1).Scan(&n)
 	if n != 1 {
 		t.Fatal("old token left in the outbox", n)
@@ -362,6 +374,8 @@ func TestAccountsManagement(t *testing.T) {
 	exec(`UPDATE organization_invitations SET expires_at=NOW()-interval '1 minute' WHERE id=$1`, inv1)
 	_, err = svc.AcceptInvitation(ctx, "invitee", "invitee@example.invalid", newToken)
 	is(err, domain.ErrInvitationExpired, "expired")
+	_, err = svc.PreviewInvitation(ctx, newToken)
+	is(err, domain.ErrInvitationExpired, "preview expired")
 	exp, _ := svc.InvitationsPage(ctx, other, org1, "EXPIRED", pagination.Request{Size: 10})
 	if len(exp.Items) != 1 {
 		t.Fatal("expired status not derived", exp)
@@ -382,6 +396,8 @@ func TestAccountsManagement(t *testing.T) {
 	}
 	_, err = svc.AcceptInvitation(ctx, "invitee", "invitee@example.invalid", newToken)
 	is(err, domain.ErrInvitationUsed, "reuse")
+	_, err = svc.PreviewInvitation(ctx, newToken)
+	is(err, domain.ErrInvitationUsed, "preview accepted")
 	_, err = svc.RevokeInvitation(ctx, other, org1, inv1)
 	is(err, domain.ErrInvitationNotOpen, "revoke accepted")
 
@@ -396,6 +412,8 @@ func TestAccountsManagement(t *testing.T) {
 	}
 	_, err = svc.AcceptInvitation(ctx, "outsider", "outsider@example.invalid", revokedToken)
 	is(err, domain.ErrInvitationRevoked, "revoked")
+	_, err = svc.PreviewInvitation(ctx, revokedToken)
+	is(err, domain.ErrInvitationRevoked, "preview revoked")
 	_, err = svc.RevokeInvitation(ctx, "ob", org1, inv2)
 	is(err, domain.ErrDenied, "foreign admin revokes")
 

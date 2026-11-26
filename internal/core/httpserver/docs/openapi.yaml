@@ -2407,6 +2407,19 @@ paths:
       responses:
         "200": {description: Membresía creada, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [organizationId, role, locationIds], properties: {organizationId: {type: string}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, locationIds: {type: array, items: {type: string, format: uuid}}}}}}}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/invitations/preview:
+    post:
+      tags: [Organizaciones]
+      summary: Vista previa pública de una invitación
+      operationId: previewInvitation
+      description: "Pública (sin Authorization). Con el token de una invitación PENDING no vencida devuelve solo organización, rol, correo invitado y vencimiento, para mostrar «Te invitaron a …» y precargar el correo antes de iniciar sesión. Sin sedes, ids ni datos de quien invitó. Cuerpo máximo 1 KiB, Cache-Control no-store, limitada por IP (429 RATE_LIMITED); el token no se registra. Errores 404 INVITATION_NOT_FOUND (inexistente, mal formado o sustituido por un reenvío), 409 INVITATION_EXPIRED, INVITATION_ALREADY_USED, INVITATION_REVOKED."
+      security: []
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [token], properties: {token: {type: string, minLength: 43, maxLength: 43}}}}}
+      responses:
+        "200": {description: Invitación vigente, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, additionalProperties: false, required: [organizationName, role, email, expiresAt, status], properties: {organizationName: {type: string}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, email: {type: string}, expiresAt: {type: string, format: date-time}, status: {type: string, enum: [PENDING]}}}}}}}}
+        default: {$ref: "#/components/responses/WorkspaceError"}
   /api/v1/me/devices:
     get:
       tags: [Organizaciones]

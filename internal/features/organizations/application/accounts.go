@@ -47,6 +47,8 @@ type AccountStore interface {
 	InvitationOrganization(context.Context, string) (string, error)
 	LockInvitationByHash(context.Context, string) (domain.Invitation, error)
 	AccountEmail(context.Context, string) (string, error)
+	// InvitationPreviewByHash lee, sin bloquear, la invitación y el nombre de su organización activa.
+	InvitationPreviewByHash(context.Context, string) (domain.InvitationPreview, error)
 	AcceptInvitation(context.Context, domain.Invitation, string) (domain.Accepted, error)
 	DevicesPage(context.Context, string, pagination.Window) ([]domain.Device, error)
 	RevokeDevice(context.Context, domain.Actor, string) (domain.Device, error)
@@ -696,6 +698,35 @@ func (s *Service) RevokeInvitation(ctx context.Context, uid, org, id string) (ou
 		}
 		out, e = db.RevokeInvitation(ctx, actor, org, cur.ID)
 		return e
+	})
+	return
+}
+
+// PreviewInvitation devuelve los datos mínimos de una invitación vigente para mostrarlos antes de iniciar sesión.
+// Es público: solo responde 200 con una invitación PENDING no vencida; el resto usa los mismos errores que aceptar.
+// El token nunca se registra ni se devuelve.
+func (s *Service) PreviewInvitation(ctx context.Context, token string) (out domain.InvitationPreview, err error) {
+	if !tokenPattern.MatchString(token) {
+		return out, domain.ErrInvitationNotFound
+	}
+	hash := HashInvitationToken(token)
+	err = s.work.Within(ctx, func(db Store) error {
+		v, e := db.InvitationPreviewByHash(ctx, hash)
+		if e != nil {
+			return e
+		}
+		switch v.Status {
+		case domain.InvitationPending:
+			out = v
+			return nil
+		case domain.InvitationAccepted:
+			return domain.ErrInvitationUsed
+		case domain.InvitationRevoked:
+			return domain.ErrInvitationRevoked
+		case domain.InvitationExpired:
+			return domain.ErrInvitationExpired
+		}
+		return domain.ErrInvitationNotFound
 	})
 	return
 }

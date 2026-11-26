@@ -351,6 +351,20 @@ func (s *store) LockInvitationByHash(ctx context.Context, hash string) (domain.I
 	return v, e
 }
 
+// InvitationPreviewByHash lee la invitación por el hash del token. El estado resuelve el vencimiento (PENDING con
+// expires_at pasado se informa EXPIRED). Una organización que no está activa se trata como inexistente.
+func (s *store) InvitationPreviewByHash(ctx context.Context, hash string) (v domain.InvitationPreview, e error) {
+	e = s.tx.QueryRow(ctx, `SELECT COALESCE(NULLIF(o.trade_name,''),o.legal_name),i.role,i.email,
+ CASE WHEN i.status='PENDING' AND i.expires_at<=NOW() THEN 'EXPIRED' ELSE i.status END,i.expires_at
+ FROM organization_invitations i JOIN organizations o ON o.id=i.organization_id AND o.status='ACTIVE' WHERE i.token_hash=$1`, hash).
+		Scan(&v.OrganizationName, &v.Role, &v.Email, &v.Status, &v.ExpiresAt)
+	if errors.Is(e, pgx.ErrNoRows) {
+		e = domain.ErrInvitationNotFound
+	}
+	v.ExpiresAt = v.ExpiresAt.UTC()
+	return
+}
+
 func (s *store) AccountEmail(ctx context.Context, uid string) (email string, e error) {
 	e = s.tx.QueryRow(ctx, `SELECT email FROM application_users WHERE id=$1 AND status='ACTIVE'`, uid).Scan(&email)
 	if errors.Is(e, pgx.ErrNoRows) {
