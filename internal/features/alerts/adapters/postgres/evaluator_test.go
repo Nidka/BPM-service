@@ -277,6 +277,17 @@ func TestLegacyGenericTextIsImprovedAtReadTime(t *testing.T) {
 		return out
 	}
 	got := read()
+	// sourceParentId: recepción para un ítem de recepción y curso para una asignación de capacitación.
+	parents, e := s.Inbox(ctx, "chef", org, "ALL", pagination.Request{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, a := range parents.Items {
+		want := map[string]string{"TEMPERATURE_DANGER": uid(12), "TRAINING_ASSIGNED": uid(30)}[a.Type]
+		if a.SourceParentID == nil || *a.SourceParentID != want {
+			t.Fatalf("sourceParentId de %s: %v, se esperaba %s", a.Type, a.SourceParentID, want)
+		}
+	}
 	if got["TEMPERATURE_DANGER"] != [2]string{"Temperatura fuera de rango · Principal", "Pollo (Carnes): 12 °C · 10:35"} {
 		t.Fatalf("temperatura heredada: %v", got["TEMPERATURE_DANGER"])
 	}
