@@ -38,8 +38,9 @@ una transacción; su envío ocurre después.
   atendido. El dispatcher nunca cambia el estado de lectura de `alerts`.
 - FCM tiene entrega al menos una vez; el cliente deduplica por alertID y verifica
   el hash del destinatario. No se promete exactamente una entrega externa.
-- Los avisos externos solo contienen una invitación genérica a abrir BPM y sus
-  identificadores. No llevan observaciones, temperaturas, nombres ni fotos.
+- Los avisos push llevan texto específico por tipo (ver «Texto del push»). El correo
+  conserva la invitación genérica. Ningún canal lleva observaciones, nombres de
+  personas, correos, teléfonos, fotos, URLs firmadas ni tokens.
 - Cada tick reconcilia hasta 100 avisos vigentes con dispositivos nuevos o tokens
   rotados. El destino se deduplica por dispositivo/hash, sin repetir el ya registrado.
 - Un error tardío UNREGISTERED desactiva únicamente el dispositivo y hash del
@@ -49,6 +50,30 @@ una transacción; su envío ocurre después.
 
 Referencias oficiales: [idempotencia de Resend y ventana de 24h](https://resend.com/docs/dashboard/emails/idempotency-keys),
 [envío mediante Firebase Admin](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk).
+
+## Texto del push y navegación
+
+Al preparar la entrega FCM, `notifications/domain.BuildPush` (función pura) arma título y cuerpo con datos de
+negocio resueltos por el adaptador PostgreSQL: nombre de sede, plantilla, producto/categoría, curso, medición y
+plazo. Nunca incluye nombre, correo o teléfono de personas. El texto se conserva en la entrega (inmutable) y el
+proveedor lo recorta por runas: título ≤ 60 y cuerpo ≤ 140, con «…». Un tipo desconocido (o una entrega preparada
+antes de este cambio) usa el texto genérico «Tienes un aviso en BPM» / «Abre la aplicación para consultar tus avisos.».
+
+| Tipo | Título | Cuerpo | `route` |
+| --- | --- | --- | --- |
+| `TEMPERATURE_DANGER` | `Temperatura fuera de rango · {sede}` | `{producto} ({categoría}): {t} °C` | `empresa/operacion` (ADMIN) o `control/operacion` |
+| `CHECKLIST_MISSING` | `Control pendiente: {plantilla}` | `Aún no se registra el control de hoy · {sede}` | `control/programacion/{assignmentId}` |
+| `ORGANIZATION_INACTIVE` | `Sin actividad reciente en BPM` | `No hay actividad desde hace {N} días. Revisa la operación.` | `empresa` |
+| `TRAINING_ASSIGNED` | `Capacitación asignada: {curso}` | `{sede} · Vence el dd/MM/aaaa. Complétala en la Academia.` | `aprender` |
+| otro | texto genérico | texto genérico | `avisos` |
+
+Las partes ausentes se omiten (sin sede, sin plazo, sin medición). El mensaje FCM lleva el bloque `notification`
+(título/cuerpo; Android lo muestra solo con la app en segundo plano), el canal `bpm-alerts` y la etiqueta
+`alertId` para reemplazar repeticiones. `data` conserva `alertId`, `organizationId` y `recipientHash` y agrega,
+cuando existen: `type` (tipo de aviso), `sourceType`, `entityId` (id de la fuente), `siteId` y `route`. `route` usa
+las rutas existentes del frontend; el cliente debe validarla contra su lista de rutas y, si no la reconoce,
+abrir `avisos`. Las incidencias y otros módulos aún no emiten avisos externos: se agregan como un tipo nuevo en
+`BuildPush` cuando exista su emisor.
 
 ## API privada de dispositivos
 

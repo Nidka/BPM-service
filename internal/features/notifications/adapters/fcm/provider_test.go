@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 type fcmTransport func(*http.Request) (*http.Response, error)
@@ -35,7 +36,10 @@ func fcmFixture(t *testing.T, status int, body string, inspect func(*http.Reques
 	}
 	return New(messaging)
 }
-func TestFCMDataOnlyGenericPayload(t *testing.T) {
+
+// payloadOf envía el mensaje al proveedor falso y devuelve el cuerpo JSON que habría recibido FCM.
+func payloadOf(t *testing.T, m domain.Message) (notification map[string]string, data map[string]string, android map[string]any) {
+	t.Helper()
 	calls := 0
 	p := fcmFixture(t, 200, `{"name":"projects/fixture-project/messages/accepted"}`, func(r *http.Request) {
 		calls++
@@ -48,21 +52,53 @@ func TestFCMDataOnlyGenericPayload(t *testing.T) {
 		if json.NewDecoder(r.Body).Decode(&body) != nil {
 			t.Fatal("invalid provider payload")
 		}
-		if _, found := body.Message["notification"]; found {
-			t.Fatal("push contains visible private notification")
-		}
-		var data map[string]string
-		if json.Unmarshal(body.Message["data"], &data) != nil || len(data) != 3 || data["alertId"] != "alert" || data["organizationId"] != "org" || data["recipientHash"] != "uid-hash" {
-			t.Fatal("unexpected public push data")
-		}
-		var android map[string]any
-		if json.Unmarshal(body.Message["android"], &android) != nil || android["collapse_key"] != "alert" || android["ttl"] != "3600s" {
-			t.Fatal("missing push dedupe or expiry")
+		if json.Unmarshal(body.Message["notification"], &notification) != nil || json.Unmarshal(body.Message["data"], &data) != nil || json.Unmarshal(body.Message["android"], &android) != nil {
+			t.Fatal("unexpected provider payload shape")
 		}
 	})
-	_, err := p.Send(context.Background(), "stable", domain.Message{PushToken: "fixture-token", AlertID: "alert", OrganizationID: "org", RecipientHash: "uid-hash", Subject: "private subject", Text: "private notes"})
-	if err != nil || calls != 1 {
+	if _, err := p.Send(context.Background(), "stable", m); err != nil || calls != 1 {
 		t.Fatal("fixture push rejected", err)
+	}
+	return
+}
+func TestFCMSpecificPayloadKeepsLegacyKeys(t *testing.T) {
+	notification, data, android := payloadOf(t, domain.Message{PushToken: "fixture-token", AlertID: "alert", OrganizationID: "org", RecipientHash: "uid-hash", Subject: "private subject", Text: "private notes",
+		Push: domain.PushContent{Title: "Temperatura fuera de rango · Sede Centro", Body: "Pollo (Carnes): 12 °C", Type: "TEMPERATURE_DANGER", SourceType: "RECEIPT_ITEM", EntityID: "item", SiteID: "site", Route: "empresa/operacion"}})
+	if notification["title"] != "Temperatura fuera de rango · Sede Centro" || notification["body"] != "Pollo (Carnes): 12 °C" {
+		t.Fatal("texto específico ausente", notification)
+	}
+	want := map[string]string{"alertId": "alert", "organizationId": "org", "recipientHash": "uid-hash", "type": "TEMPERATURE_DANGER", "sourceType": "RECEIPT_ITEM", "entityId": "item", "siteId": "site", "route": "empresa/operacion"}
+	if len(data) != len(want) {
+		t.Fatal("claves inesperadas", data)
+	}
+	for k, v := range want {
+		if data[k] != v {
+			t.Fatal("clave de navegación incorrecta", k, data)
+		}
+	}
+	for k, v := range data {
+		if strings.Contains(v, "private") || strings.Contains(v, "fixture-token") {
+			t.Fatal("dato privado en data", k)
+		}
+	}
+	n, _ := android["notification"].(map[string]any)
+	if android["collapse_key"] != "alert" || android["ttl"] != "3600s" || n["tag"] != "alert" || n["channel_id"] != "bpm-alerts" {
+		t.Fatal("missing push dedupe or expiry", android)
+	}
+}
+func TestFCMUnknownTypeFallsBackToGenericText(t *testing.T) {
+	notification, data, _ := payloadOf(t, domain.Message{PushToken: "fixture-token", AlertID: "alert", OrganizationID: "org", RecipientHash: "uid-hash"})
+	if notification["title"] != domain.GenericPushTitle || notification["body"] != domain.GenericPushBody {
+		t.Fatal("respaldo genérico ausente", notification)
+	}
+	if len(data) != 4 || data["route"] != "avisos" || data["alertId"] != "alert" {
+		t.Fatal("datos de respaldo inesperados", data)
+	}
+}
+func TestFCMTruncatesOversizedText(t *testing.T) {
+	notification, _, _ := payloadOf(t, domain.Message{PushToken: "t", AlertID: "alert", Push: domain.PushContent{Title: strings.Repeat("ñ", 200), Body: strings.Repeat("é", 500)}})
+	if utf8.RuneCountInString(notification["title"]) > domain.PushTitleMax || utf8.RuneCountInString(notification["body"]) > domain.PushBodyMax {
+		t.Fatal("texto sin límite")
 	}
 }
 func TestFCMPermanentAuthorizationDoesNotRetryAsUncertain(t *testing.T) {

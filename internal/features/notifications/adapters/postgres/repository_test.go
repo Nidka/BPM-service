@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -269,5 +270,78 @@ func TestPushTargetsReconcileAfterRotation(t *testing.T) {
 	p.QueryRow(ctx, `SELECT count(*) FROM notification_deliveries WHERE channel='FCM'`).Scan(&n)
 	if n != 2 {
 		t.Fatal("reconciliation duplicated target", n)
+	}
+}
+
+// TestStagePushEspecificoPorTipo prepara avisos de cada tipo con datos reales de la base y verifica que el
+// texto y la navegación del push se guarden sin datos personales (el usuario de prueba se llama «Persona»).
+func TestStagePushEspecificoPorTipo(t *testing.T) {
+	ctx, p := fixture(t)
+	r := New(p)
+	if _, e := application.NewDevices(r).Register(ctx, "u", "org", input("one")); e != nil {
+		t.Fatal(e)
+	}
+	const site, tpl, asg, sup, prod, rec, item, course, tasg = "70000000-0000-0000-0000-000000000001", "70000000-0000-0000-0000-000000000002", "70000000-0000-0000-0000-000000000003", "70000000-0000-0000-0000-000000000004", "70000000-0000-0000-0000-000000000005", "70000000-0000-0000-0000-000000000006", "70000000-0000-0000-0000-000000000007", "70000000-0000-0000-0000-000000000008", "70000000-0000-0000-0000-000000000009"
+	exec(t, ctx, p, `INSERT INTO locations(id,organization_id,name,address,timezone)VALUES($1,'org','Sede Centro','Calle 1','America/Lima')`, site)
+	exec(t, ctx, p, `INSERT INTO checklist_templates(id,organization_id,name,area)VALUES($1,'org','Apertura de cocina','COCINA')`, tpl)
+	exec(t, ctx, p, `INSERT INTO checklist_assignments(id,organization_id,location_id,template_id,frequency)VALUES($1,'org',$2,$3,'DAILY')`, asg, site, tpl)
+	exec(t, ctx, p, `INSERT INTO suppliers(id,organization_id,name)VALUES($1,'org','Proveedor')`, sup)
+	exec(t, ctx, p, `INSERT INTO products(id,organization_id,name,category,unit)VALUES($1,'org','Pollo','Carnes','kg')`, prod)
+	exec(t, ctx, p, `INSERT INTO supply_receipts(id,organization_id,location_id,supplier_id,received_by,received_at,client_operation_id,client_created_at)VALUES($1,'org',$2,$3,'u',NOW(),$4,NOW())`, rec, site, sup, "70000000-0000-0000-0000-00000000000a")
+	exec(t, ctx, p, `INSERT INTO supply_receipt_items(id,organization_id,receipt_id,product_id,quantity,temperature_celsius,decision)VALUES($1,'org',$2,$3,1,12,'ACCEPTED')`, item, rec, prod)
+	exec(t, ctx, p, `INSERT INTO training_courses(id,organization_id,code,title)VALUES($1,'org','C1','Higiene personal')`, course)
+	exec(t, ctx, p, `INSERT INTO training_assignments(id,organization_id,course_id,target_role)VALUES($1,'org',$2,'WORKER')`, tasg, course)
+	now := time.Now().UTC()
+	for i, tc := range []struct {
+		kind, sourceType, source, location, snapshot string
+		title, body, route                           string
+	}{
+		{"TEMPERATURE_DANGER", "RECEIPT_ITEM", item, site, `{"temperatureCelsius":"12.00"}`, "Temperatura fuera de rango · Sede Centro", "Pollo (Carnes): 12 °C", "empresa/operacion"},
+		{"CHECKLIST_MISSING", "CHECKLIST_ASSIGNMENT", asg, site, `{}`, "Control pendiente: Apertura de cocina", "Aún no se registra el control de hoy · Sede Centro", "control/programacion/" + asg},
+		{"ORGANIZATION_INACTIVE", "ORGANIZATION", "org", "", `{"configuration":{"inactivityDays":5}}`, "Sin actividad reciente en BPM", "No hay actividad desde hace 5 días. Revisa la operación.", "empresa"},
+		{"TRAINING_ASSIGNED", "TRAINING_ASSIGNMENT", tasg, "", `{}`, "Capacitación asignada: Higiene personal", "Complétala en la Academia.", "aprender"},
+		{"OTRO_TIPO", "", "", "", `{}`, domain.GenericPushTitle, domain.GenericPushBody, "avisos"},
+	} {
+		id := fmt.Sprintf("80000000-0000-0000-0000-%012d", i+1)
+		snapshot := tc.snapshot[:len(tc.snapshot)-1] + `,"pushEnabled":true}`
+		if tc.snapshot == `{}` {
+			snapshot = `{"pushEnabled":true}`
+		}
+		exec(t, ctx, p, `INSERT INTO alerts(id,organization_id,location_id,recipient_user_id,alert_type,title,message,source_type,source_id,context_snapshot)VALUES($1,'org',NULLIF($2,'')::uuid,'u',$3,'Aviso','Revisa BPM',NULLIF($4,''),NULLIF($5,''),$6::jsonb)`, id, tc.location, tc.kind, tc.sourceType, tc.source, snapshot)
+		// Se prepara directamente: la autorización SQL de tipos ajenos al catálogo no es parte de esta prueba.
+		tx, e := p.Begin(ctx)
+		if e != nil {
+			t.Fatal(e)
+		}
+		got, e := r.pushContent(ctx, tx, "org", id)
+		tx.Rollback(ctx)
+		if e != nil {
+			t.Fatal(tc.kind, e)
+		}
+		if got.Title != tc.title || got.Body != tc.body || got.Route != tc.route || got.Type != tc.kind {
+			t.Fatalf("%s: %+v", tc.kind, got)
+		}
+		if tc.location != "" && got.SiteID != tc.location {
+			t.Fatal("siteId ausente", tc.kind)
+		}
+		for _, privado := range []string{"Persona", "u@example", "@"} {
+			if strings.Contains(got.Title+got.Body, privado) {
+				t.Fatal("dato personal en el push", tc.kind)
+			}
+		}
+	}
+	// El flujo completo conserva el texto en la entrega y lo devuelve al reclamarla. Se usa el aviso de
+	// inactividad porque su vigencia en SQL solo depende de la última actividad.
+	id := "80000000-0000-0000-0000-000000000003"
+	exec(t, ctx, p, `UPDATE alerts SET context_snapshot=context_snapshot||'{"lastActivity":"2099-01-01T00:00:00Z"}' WHERE id=$1`, id)
+	if e := r.Stage(ctx, "org", id, "", now); e != nil {
+		t.Fatal(e)
+	}
+	v, e := r.Claim(ctx, []string{"FCM"}, now)
+	if e != nil || v == nil {
+		t.Fatal("entrega FCM ausente", v, e)
+	}
+	if v.Message.Push.Title != "Sin actividad reciente en BPM" || v.Message.Push.Route != "empresa" || v.Message.Push.Type != "ORGANIZATION_INACTIVE" || v.Message.Push.SourceType != "ORGANIZATION" {
+		t.Fatalf("entrega sin texto específico: %+v", v.Message.Push)
 	}
 }

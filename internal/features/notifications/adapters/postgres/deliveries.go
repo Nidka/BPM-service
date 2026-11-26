@@ -21,6 +21,14 @@ type storedMessage struct {
 	OrganizationID string `json:"organizationId"`
 	RecipientHash  string `json:"recipientHash"`
 	TokenHash      string `json:"tokenHash,omitempty"`
+	// Texto y navegación del push: solo datos de negocio (sede, plantilla, producto, curso, medición).
+	PushTitle  string `json:"pushTitle,omitempty"`
+	PushBody   string `json:"pushBody,omitempty"`
+	AlertType  string `json:"alertType,omitempty"`
+	SourceType string `json:"sourceType,omitempty"`
+	EntityID   string `json:"entityId,omitempty"`
+	SiteID     string `json:"siteId,omitempty"`
+	Route      string `json:"route,omitempty"`
 }
 
 func (r *Repository) Stage(ctx context.Context, org, id, from string, now time.Time) error {
@@ -80,10 +88,18 @@ func (r *Repository) stage(ctx context.Context, org, id, from string, now time.T
 		if e != nil {
 			return e
 		}
+		var content domain.PushContent
+		if len(targets) > 0 {
+			if content, e = r.pushContent(ctx, tx, org, id); e != nil {
+				return e
+			}
+		}
 		for _, t := range targets {
 			v := base
 			v.PushToken = t.token
 			v.TokenHash = t.hash
+			v.PushTitle, v.PushBody, v.AlertType, v.SourceType = content.Title, content.Body, content.Type, content.SourceType
+			v.EntityID, v.SiteID, v.Route = content.EntityID, content.SiteID, content.Route
 			if e = insert("FCM", tokenHash(t.id+":"+t.hash), t.id, v); e != nil {
 				return e
 			}
@@ -116,7 +132,8 @@ func (r *Repository) Claim(ctx context.Context, channels []string, now time.Time
 	if e = json.Unmarshal(raw, &m); e != nil {
 		return nil, errors.New("payload de entrega inválido")
 	}
-	v.Message = domain.Message{From: m.From, To: m.To, Subject: m.Subject, Text: m.Text, PushToken: m.PushToken, AlertID: m.AlertID, OrganizationID: m.OrganizationID, RecipientHash: m.RecipientHash}
+	v.Message = domain.Message{From: m.From, To: m.To, Subject: m.Subject, Text: m.Text, PushToken: m.PushToken, AlertID: m.AlertID, OrganizationID: m.OrganizationID, RecipientHash: m.RecipientHash,
+		Push: domain.PushContent{Title: m.PushTitle, Body: m.PushBody, Type: m.AlertType, SourceType: m.SourceType, EntityID: m.EntityID, SiteID: m.SiteID, Route: m.Route}}
 	v.TokenHash = m.TokenHash
 	return &v, nil
 }
@@ -180,4 +197,31 @@ func (r *Repository) Reconcile(ctx context.Context, now time.Time) error {
 		}
 	}
 	return nil
+}
+
+// pushContent resuelve los datos de negocio del aviso (sede, plantilla, producto, curso, medición) y arma el
+// texto del push. No lee nombres, correos ni teléfonos de personas; el rol del destinatario solo elige la ruta.
+// Los identificadores de la fuente se convierten a uuid solo si tienen ese formato (CASE evita errores de cast).
+func (r *Repository) pushContent(ctx context.Context, tx pgx.Tx, org, id string) (domain.PushContent, error) {
+	f := domain.PushFacts{}
+	const uuidRe = `'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'`
+	source := `CASE WHEN a.source_id ~ ` + uuidRe + ` THEN a.source_id::uuid END`
+	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,''),COALESCE(pr.category,''),ta.due_at
+FROM alerts a
+LEFT JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id
+LEFT JOIN organization_memberships m ON m.organization_id=a.organization_id AND m.user_id=a.recipient_user_id
+LEFT JOIN checklist_assignments ca ON a.source_type='CHECKLIST_ASSIGNMENT' AND ca.organization_id=a.organization_id AND ca.id=`+source+`
+LEFT JOIN checklist_templates tpl ON tpl.organization_id=ca.organization_id AND tpl.id=ca.template_id
+LEFT JOIN supply_receipt_items ri ON a.source_type='RECEIPT_ITEM' AND ri.organization_id=a.organization_id AND ri.id=`+source+`
+LEFT JOIN products pr ON pr.organization_id=ri.organization_id AND pr.id=ri.product_id
+LEFT JOIN training_assignments ta ON a.source_type='TRAINING_ASSIGNMENT' AND ta.organization_id=a.organization_id AND ta.id=`+source+`
+LEFT JOIN training_courses co ON co.organization_id=ta.organization_id AND co.id=ta.course_id
+WHERE a.organization_id=$1 AND a.id=$2`, org, id).Scan(&f.AlertType, &f.SourceType, &f.SourceID, &f.LocationID, &f.SiteName, &f.Zone, &f.RecipientRole, &f.Temperature, &f.InactivityDays, &f.Subject, &f.Category, &f.DueAt)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return domain.BuildPush(domain.PushFacts{}), nil
+	}
+	if e != nil {
+		return domain.PushContent{}, e
+	}
+	return domain.BuildPush(f), nil
 }

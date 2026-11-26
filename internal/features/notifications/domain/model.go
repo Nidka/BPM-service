@@ -65,7 +65,12 @@ type Device struct {
 }
 
 // Message conserva el destino inmutable; nunca se expone en el DTO HTTP.
-type Message struct{ From, To, Subject, Text, PushToken, AlertID, OrganizationID, RecipientHash string }
+type Message struct {
+	From, To, Subject, Text, PushToken, AlertID, OrganizationID, RecipientHash string
+	// Push es el texto visible y la navegación del aviso FCM. Se calcula al preparar la entrega y se conserva
+	// inmutable; con Title y Body vacíos (entregas anteriores) el proveedor usa el texto genérico.
+	Push PushContent
+}
 type Delivery struct {
 	ID, OrganizationID, AlertID, UserID, Channel, DeviceID, TokenHash, LeaseToken string
 	Message                                                                       Message
