@@ -2,9 +2,13 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
+	"time"
+
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/Nidka/BPM-service/internal/core/outbox"
 	"github.com/Nidka/BPM-service/internal/features/notifications/application"
 	"github.com/Nidka/BPM-service/internal/features/notifications/domain"
 	"github.com/jackc/pgx/v5"
@@ -82,4 +86,35 @@ func (s *deviceStore) Deactivate(ctx context.Context, user, org, id string) (out
 		e = domain.ErrNotFound
 	}
 	return
+}
+
+// TestPush crea el aviso TEST_PUSH (solo para la persona, sin sede) y su evento de envío. Requiere V24, un celular activo
+// con token y que no haya otra prueba en el último minuto. El aviso queda marcado como prueba en la bandeja y su envío
+// vence a los 10 minutos.
+func (s *deviceStore) TestPush(ctx context.Context, user, org string) error {
+	var ok bool
+	if e := s.tx.QueryRow(ctx, `SELECT to_regprocedure('alert_v24_supported()') IS NOT NULL`).Scan(&ok); e != nil || !ok {
+		return domain.ErrUnavailable
+	}
+	if _, e := s.tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('test-push:'||$1||':'||$2))`, org, user); e != nil {
+		return e
+	}
+	var devices, recent int
+	if e := s.tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM mobile_devices WHERE organization_id=$1 AND user_id=$2 AND status='ACTIVE' AND push_token IS NOT NULL),
+ (SELECT count(*) FROM alerts WHERE organization_id=$1 AND recipient_user_id=$2 AND alert_type='TEST_PUSH' AND created_at > NOW() - INTERVAL '1 minute')`, org, user).Scan(&devices, &recent); e != nil {
+		return e
+	}
+	if devices == 0 {
+		return domain.ErrNoDevice
+	}
+	if recent > 0 {
+		return domain.ErrRateLimited
+	}
+	var id string
+	if e := s.tx.QueryRow(ctx, `INSERT INTO alerts(organization_id,location_id,recipient_user_id,alert_type,title,message,source_type,source_id,dedup_key,context_snapshot,created_by,updated_by)
+ SELECT $1,NULL,$2,'TEST_PUSH','Notificación de prueba','Prueba enviada desde Ajustes. Puedes ignorarla.','TEST',x.id,'test-push:'||x.id,'{"emailEnabled":false,"pushEnabled":true,"test":true,"configuration":{}}'::jsonb,$2,$2 FROM (SELECT gen_random_uuid()::text AS id) x
+ RETURNING id::text`, org, user).Scan(&id); e != nil {
+		return e
+	}
+	return outbox.Enqueue(ctx, s.tx, outbox.Event{OrganizationID: org, Type: "notifications.alert.ready.v1", AggregateType: "alert", AggregateID: id, DedupKey: "alert:" + id, Payload: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(), ExpiresAt: time.Now().UTC().Add(10 * time.Minute)})
 }

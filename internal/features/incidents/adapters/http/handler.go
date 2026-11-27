@@ -28,6 +28,8 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Post("/organizations/{organizationID}/incident-catalog/{catalogID}/versions", h.versionCatalog)
 		r.Get("/organizations/{organizationID}/incidents", h.incidents)
 		r.Post("/organizations/{organizationID}/incidents", h.report)
+		r.Post("/organizations/{organizationID}/staff-messages", h.staffMessage)
+		r.Get("/organizations/{organizationID}/staff-messages/contact", h.supervisorContact)
 		r.Get("/organizations/{organizationID}/incidents/{incidentID}", h.detail)
 		r.Get("/organizations/{organizationID}/incidents/{incidentID}/assignees", h.assignees)
 		r.Get("/organizations/{organizationID}/incidents/{incidentID}/history", h.history)
@@ -46,6 +48,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, e error) {
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "Tu cuenta no tiene permiso para esta operación o sede."})
 	case errors.Is(e, domain.ErrNotFound):
 		response.Error(w, 404, id, response.APIError{Code: "NOT_FOUND", Message: "El registro no está disponible en esta empresa o sede."})
+	case errors.Is(e, domain.ErrUnavailable):
+		response.Error(w, 503, id, response.APIError{Code: "FEATURE_UNAVAILABLE", Message: "Esta función aún no está disponible. Inténtalo más tarde."})
 	case errors.Is(e, domain.ErrConflict):
 		response.Error(w, 409, id, response.APIError{Code: "RESOURCE_CONFLICT", Message: "El registro cambió o esta operación ya tiene otros datos. Actualiza el detalle."})
 	default:

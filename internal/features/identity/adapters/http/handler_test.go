@@ -162,6 +162,30 @@ func (stub *onboardingSetterStub) Execute(_ context.Context, _ contracts.Identit
 	return stub.seenAt, stub.err
 }
 
+func (stub *onboardingSetterStub) SetWhatsApp(_ context.Context, _ contracts.Identity, raw string) (string, error) {
+	if raw == "" {
+		return "", stub.err
+	}
+	return "51" + raw, stub.err
+}
+
+func TestSetWhatsAppEndpoint(t *testing.T) {
+	handler := NewHandler(&currentProfileGetterStub{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))).WithOnboarding(&onboardingSetterStub{})
+	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	NewRoutes(handler, httpmiddleware.Authenticate(tokenVerifierStub{identity: contracts.Identity{UID: "uid", EmailVerified: true}})).Register(router)
+	for body, want := range map[string]string{`{"whatsapp":"987654321"}`: `"whatsapp":"51987654321"`, `{"whatsapp":null}`: `"whatsapp":null`} {
+		request := httptest.NewRequest(http.MethodPut, "/me/whatsapp", strings.NewReader(body))
+		request.Header.Set("Authorization", "Bearer t")
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != 200 || !strings.Contains(recorder.Body.String(), want) {
+			t.Fatal(body, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
 func serveOnboarding(t *testing.T, setter *onboardingSetterStub, method string, token bool) *httptest.ResponseRecorder {
 	t.Helper()
 	handler := NewHandler(&currentProfileGetterStub{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))).WithOnboarding(setter)

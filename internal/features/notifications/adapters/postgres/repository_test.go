@@ -46,7 +46,7 @@ func fixture(t *testing.T) (context.Context, *pgxpool.Pool) {
 		t.Fatal(e)
 	}
 	t.Cleanup(p.Close)
-	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V14__alerts_admin_operates.sql", "V21__alerts_incident_assigned.sql"} {
+	for _, n := range []string{"V1__baseline.sql", "V2__authentication_sessions.sql", "V4__checklist_evidence_items.sql", "V5__daily_operations.sql", "V6__incidents.sql", "V7__alerts_notifications.sql", "V14__alerts_admin_operates.sql", "V21__alerts_incident_assigned.sql", "V23__alerts_incident_reported.sql", "V24__staff_messages_control_flagged_test_push.sql"} {
 		b, e := os.ReadFile("../../../../../migraciones/" + n)
 		if e != nil {
 			t.Fatal(e)
@@ -302,7 +302,7 @@ func TestStagePushEspecificoPorTipo(t *testing.T) {
 		{"CHECKLIST_MISSING", "CHECKLIST_ASSIGNMENT", asg, site, `{}`, "Control pendiente: Apertura de cocina", "Aún no se registra el control de hoy · Sede Centro", "control/programacion/" + asg},
 		{"ORGANIZATION_INACTIVE", "ORGANIZATION", "org", "", `{"configuration":{"inactivityDays":5}}`, "Sin actividad reciente en BPM", "No hay actividad desde hace 5 días. Revisa la operación.", "empresa"},
 		{"TRAINING_ASSIGNED", "TRAINING_ASSIGNMENT", tasg, "", `{}`, "Capacitación asignada: Higiene personal", "Complétala en la Academia.", "aprender"},
-		{"INCIDENT_ASSIGNED", "INCIDENT", incident, site, `{"actionId":"` + action + `"}`, "Te asignaron una incidencia: Superficie sucia", "Sede Centro · Plazo 25/11/2026 20:30", "empresa/incidencias"},
+		{"INCIDENT_ASSIGNED", "INCIDENT", incident, site, `{"actionId":"` + action + `"}`, "Te asignaron una incidencia: Superficie sucia", "Sede Centro · Plazo 25/11/2026 20:30", "empresa/incidencias/" + incident},
 		{"OTRO_TIPO", "", "", "", `{}`, domain.GenericPushTitle, domain.GenericPushBody, "avisos"},
 	} {
 		id := fmt.Sprintf("80000000-0000-0000-0000-%012d", i+1)
@@ -387,7 +387,7 @@ func TestIncidentAssignedStageClaimYVigencia(t *testing.T) {
 		t.Fatal("entrega FCM ausente", v, e)
 	}
 	got := v.Message.Push
-	if got.Title != "Te asignaron una incidencia: Superficie sucia" || got.Body != "Sede Centro · Plazo 25/11/2026 20:30" || got.Route != "empresa/incidencias" || got.EntityID != incident || got.SiteID != site || got.Type != "INCIDENT_ASSIGNED" || got.SourceType != "INCIDENT" {
+	if got.Title != "Te asignaron una incidencia: Superficie sucia" || got.Body != "Sede Centro · Plazo 25/11/2026 20:30" || got.Route != "empresa/incidencias/"+incident || got.EntityID != incident || got.SiteID != site || got.Type != "INCIDENT_ASSIGNED" || got.SourceType != "INCIDENT" {
 		t.Fatalf("push de incidencia: %+v", got)
 	}
 	if ok, e := r.Eligible(ctx, *v); e != nil || !ok {

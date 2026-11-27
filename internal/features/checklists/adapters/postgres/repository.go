@@ -375,6 +375,7 @@ func (s *store) SaveAnswers(ctx context.Context, a domain.Actor, v domain.Run, a
 }
 
 func (s *store) Submit(ctx context.Context, a domain.Actor, v domain.Run, score float64, key, hash string) (domain.Run, error) {
+	before := v
 	_, err := s.tx.Exec(ctx, `UPDATE checklist_runs SET status='SUBMITTED',compliance_percent=$3,submitted_at=NOW(),row_version=row_version+1,updated_by=$4
 		WHERE organization_id=$1 AND id=$2`, v.OrganizationID, v.ID, score, a.ID)
 	if err != nil {
@@ -387,6 +388,8 @@ func (s *store) Submit(ctx context.Context, a domain.Actor, v domain.Run, score 
 	if err != nil {
 		return v, err
 	}
+	// Aviso al jefe y al administrador si hubo «No cumple» u observaciones (mejor esfuerzo, ver flagged_alert.go).
+	s.notifyFlagged(ctx, a, before, v)
 	return v, s.saveReceipt(ctx, a, v.OrganizationID, key, hash, v)
 }
 

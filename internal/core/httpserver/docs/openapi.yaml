@@ -2441,6 +2441,50 @@ paths:
         "200": {description: Marca borrada (onboardingSeenAt null), content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, properties: {onboardingSeenAt: {type: string, format: date-time, nullable: true}}}}}}}}
         "401": {$ref: "#/components/responses/Unauthenticated"}
         "403": {description: Usuario no registrado, inactivo o correo sin verificar., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+  /api/v1/me/whatsapp:
+    put:
+      tags: [Identidad]
+      summary: Guardar mi WhatsApp (opcional)
+      operationId: setMyWhatsapp
+      description: Solo dígitos con código de país; un celular peruano de 9 dígitos recibe el 51. null o vacío lo quita. Se guarda en phoneNumber.
+      security: [{FirebaseBearer: []}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {whatsapp: {type: string, nullable: true}}}}}}
+      responses:
+        "200": {description: Guardado, content: {application/json: {schema: {type: object, properties: {data: {type: object, properties: {whatsapp: {type: string, nullable: true}}}}}}}}
+        "422": {description: Número inválido., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+  /api/v1/organizations/{organizationID}/staff-messages:
+    post:
+      tags: [Incidencias]
+      summary: «Avisar a mi jefe» (mensaje rápido)
+      operationId: sendStaffMessage
+      description: No es una incidencia. Avisa con push y en la bandeja al ADMIN y a los CHEF de la sede (V24). Requiere Idempotency-Key.
+      parameters: [{$ref: "#/components/parameters/OrganizationID"}, {name: Idempotency-Key, in: header, required: true, schema: {type: string}}]
+      security: [{FirebaseBearer: []}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [id, locationId, kind], properties: {id: {type: string, format: uuid}, locationId: {type: string, format: uuid}, kind: {type: string, enum: [SUPPLY, EQUIPMENT, HELP, OTHER]}, text: {type: string, maxLength: 500}}}}}}
+      responses:
+        "200": {description: Enviado}
+        "503": {description: Falta V24 (FEATURE_UNAVAILABLE).}
+  /api/v1/organizations/{organizationID}/staff-messages/contact:
+    get:
+      tags: [Incidencias]
+      summary: WhatsApp del jefe de la sede (o del administrador)
+      operationId: supervisorContact
+      parameters: [{$ref: "#/components/parameters/OrganizationID"}, {name: locationId, in: query, required: true, schema: {type: string, format: uuid}}]
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: "Contacto; whatsapp null si nadie dejó su número", content: {application/json: {schema: {type: object, properties: {data: {type: object, properties: {name: {type: string, nullable: true}, role: {type: string, nullable: true}, whatsapp: {type: string, nullable: true}}}}}}}}
+  /api/v1/organizations/{organizationID}/notifications/test:
+    post:
+      tags: [Notificaciones]
+      summary: Enviar una notificación de prueba a mis celulares
+      operationId: sendTestPush
+      description: Crea un aviso TEST_PUSH solo para la persona (sin sede), vigente 10 minutos. Uno por minuto (429). 409 NO_ACTIVE_DEVICE sin celular activo.
+      parameters: [{$ref: "#/components/parameters/OrganizationID"}]
+      security: [{FirebaseBearer: []}]
+      responses:
+        "202": {description: En cola}
+        "409": {description: Sin celular activo.}
+        "429": {description: Ya se envió una prueba hace menos de un minuto.}
   /api/v1/platform/support:
     get:
       tags: [Identidad]
@@ -5959,7 +6003,7 @@ components:
       type: "object"
       additionalProperties: false
       required: ["id", "type", "title", "message", "status", "createdAt", "locationName", "sourceType", "sourceId", "sourceAvailable"]
-      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED", "INCIDENT_ASSIGNED", "INCIDENT_REPORTED"]}, "title": {"type": "string", "maxLength": 160}, "message": {"type": "string", "description": "Mensaje público del aviso. El proxy limita la respuesta completa a 4 MiB."}, "status": {"type": "string", "enum": ["PENDING", "SENT", "VIEWED", "ATTENDED", "CANCELLED"]}, "createdAt": {"type": "string", "format": "date-time"}, "viewedAt": {"type": "string", "format": "date-time", "nullable": true}, "attendedAt": {"type": "string", "format": "date-time", "nullable": true}, "locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "locationName": {"type": "string", "maxLength": 160}, "timezone": {"type": "string", "nullable": true, "maxLength": 100, "description": "Zona IANA de la sede si está disponible."}, "sourceType": {"type": "string", "enum": ["CHECKLIST_ASSIGNMENT", "RECEIPT_ITEM", "TRAINING_ASSIGNMENT", "ORGANIZATION", "INCIDENT"]}, "sourceId": {"type": "string", "maxLength": 64, "description": "UUID para asignación o ítem; ID textual de empresa para ORGANIZATION."}, "sourceParentId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "sourceAvailable": {"type": "boolean"}}
+      properties: {"id": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada."}, "type": {"type": "string", "enum": ["CHECKLIST_MISSING", "TEMPERATURE_DANGER", "ORGANIZATION_INACTIVE", "TRAINING_ASSIGNED", "INCIDENT_ASSIGNED", "INCIDENT_REPORTED", "STAFF_MESSAGE", "CONTROL_FLAGGED", "TEST_PUSH"]}, "title": {"type": "string", "maxLength": 160}, "message": {"type": "string", "description": "Mensaje público del aviso. El proxy limita la respuesta completa a 4 MiB."}, "status": {"type": "string", "enum": ["PENDING", "SENT", "VIEWED", "ATTENDED", "CANCELLED"]}, "createdAt": {"type": "string", "format": "date-time"}, "viewedAt": {"type": "string", "format": "date-time", "nullable": true}, "attendedAt": {"type": "string", "format": "date-time", "nullable": true}, "locationId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "locationName": {"type": "string", "maxLength": 160}, "timezone": {"type": "string", "nullable": true, "maxLength": 100, "description": "Zona IANA de la sede si está disponible."}, "sourceType": {"type": "string", "enum": ["CHECKLIST_ASSIGNMENT", "RECEIPT_ITEM", "TRAINING_ASSIGNMENT", "ORGANIZATION", "INCIDENT", "STAFF_MESSAGE", "CHECKLIST_RUN", "TEST"]}, "sourceId": {"type": "string", "maxLength": 64, "description": "UUID para asignación o ítem; ID textual de empresa para ORGANIZATION."}, "sourceParentId": {"type": "string", "format": "uuid", "description": "UUID canónico en minúsculas; mayúsculas aceptadas y normalizadas en la entrada.", "nullable": true}, "sourceAvailable": {"type": "boolean"}}
       description: "Bandeja privada del destinatario; ADMIN no ve avisos ajenos. Revalida membresía/rol/sede/fuente en cada lectura y acuse. sourceParentId es el receiptID para un ítem de recepción y el courseID (UUID) para una asignación de capacitación; null en los demás tipos. SENT legado es no visto si viewedAt es null. Enviar a un proveedor no altera status ni las fechas de lectura/atención."
     NotificationDeviceInput:
       type: "object"

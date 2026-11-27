@@ -167,3 +167,15 @@ func (repository *Repository) SetOnboardingSeen(ctx context.Context, userID stri
 	}
 	return nil
 }
+
+// SetWhatsApp guarda el número en phone_number (NULL si está vacío) de la persona activa.
+func (repository *Repository) SetWhatsApp(ctx context.Context, userID, digits string) error {
+	tag, err := repository.pool.Exec(ctx, `UPDATE application_users SET phone_number=NULLIF($2,''), updated_at=now(), updated_by=$1 WHERE id=$1 AND status='ACTIVE'`, userID, digits)
+	if err != nil {
+		return fmt.Errorf("update whatsapp: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
+}

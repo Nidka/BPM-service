@@ -214,7 +214,7 @@ func (r *Repository) pushContent(ctx context.Context, tx pgx.Tx, org, id string)
 	f := domain.PushFacts{}
 	const uuidRe = `'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'`
 	source := `CASE WHEN a.source_id ~ ` + uuidRe + ` THEN a.source_id::uuid END`
-	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,ic.name,''),COALESCE(pr.category,''),COALESCE(ta.due_at,ca2.due_at),COALESCE(a.context_snapshot->>'priority','')
+	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),CASE WHEN a.alert_type IN ('STAFF_MESSAGE','CONTROL_FLAGGED') THEN a.title ELSE COALESCE(tpl.name,pr.name,co.title,ic.name,'') END,COALESCE(pr.category,''),COALESCE(ta.due_at,ca2.due_at),COALESCE(a.context_snapshot->>'priority','')
 FROM alerts a
 LEFT JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id
 LEFT JOIN organization_memberships m ON m.organization_id=a.organization_id AND m.user_id=a.recipient_user_id

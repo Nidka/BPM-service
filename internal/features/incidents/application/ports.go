@@ -47,8 +47,16 @@ type NotificationStore interface {
 	// NotifyReported avisa (push + bandeja) al jefe de cocina y al administrador de la sede. Mejor esfuerzo.
 	NotifyReported(ctx context.Context, actor domain.Actor, org string, v domain.Incident, urgent bool, now time.Time) error
 }
+
+// StaffMessageStore guarda «Avisar a mi jefe», avisa al jefe y al administrador y resuelve su WhatsApp.
+type StaffMessageStore interface {
+	InsertStaffMessage(ctx context.Context, a domain.Actor, org string, v domain.StaffMessage, now time.Time) (domain.StaffMessage, error)
+	NotifyStaffMessage(ctx context.Context, a domain.Actor, org string, v domain.StaffMessage, now time.Time) error
+	SupervisorContact(ctx context.Context, a domain.Actor, org, location string) (domain.SupervisorContact, error)
+}
 type Store interface {
 	AuthorizationStore
+	StaffMessageStore
 	NotificationStore
 	CatalogStore
 	IncidentStore

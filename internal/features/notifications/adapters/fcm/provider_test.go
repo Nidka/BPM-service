@@ -82,7 +82,7 @@ func TestFCMSpecificPayloadKeepsLegacyKeys(t *testing.T) {
 		}
 	}
 	n, _ := android["notification"].(map[string]any)
-	if android["collapse_key"] != "alert" || android["ttl"] != "3600s" || n["tag"] != "alert" || n["channel_id"] != "bpm-alerts" {
+	if android["collapse_key"] != "alert" || android["ttl"] != "3600s" || n["tag"] != "alert" || n["channel_id"] != "bpm-alerts-v2" {
 		t.Fatal("missing push dedupe or expiry", android)
 	}
 }

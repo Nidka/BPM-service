@@ -23,6 +23,7 @@ func (routes *Routes) Register(router chi.Router) {
 	if routes.handler.setOnboarding != nil {
 		router.With(routes.authenticate).Put("/me/onboarding", routes.handler.MarkOnboardingSeen)
 		router.With(routes.authenticate).Delete("/me/onboarding", routes.handler.ClearOnboardingSeen)
+		router.With(routes.authenticate).Put("/me/whatsapp", routes.handler.SetWhatsApp)
 	}
 	if routes.sessions != nil {
 		router.With(routes.authenticate).Post("/auth/activity", SessionActivity)

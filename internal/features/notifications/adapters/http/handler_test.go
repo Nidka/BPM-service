@@ -32,6 +32,14 @@ type deviceHTTPStore struct {
 	user, org string
 	input     domain.DeviceInput
 	fail      error
+	testErr   error
+	tests     int
+}
+
+func (s *deviceHTTPStore) TestPush(_ context.Context, user, org string) error {
+	s.tests++
+	s.user, s.org = user, org
+	return s.testErr
 }
 
 func (s *deviceHTTPStore) Within(ctx context.Context, fn func(application.DeviceStore) error) error {
@@ -146,5 +154,21 @@ func TestDevicesSanitizeRepositoryErrors(t *testing.T) {
 	router.ServeHTTP(res, req)
 	if res.Code != 500 || strings.Contains(res.Body.String(), "fixture-private") || strings.Contains(logs.String(), "fixture-private") {
 		t.Fatal("repository failure was not sanitized")
+	}
+}
+
+func TestTestPushQueuesForOwnDeviceAndMapsErrors(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		code int
+	}{{nil, 202}, {domain.ErrRateLimited, 429}, {domain.ErrNoDevice, 409}, {domain.ErrUnavailable, 503}} {
+		s := &deviceHTTPStore{testErr: tc.err}
+		req := httptest.NewRequest("POST", "/organizations/org_1/notifications/test", nil)
+		req.Header.Set("Authorization", "Bearer fixture")
+		res := httptest.NewRecorder()
+		deviceRouter(s, true, &bytes.Buffer{}).ServeHTTP(res, req)
+		if res.Code != tc.code || s.tests != 1 || s.org != "org_1" {
+			t.Fatal(tc.err, res.Code, s.tests)
+		}
 	}
 }

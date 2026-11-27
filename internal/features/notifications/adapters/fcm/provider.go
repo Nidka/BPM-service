@@ -34,7 +34,7 @@ func (p *Provider) Send(ctx context.Context, _ string, v domain.Message) (string
 		Notification: &messaging.Notification{Title: domain.Truncate(title, domain.PushTitleMax), Body: domain.Truncate(body, domain.PushBodyMax)},
 		Data:         data(v),
 		// La etiqueta reemplaza una notificación repetida del mismo aviso (FCM entrega al menos una vez).
-		Android: &messaging.AndroidConfig{CollapseKey: v.AlertID, Priority: priority, TTL: &ttl, Notification: &messaging.AndroidNotification{ChannelID: "bpm-alerts", Tag: v.AlertID}},
+		Android: &messaging.AndroidConfig{CollapseKey: v.AlertID, Priority: priority, TTL: &ttl, Notification: &messaging.AndroidNotification{ChannelID: "bpm-alerts-v2", Tag: v.AlertID}},
 	})
 	if messaging.IsRegistrationTokenNotRegistered(e) {
 		return "", application.ErrInvalidToken

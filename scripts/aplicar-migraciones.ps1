@@ -56,6 +56,7 @@ $migraciones = [ordered]@{
     "V21__alerts_incident_assigned"   = "SELECT to_regprocedure('alert_incident_assigned_supported()') IS NOT NULL"
     "V22__onboarding_support_contact" = "SELECT to_regclass('platform_settings') IS NOT NULL"
     "V23__alerts_incident_reported"   = "SELECT to_regprocedure('alert_incident_reported_supported()') IS NOT NULL"
+    "V24__staff_messages_control_flagged_test_push" = "SELECT to_regprocedure('alert_v24_supported()') IS NOT NULL"
 }
 
 $pendientes = @()

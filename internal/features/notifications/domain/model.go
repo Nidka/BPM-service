@@ -14,6 +14,12 @@ var (
 	ErrDenied   = errors.New("acceso denegado")
 	ErrConflict = errors.New("vínculo no disponible")
 	ErrNotFound = errors.New("dispositivo no disponible")
+	// ErrNoDevice: no hay un celular activo con notificaciones para enviar la prueba.
+	ErrNoDevice = errors.New("sin dispositivo activo")
+	// ErrRateLimited: ya se envió una prueba hace menos de un minuto.
+	ErrRateLimited = errors.New("prueba reciente")
+	// ErrUnavailable: falta la migración V24.
+	ErrUnavailable = errors.New("prueba no disponible")
 )
 
 type ValidationError struct{ Fields map[string]string }

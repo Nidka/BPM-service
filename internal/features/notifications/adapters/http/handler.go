@@ -24,6 +24,7 @@ func (h *Handler) Register(r chi.Router, auth func(http.Handler) http.Handler) {
 		r.Use(auth)
 		r.Post("/organizations/{organizationID}/notifications/devices", h.register)
 		r.Delete("/organizations/{organizationID}/notifications/devices/{deviceID}", h.deactivate)
+		r.Post("/organizations/{organizationID}/notifications/test", h.testPush)
 	})
 }
 func (h *Handler) actor(w http.ResponseWriter, r *http.Request) (string, string, bool) {
@@ -48,6 +49,12 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, e error) {
 		response.Error(w, 403, id, response.APIError{Code: "ACCESS_DENIED", Message: "Tu cuenta no tiene acceso a esta empresa."})
 	case errors.Is(e, domain.ErrNotFound):
 		response.Error(w, 404, id, response.APIError{Code: "NOT_FOUND", Message: "El registro no está disponible."})
+	case errors.Is(e, domain.ErrNoDevice):
+		response.Error(w, 409, id, response.APIError{Code: "NO_ACTIVE_DEVICE", Message: "Activa las notificaciones en este celular antes de enviar la prueba."})
+	case errors.Is(e, domain.ErrRateLimited):
+		response.Error(w, 429, id, response.APIError{Code: "RATE_LIMITED", Message: "Ya enviamos una prueba. Espera un minuto."})
+	case errors.Is(e, domain.ErrUnavailable):
+		response.Error(w, 503, id, response.APIError{Code: "FEATURE_UNAVAILABLE", Message: "La prueba aún no está disponible."})
 	case errors.Is(e, domain.ErrConflict):
 		response.Error(w, 409, id, response.APIError{Code: "RESOURCE_CONFLICT", Message: "No se pudo vincular este dispositivo. Vuelve a iniciar sesión e inténtalo de nuevo."})
 	default:
@@ -101,4 +108,20 @@ func (h *Handler) deactivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, 200, map[string]any{"data": deviceDTO{ID: out.ID, Status: out.Status}})
+}
+
+func (h *Handler) testPush(w http.ResponseWriter, r *http.Request) {
+	user, org, ok := h.actor(w, r)
+	if !ok {
+		return
+	}
+	if r.ContentLength > 0 || r.URL.RawQuery != "" {
+		response.Error(w, 400, middleware.RequestIDFromContext(r.Context()), response.APIError{Code: "INVALID_REQUEST", Message: "La prueba no lleva datos."})
+		return
+	}
+	if e := h.devices.TestPush(r.Context(), user, org); e != nil {
+		h.fail(w, r, e)
+		return
+	}
+	response.JSON(w, 202, map[string]any{"data": map[string]any{"status": "QUEUED"}})
 }

@@ -53,23 +53,8 @@ func (s *store) emitReported(ctx context.Context, tx pgx.Tx, actor domain.Actor,
 	if e := tx.QueryRow(ctx, `SELECT name FROM locations WHERE organization_id=$1 AND id=$2`, org, v.LocationID).Scan(&site); e != nil {
 		return e
 	}
-	rows, e := tx.Query(ctx, `SELECT m.user_id FROM organization_memberships m JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE'
- WHERE m.organization_id=$1 AND m.status='ACTIVE' AND m.user_id<>$3 AND (m.role='ADMIN' OR (m.role='CHEF' AND EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2)))
- ORDER BY m.user_id LIMIT 50`, org, v.LocationID, actor.ID)
+	recipients, e := supervisors(ctx, tx, org, v.LocationID, actor.ID)
 	if e != nil {
-		return e
-	}
-	var recipients []string
-	for rows.Next() {
-		var id string
-		if e = rows.Scan(&id); e != nil {
-			rows.Close()
-			return e
-		}
-		recipients = append(recipients, id)
-	}
-	rows.Close()
-	if e = rows.Err(); e != nil {
 		return e
 	}
 	prefix, priority := "Nuevo problema reportado: ", domain.PriorityNormal
@@ -101,4 +86,24 @@ func (s *store) emitReported(ctx context.Context, tx pgx.Tx, actor domain.Actor,
 		}
 	}
 	return nil
+}
+
+// supervisors lista a los ADMIN activos y a los CHEF activos con la sede, sin [exclude] (quien origina el aviso).
+func supervisors(ctx context.Context, tx pgx.Tx, org, location, exclude string) ([]string, error) {
+	rows, e := tx.Query(ctx, `SELECT m.user_id FROM organization_memberships m JOIN application_users u ON u.id=m.user_id AND u.status='ACTIVE'
+ WHERE m.organization_id=$1 AND m.status='ACTIVE' AND m.user_id<>$3 AND (m.role='ADMIN' OR (m.role='CHEF' AND EXISTS(SELECT 1 FROM membership_locations ml WHERE ml.organization_id=m.organization_id AND ml.user_id=m.user_id AND ml.location_id=$2)))
+ ORDER BY m.user_id LIMIT 50`, org, location, exclude)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if e = rows.Scan(&id); e != nil {
+			return nil, e
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

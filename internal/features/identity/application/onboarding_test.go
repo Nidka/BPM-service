@@ -15,6 +15,13 @@ type onboardingRepositoryStub struct {
 	seenAt *time.Time
 	calls  int
 	err    error
+	digits string
+}
+
+func (stub *onboardingRepositoryStub) SetWhatsApp(_ context.Context, userID, digits string) error {
+	stub.calls++
+	stub.userID, stub.digits = userID, digits
+	return stub.err
 }
 
 func (stub *onboardingRepositoryStub) SetOnboardingSeen(_ context.Context, userID string, seenAt *time.Time) error {
@@ -58,5 +65,18 @@ func TestSetOnboardingPropagatesInactiveUser(t *testing.T) {
 	_, err := NewSetOnboarding(repo, nil).Execute(context.Background(), contracts.Identity{UID: "uid", EmailVerified: true}, true)
 	if !errors.Is(err, domain.ErrUserNotFound) {
 		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
+func TestSetWhatsAppNormalizesAndValidates(t *testing.T) {
+	repo := &onboardingRepositoryStub{}
+	useCase := NewSetOnboarding(repo, nil)
+	id := contracts.Identity{UID: "uid", EmailVerified: true}
+	if got, err := useCase.SetWhatsApp(context.Background(), id, "987 654 321"); err != nil || got != "51987654321" || repo.digits != "51987654321" {
+		t.Fatal(got, err)
+	}
+	var invalid *domain.ValidationError
+	if _, err := useCase.SetWhatsApp(context.Background(), id, "123"); !errors.As(err, &invalid) || repo.calls != 1 {
+		t.Fatal("debe rechazar sin guardar", err)
 	}
 }

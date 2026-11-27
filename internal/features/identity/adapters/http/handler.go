@@ -9,6 +9,7 @@ import (
 
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
+	httprequest "github.com/Nidka/BPM-service/internal/core/httpserver/request"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/response"
 	"github.com/Nidka/BPM-service/internal/features/identity/domain"
 )
@@ -20,6 +21,7 @@ type CurrentProfileGetter interface {
 // OnboardingSetter marca (true) o desmarca (false) la introducción de la persona autenticada.
 type OnboardingSetter interface {
 	Execute(ctx context.Context, identity contracts.Identity, seen bool) (*time.Time, error)
+	SetWhatsApp(ctx context.Context, identity contracts.Identity, raw string) (string, error)
 }
 
 type Handler struct {
@@ -182,4 +184,34 @@ func newProfileResponse(profile domain.Profile) profileResponse {
 		result.Organizations = append(result.Organizations, organization)
 	}
 	return result
+}
+
+// SetWhatsApp guarda el WhatsApp opcional de la persona (PUT /me/whatsapp, {"whatsapp": "987654321"} o null para quitarlo).
+func (handler *Handler) SetWhatsApp(writer http.ResponseWriter, request *http.Request) {
+	requestID := middleware.RequestIDFromContext(request.Context())
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.Unauthenticated(writer, requestID)
+		return
+	}
+	var body struct {
+		WhatsApp *string `json:"whatsapp"`
+	}
+	if !httprequest.DecodeStrictJSON(writer, request, &body, 1024) {
+		return
+	}
+	raw := ""
+	if body.WhatsApp != nil {
+		raw = *body.WhatsApp
+	}
+	digits, err := handler.setOnboarding.SetWhatsApp(request.Context(), identity, raw)
+	if err != nil {
+		writeIdentityError(writer, request, err, handler.logger)
+		return
+	}
+	var value any
+	if digits != "" {
+		value = digits
+	}
+	response.JSON(writer, http.StatusOK, map[string]any{"data": map[string]any{"whatsapp": value}})
 }

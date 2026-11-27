@@ -10,6 +10,8 @@ var (
 	ErrDenied   = errors.New("incident access denied")
 	ErrNotFound = errors.New("incident not found")
 	ErrConflict = errors.New("incident conflict")
+	// ErrUnavailable: la función aún no está disponible (falta la migración V24).
+	ErrUnavailable = errors.New("incident feature unavailable")
 )
 
 type ValidationError struct{ Fields map[string]string }

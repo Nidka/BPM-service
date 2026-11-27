@@ -40,3 +40,18 @@ func (useCase *SetOnboarding) Execute(ctx context.Context, identity contracts.Id
 	}
 	return seenAt, nil
 }
+
+// SetWhatsApp guarda el WhatsApp opcional de la persona autenticada (lo usa «Escribir por WhatsApp» del equipo).
+func (useCase *SetOnboarding) SetWhatsApp(ctx context.Context, identity contracts.Identity, raw string) (string, error) {
+	if strings.TrimSpace(identity.UID) == "" {
+		return "", domain.ErrUnauthenticated
+	}
+	if !identity.EmailVerified {
+		return "", domain.ErrEmailUnverified
+	}
+	digits, e := domain.NormalizeWhatsApp(raw)
+	if e != nil {
+		return "", e
+	}
+	return digits, useCase.repository.SetWhatsApp(ctx, identity.UID, digits)
+}

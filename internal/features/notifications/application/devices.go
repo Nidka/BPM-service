@@ -10,6 +10,8 @@ type DeviceStore interface {
 	Authorize(context.Context, string, string) error
 	Register(context.Context, string, string, domain.DeviceInput) (domain.Device, error)
 	Deactivate(context.Context, string, string, string) (domain.Device, error)
+	// TestPush crea un aviso de prueba solo para la persona (sin sede), con su evento de envío. Máximo uno por minuto.
+	TestPush(context.Context, string, string) error
 }
 type DevicesRepository interface {
 	Within(context.Context, func(DeviceStore) error) error
@@ -36,6 +38,20 @@ func (s *Devices) Register(ctx context.Context, user, org string, v domain.Devic
 	})
 	return
 }
+
+// TestPush envía una notificación de prueba al propio celular de la persona.
+func (s *Devices) TestPush(ctx context.Context, user, org string) error {
+	if !domain.ValidUID(user) || !domain.ValidOrganization(org) {
+		return domain.ErrDenied
+	}
+	return s.repository.Within(ctx, func(tx DeviceStore) error {
+		if e := tx.Authorize(ctx, user, org); e != nil {
+			return e
+		}
+		return tx.TestPush(ctx, user, org)
+	})
+}
+
 func (s *Devices) Deactivate(ctx context.Context, user, org, id string) (out domain.Device, err error) {
 	if !domain.ValidUID(user) || !domain.ValidOrganization(org) {
 		return out, domain.ErrDenied

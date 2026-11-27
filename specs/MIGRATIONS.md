@@ -203,3 +203,13 @@ al arrancar si falta (`platform settings migration V22 is required`). Rutas: `PU
 marcadora `alert_incident_reported_supported()`. Al reportar una incidencia se avisa (bandeja + push) a cada ADMIN y a cada
 CHEF con la sede, sin incluir a quien reportó; el aviso deja de estar pendiente cuando la incidencia sale de `OPEN`.
 **Desplegar el backend antes de esta migración es seguro**: sin la marca no emite el aviso y el reporte sigue igual.
+
+## Avisar a mi jefe, control con «No cumple» y notificación de prueba (V24)
+
+`V24__staff_messages_control_flagged_test_push.sql` es aditiva: crea `staff_messages` (registro mínimo de «Avisar a mi
+jefe») y reemplaza `alert_recipient_authorized` / `alert_source_pending` (conservando V14, V21 y V23) para `STAFF_MESSAGE`
+(fuente `STAFF_MESSAGE`), `CONTROL_FLAGGED` (fuente `CHECKLIST_RUN`; push vigente 12 h) y `TEST_PUSH` (fuente `TEST`, solo
+para quien la pide, sin sede, vigente 10 min). Marca: `alert_v24_supported()`. Desplegar antes es seguro: sin la marca no se
+crean esos avisos y «Avisar a mi jefe» y la prueba responden 503 `FEATURE_UNAVAILABLE`.
+Rutas: `POST /organizations/{org}/staff-messages`, `GET /organizations/{org}/staff-messages/contact?locationId=`,
+`POST /organizations/{org}/notifications/test` y `PUT /me/whatsapp` (guarda `phone_number`).

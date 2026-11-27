@@ -30,6 +30,9 @@ const (
 	AlertTrainingAssigned     = "TRAINING_ASSIGNED"
 	AlertIncidentAssigned     = "INCIDENT_ASSIGNED"
 	AlertIncidentReported     = "INCIDENT_REPORTED"
+	AlertStaffMessage         = "STAFF_MESSAGE"
+	AlertControlFlagged       = "CONTROL_FLAGGED"
+	AlertTestPush             = "TEST_PUSH"
 )
 
 // PushFacts son datos de negocio ya resueltos por el adaptador. Nunca incluye datos personales de quien
@@ -106,6 +109,32 @@ func BuildPush(f PushFacts) PushContent {
 		out.Title = withSuffix("Capacitación asignada", ": ", subject)
 		out.Body = trainingBody(site, f.DueAt, f.Zone)
 		out.Route = "aprender"
+	case AlertTestPush:
+		out.Title = "Notificación de prueba"
+		out.Body = "Si ves esto, los avisos de BPM llegan a este celular."
+	case AlertStaffMessage:
+		// Subject trae el título guardado del aviso («Aviso del equipo: Falta insumo»).
+		out.Title = "Aviso del equipo"
+		if subject != "" {
+			out.Title = subject
+		}
+		out.Body = "Abre BPM para ver el mensaje."
+		if site != "" {
+			out.Body = site + " · Abre BPM para ver el mensaje."
+		}
+	case AlertControlFlagged:
+		// Subject trae el título guardado («Control con «No cumple»: Limpieza» o «Control con observaciones: …»).
+		out.Title = "Control con observaciones"
+		if subject != "" {
+			out.Title = subject
+		}
+		out.Body = "Revisa el control en BPM."
+		if site != "" {
+			out.Body = site + " · Revisa el control en BPM."
+		}
+		if f.SourceType == "CHECKLIST_RUN" && out.EntityID != "" {
+			out.Route = "seguimiento/" + out.EntityID
+		}
 	case AlertIncidentReported:
 		out.Title = withSuffix("Nuevo problema reportado", ": ", subject)
 		if f.Priority == "URGENT" {
@@ -116,18 +145,20 @@ func BuildPush(f PushFacts) PushContent {
 			out.Body = site + " · Revísalo y asigna quién lo corrige."
 		}
 		if f.SourceType == "INCIDENT" && out.EntityID != "" {
-			out.Route = "control/incidencias"
+			// Abre el detalle de la incidencia (la app separa la pantalla y el id).
+			out.Route = "control/incidencias/" + out.EntityID
 			if f.RecipientRole == "ADMIN" {
-				out.Route = "empresa/incidencias"
+				out.Route = "empresa/incidencias/" + out.EntityID
 			}
 		}
 	case AlertIncidentAssigned:
 		out.Title = withSuffix("Te asignaron una incidencia", ": ", subject)
 		out.Body = incidentBody(site, f.DueAt, f.Zone)
 		if f.SourceType == "INCIDENT" && out.EntityID != "" {
-			out.Route = "control/incidencias"
+			// Abre el detalle de la incidencia (la app separa la pantalla y el id).
+			out.Route = "control/incidencias/" + out.EntityID
 			if f.RecipientRole == "ADMIN" {
-				out.Route = "empresa/incidencias"
+				out.Route = "empresa/incidencias/" + out.EntityID
 			}
 		}
 	}
