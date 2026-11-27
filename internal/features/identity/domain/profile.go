@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type UserStatus string
 
 const (
@@ -30,6 +32,8 @@ type Profile struct {
 	PlatformRole  PlatformRole
 	Status        UserStatus
 	Organizations []OrganizationMembership
+	// OnboardingSeenAt indica cuándo la persona terminó u omitió la introducción; nil si aún no la vio.
+	OnboardingSeenAt *time.Time
 }
 
 func (profile Profile) IsActive() bool {

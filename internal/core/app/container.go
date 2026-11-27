@@ -22,6 +22,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/operations"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
+	"github.com/Nidka/BPM-service/internal/features/platformsettings"
 	"github.com/Nidka/BPM-service/internal/features/reports"
 	"github.com/Nidka/BPM-service/internal/features/research"
 	"github.com/Nidka/BPM-service/internal/features/training"
@@ -105,6 +106,9 @@ func NewContainer(
 	if err := webhooks.RequireSchema(ctx, pool); err != nil {
 		return fail(err)
 	}
+	if err := platformsettings.RequireSchema(ctx, pool); err != nil {
+		return fail(err)
+	}
 	if cfg.Firebase.Enabled {
 		container.TokenVerifier, err = firebaseauth.New(ctx, cfg.Firebase)
 		if err != nil {
@@ -172,6 +176,7 @@ func NewContainer(
 			usage.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			normative.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 			webhooks.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
+			platformsettings.Routes(container.Database, container.TokenVerifier, logger, identityModule.Sessions),
 		},
 	})
 	container.Server = httpserver.New(cfg, logger, router, startupReporter)

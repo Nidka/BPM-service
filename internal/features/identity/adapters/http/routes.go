@@ -20,6 +20,10 @@ func NewRoutes(handler *Handler, authenticate func(http.Handler) http.Handler) *
 
 func (routes *Routes) Register(router chi.Router) {
 	router.With(routes.authenticate).Get("/me", routes.handler.Me)
+	if routes.handler.setOnboarding != nil {
+		router.With(routes.authenticate).Put("/me/onboarding", routes.handler.MarkOnboardingSeen)
+		router.With(routes.authenticate).Delete("/me/onboarding", routes.handler.ClearOnboardingSeen)
+	}
 	if routes.sessions != nil {
 		router.With(routes.authenticate).Post("/auth/activity", SessionActivity)
 		router.With(routes.authenticate).Post("/auth/logout", SessionLogout(routes.sessions))

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	httpmiddleware "github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
@@ -144,5 +145,64 @@ func assertAPIError(t *testing.T, recorder *httptest.ResponseRecorder, status in
 	}
 	if body.RequestID == "" {
 		t.Fatal("expected requestId in error response")
+	}
+}
+
+type onboardingSetterStub struct {
+	seen   *bool
+	seenAt *time.Time
+	err    error
+}
+
+func (stub *onboardingSetterStub) Execute(_ context.Context, _ contracts.Identity, seen bool) (*time.Time, error) {
+	stub.seen = &seen
+	if !seen {
+		return nil, stub.err
+	}
+	return stub.seenAt, stub.err
+}
+
+func serveOnboarding(t *testing.T, setter *onboardingSetterStub, method string, token bool) *httptest.ResponseRecorder {
+	t.Helper()
+	handler := NewHandler(&currentProfileGetterStub{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))).WithOnboarding(setter)
+	router := chi.NewRouter()
+	router.Use(httpmiddleware.RequestID)
+	NewRoutes(handler, httpmiddleware.Authenticate(tokenVerifierStub{identity: contracts.Identity{UID: "uid", EmailVerified: true}})).Register(router)
+	request := httptest.NewRequest(method, "/me/onboarding", nil)
+	if token {
+		request.Header.Set("Authorization", "Bearer valid-test-token")
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestOnboardingMarkAndClear(t *testing.T) {
+	at := time.Date(2026, 11, 27, 15, 4, 5, 0, time.UTC)
+	setter := &onboardingSetterStub{seenAt: &at}
+	recorder := serveOnboarding(t, setter, http.MethodPut, true)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"onboardingSeenAt":"2026-11-27T15:04:05Z"`) || setter.seen == nil || !*setter.seen {
+		t.Fatalf("unexpected mark response %d %s", recorder.Code, recorder.Body.String())
+	}
+	recorder = serveOnboarding(t, setter, http.MethodDelete, true)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"onboardingSeenAt":null`) || *setter.seen {
+		t.Fatalf("unexpected clear response %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestOnboardingRequiresAuthenticationAndActiveUser(t *testing.T) {
+	assertAPIError(t, serveOnboarding(t, &onboardingSetterStub{}, http.MethodPut, false), http.StatusUnauthorized, "UNAUTHENTICATED")
+	assertAPIError(t, serveOnboarding(t, &onboardingSetterStub{err: domain.ErrUserNotFound}, http.MethodPut, true), http.StatusForbidden, "USER_NOT_REGISTERED")
+}
+
+func TestMeIncludesOnboardingSeenAt(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	recorder := serveMe(&currentProfileGetterStub{profile: domain.Profile{ID: "uid", Status: domain.UserStatusActive, OnboardingSeenAt: &at}}, tokenVerifierStub{identity: contracts.Identity{UID: "uid"}})
+	if !strings.Contains(recorder.Body.String(), `"onboardingSeenAt":"2026-11-01T00:00:00Z"`) {
+		t.Fatalf("missing onboardingSeenAt: %s", recorder.Body.String())
+	}
+	recorder = serveMe(&currentProfileGetterStub{profile: domain.Profile{ID: "uid", Status: domain.UserStatusActive}}, tokenVerifierStub{identity: contracts.Identity{UID: "uid"}})
+	if !strings.Contains(recorder.Body.String(), `"onboardingSeenAt":null`) {
+		t.Fatalf("expected null onboardingSeenAt: %s", recorder.Body.String())
 	}
 }

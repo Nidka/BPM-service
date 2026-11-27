@@ -9,6 +9,7 @@ import (
 	"github.com/Nidka/BPM-service/internal/features/normative"
 	"github.com/Nidka/BPM-service/internal/features/notifications"
 	"github.com/Nidka/BPM-service/internal/features/organizations"
+	"github.com/Nidka/BPM-service/internal/features/platformsettings"
 	"github.com/Nidka/BPM-service/internal/features/reports"
 	"github.com/Nidka/BPM-service/internal/features/research"
 	"github.com/Nidka/BPM-service/internal/features/training"
@@ -47,6 +48,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 	research.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	webhooks.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	normative.Routes(nil, validToken{}, logger, expiredSession{})(r)
+	platformsettings.Routes(nil, validToken{}, logger, expiredSession{})(r)
 	for _, tc := range []struct{ method, path string }{
 		{"GET", "/organizations/org/alerts"}, {"GET", "/organizations/org/alerts/unread-count"},
 		{"GET", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/view"}, {"POST", "/organizations/org/alerts/00000000-0000-0000-0000-000000000001/attend"},
@@ -63,7 +65,7 @@ func TestBusinessModulesDenyExpiredSessionsBeforeDatabaseAccess(t *testing.T) {
 		{"GET", "/research/access"}, {"GET", "/research/instruments"}, {"GET", "/research/results"},
 		{"GET", "/organizations/org/webhooks"}, {"POST", "/organizations/org/webhooks"}, {"POST", "/organizations/org/webhooks/00000000-0000-0000-0000-000000000001/test"},
 		{"GET", "/normative/status"}, {"GET", "/normative/search?q=pollo"}, {"GET", "/normative/documents"}, {"POST", "/normative/documents"},
-		{"PUT", "/normative/documents/00000000-0000-0000-0000-000000000001"}, {"POST", "/normative/documents/00000000-0000-0000-0000-000000000001/archive"},
+		{"PUT", "/normative/documents/00000000-0000-0000-0000-000000000001"}, {"GET", "/platform/support"}, {"PUT", "/platform/support"}, {"POST", "/normative/documents/00000000-0000-0000-0000-000000000001/archive"},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, nil)

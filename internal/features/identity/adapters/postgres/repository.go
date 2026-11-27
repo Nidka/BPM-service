@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Nidka/BPM-service/internal/features/identity/domain"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -43,6 +44,7 @@ func (repository *Repository) FindByUserID(ctx context.Context, userID string) (
 			COALESCE(u.phone_number, ''),
 			u.platform_role,
 			u.status,
+			u.onboarding_seen_at,
 			o.id,
 			o.legal_name,
 			o.trade_name,
@@ -91,6 +93,7 @@ func (repository *Repository) FindByUserID(ctx context.Context, userID string) (
 			&profile.PhoneNumber,
 			&profile.PlatformRole,
 			&profile.Status,
+			&profile.OnboardingSeenAt,
 			&organizationID,
 			&legalName,
 			&tradeName,
@@ -149,4 +152,18 @@ func (repository *Repository) FindByUserID(ctx context.Context, userID string) (
 		profile.Organizations = make([]domain.OrganizationMembership, 0)
 	}
 	return profile, nil
+}
+
+// SetOnboardingSeen guarda (o borra con nil) la fecha en que la persona activa vio la introducción.
+func (repository *Repository) SetOnboardingSeen(ctx context.Context, userID string, seenAt *time.Time) error {
+	tag, err := repository.pool.Exec(ctx, `UPDATE application_users
+  SET onboarding_seen_at=$2, updated_at=now(), updated_by=$1
+  WHERE id=$1 AND status='ACTIVE'`, userID, seenAt)
+	if err != nil {
+		return fmt.Errorf("update onboarding seen: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
 }

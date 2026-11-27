@@ -51,7 +51,7 @@ func New(dependencies Dependencies) (*Module, error) {
 	}
 	sessions := application.NewSessions(repository, absolute, idle, time.Now)
 	getCurrentProfile := application.NewGetCurrentProfile(repository)
-	handler := identityhttp.NewHandler(getCurrentProfile, dependencies.Logger)
+	handler := identityhttp.NewHandler(getCurrentProfile, dependencies.Logger).WithOnboarding(application.NewSetOnboarding(repository, time.Now))
 	registerHandler := identityhttp.NewRegisterHandler(application.NewRegister(repository), dependencies.Logger)
 	registrationLimit := httpmiddleware.NewIPRateLimiter(0.2, 5, false)
 	return &Module{

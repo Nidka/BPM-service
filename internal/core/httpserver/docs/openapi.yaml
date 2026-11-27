@@ -2420,6 +2420,60 @@ paths:
       responses:
         "200": {description: Invitación vigente, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, additionalProperties: false, required: [organizationName, role, email, expiresAt, status], properties: {organizationName: {type: string}, role: {type: string, enum: [ADMIN, CHEF, WORKER]}, email: {type: string}, expiresAt: {type: string, format: date-time}, status: {type: string, enum: [PENDING]}}}}}}}}
         default: {$ref: "#/components/responses/WorkspaceError"}
+  /api/v1/me/onboarding:
+    put:
+      tags: [Identidad]
+      summary: Marcar la introducción de primeros pasos como vista
+      operationId: markOnboardingSeen
+      description: Guarda la fecha actual en el usuario autenticado (V22). Idempotente.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Introducción vista, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, properties: {onboardingSeenAt: {type: string, format: date-time, nullable: true}}}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {description: Usuario no registrado, inactivo o correo sin verificar., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+    delete:
+      tags: [Identidad]
+      summary: Volver a mostrar la introducción de primeros pasos
+      operationId: clearOnboardingSeen
+      description: Borra la marca para que «Ver primeros pasos otra vez» en Ayuda funcione en todos los dispositivos.
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Marca borrada (onboardingSeenAt null), content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, properties: {onboardingSeenAt: {type: string, format: date-time, nullable: true}}}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {description: Usuario no registrado, inactivo o correo sin verificar., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+  /api/v1/platform/support:
+    get:
+      tags: [Identidad]
+      summary: Contacto de soporte de la plataforma
+      operationId: getSupportContact
+      description: Cualquier persona activa autenticada. Correo por defecto proyectobpmupn@gmail.com; WhatsApp null si no está configurado (V22).
+      security: [{FirebaseBearer: []}]
+      responses:
+        "200": {description: Contacto de soporte, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/SupportContact"}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {description: Cuenta inactiva (ACCESS_DENIED)., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+    put:
+      tags: [Identidad]
+      summary: Editar el contacto de soporte
+      operationId: updateSupportContact
+      description: Solo SUPER_ADMIN. Valida el correo; el WhatsApp es opcional (8 a 15 dígitos con código de país, null o vacío para quitarlo).
+      security: [{FirebaseBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [supportEmail]
+              properties:
+                supportEmail: {type: string, format: email, maxLength: 254}
+                supportWhatsapp: {type: string, nullable: true}
+      responses:
+        "200": {description: Contacto guardado, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: "#/components/schemas/SupportContact"}}}}}}
+        "401": {$ref: "#/components/responses/Unauthenticated"}
+        "403": {description: No es SUPER_ADMIN (ACCESS_DENIED)., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
+        "422": {description: Correo o WhatsApp inválido., content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}}
   /api/v1/me/devices:
     get:
       tags: [Organizaciones]
@@ -4527,6 +4581,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrganizationMembership"
+        onboardingSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Cuándo terminó u omitió la introducción de primeros pasos; null si aún no la vio (V22).
+    SupportContact:
+      type: object
+      required: [supportEmail, supportWhatsapp]
+      properties:
+        supportEmail: {type: string, format: email}
+        supportWhatsapp: {type: string, nullable: true, description: Solo dígitos con código de país.}
+        updatedAt: {type: string, format: date-time}
     OrganizationMembership:
       type: object
       required: [id, legalName, role, locations]

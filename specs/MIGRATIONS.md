@@ -186,3 +186,12 @@ sin CHECK): reemplaza `alert_recipient_authorized` (conservando V14) y `alert_so
 con `ON_ERROR_STOP=1` (o con `scripts/aplicar-migraciones.sh`). **Desplegar el backend antes de esta migración es seguro**: el
 emisor de `incidents` consulta la marca; sin ella omite el aviso con una advertencia y la asignación se confirma igual. Ver
 [NOTIFICATIONS.md](NOTIFICATIONS.md) e [INCIDENTS.md](INCIDENTS.md).
+
+## Introducción vista y contacto de soporte (V22)
+
+`V22__onboarding_support_contact.sql` es aditiva: agrega `application_users.onboarding_seen_at` (nula = aún no vio la
+introducción de primeros pasos) y crea `platform_settings` (una sola fila con `support_email`, por defecto
+`proyectobpmupn@gmail.com`, y `support_whatsapp` opcional). No reescribe datos. Aplicar antes de desplegar la API: falla
+al arrancar si falta (`platform settings migration V22 is required`). Rutas: `PUT`/`DELETE /api/v1/me/onboarding`
+(marcar o volver a mostrar la introducción; `GET /me` devuelve `onboardingSeenAt`) y `GET`/`PUT /api/v1/platform/support`
+(lectura para toda persona activa; edición solo `SUPER_ADMIN`).

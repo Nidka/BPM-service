@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/Nidka/BPM-service/internal/core/contracts"
 	"github.com/Nidka/BPM-service/internal/core/httpserver/middleware"
@@ -16,9 +17,54 @@ type CurrentProfileGetter interface {
 	Execute(ctx context.Context, identity contracts.Identity) (domain.Profile, error)
 }
 
+// OnboardingSetter marca (true) o desmarca (false) la introducción de la persona autenticada.
+type OnboardingSetter interface {
+	Execute(ctx context.Context, identity contracts.Identity, seen bool) (*time.Time, error)
+}
+
 type Handler struct {
 	getCurrentProfile CurrentProfileGetter
+	setOnboarding     OnboardingSetter
 	logger            *slog.Logger
+}
+
+// WithOnboarding habilita PUT y DELETE /me/onboarding.
+func (handler *Handler) WithOnboarding(setter OnboardingSetter) *Handler {
+	handler.setOnboarding = setter
+	return handler
+}
+
+// MarkOnboardingSeen guarda que la persona terminó u omitió la introducción.
+func (handler *Handler) MarkOnboardingSeen(writer http.ResponseWriter, request *http.Request) {
+	handler.onboarding(writer, request, true)
+}
+
+// ClearOnboardingSeen permite volver a ver la introducción desde Ayuda.
+func (handler *Handler) ClearOnboardingSeen(writer http.ResponseWriter, request *http.Request) {
+	handler.onboarding(writer, request, false)
+}
+
+func (handler *Handler) onboarding(writer http.ResponseWriter, request *http.Request, seen bool) {
+	requestID := middleware.RequestIDFromContext(request.Context())
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.Unauthenticated(writer, requestID)
+		return
+	}
+	seenAt, err := handler.setOnboarding.Execute(request.Context(), identity, seen)
+	if err != nil {
+		writeIdentityError(writer, request, err, handler.logger)
+		return
+	}
+	response.JSON(writer, http.StatusOK, map[string]any{"data": map[string]any{"onboardingSeenAt": formatSeenAt(seenAt)}})
+}
+
+func formatSeenAt(seenAt *time.Time) *string {
+	if seenAt == nil {
+		return nil
+	}
+	value := seenAt.UTC().Format(time.RFC3339)
+	return &value
 }
 
 func NewHandler(getCurrentProfile CurrentProfileGetter, logger *slog.Logger) *Handler {
@@ -80,6 +126,8 @@ type profileResponse struct {
 	PhoneNumber   string                 `json:"phoneNumber,omitempty"`
 	PlatformRole  domain.PlatformRole    `json:"platformRole"`
 	Organizations []organizationResponse `json:"organizations"`
+	// OnboardingSeenAt es null mientras la persona no haya terminado u omitido la introducción.
+	OnboardingSeenAt *string `json:"onboardingSeenAt"`
 }
 
 type organizationResponse struct {
@@ -103,12 +151,13 @@ type locationResponse struct {
 
 func newProfileResponse(profile domain.Profile) profileResponse {
 	result := profileResponse{
-		ID:            profile.ID,
-		Email:         profile.Email,
-		DisplayName:   profile.DisplayName,
-		PhoneNumber:   profile.PhoneNumber,
-		PlatformRole:  profile.PlatformRole,
-		Organizations: make([]organizationResponse, 0, len(profile.Organizations)),
+		ID:               profile.ID,
+		Email:            profile.Email,
+		DisplayName:      profile.DisplayName,
+		PhoneNumber:      profile.PhoneNumber,
+		PlatformRole:     profile.PlatformRole,
+		Organizations:    make([]organizationResponse, 0, len(profile.Organizations)),
+		OnboardingSeenAt: formatSeenAt(profile.OnboardingSeenAt),
 	}
 	for _, membership := range profile.Organizations {
 		organization := organizationResponse{

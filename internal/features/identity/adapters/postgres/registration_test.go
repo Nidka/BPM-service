@@ -53,6 +53,13 @@ func TestRegistrationPostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, string(baseline)); err != nil {
 		t.Fatal(err)
 	}
+	v22, err := os.ReadFile("../../../../../migraciones/V22__onboarding_support_contact.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, string(v22)); err != nil {
+		t.Fatal(err)
+	}
 	repo := NewRepository(pool)
 	user := domain.NewUser{ID: "test-uid-1", Email: "person@example.invalid", DisplayName: "Persona"}
 	if err := repo.CreateUser(ctx, user); err != nil {
@@ -67,6 +74,25 @@ func TestRegistrationPostgres(t *testing.T) {
 	profile, err := repo.FindByUserID(ctx, user.ID)
 	if err != nil || profile.ID != user.ID || profile.PlatformRole != domain.PlatformRoleUser || len(profile.Organizations) != 0 {
 		t.Fatal("registered user must have a readable profile without organization access")
+	}
+	if profile.OnboardingSeenAt != nil {
+		t.Fatal("a new user has not seen the onboarding")
+	}
+	seenAt := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
+	if err := repo.SetOnboardingSeen(ctx, user.ID, &seenAt); err != nil {
+		t.Fatal(err)
+	}
+	if profile, err = repo.FindByUserID(ctx, user.ID); err != nil || profile.OnboardingSeenAt == nil || !profile.OnboardingSeenAt.Equal(seenAt) {
+		t.Fatal("onboarding seen must be persisted", err)
+	}
+	if err := repo.SetOnboardingSeen(ctx, user.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if profile, err = repo.FindByUserID(ctx, user.ID); err != nil || profile.OnboardingSeenAt != nil {
+		t.Fatal("onboarding seen must be cleared", err)
+	}
+	if !errors.Is(repo.SetOnboardingSeen(ctx, "missing", &seenAt), domain.ErrUserNotFound) {
+		t.Fatal("unknown user must not be updated")
 	}
 	if _, err := pool.Exec(ctx, `UPDATE application_users SET status='INACTIVE' WHERE id=$1`, user.ID); err != nil {
 		t.Fatal("cannot prepare replay fixture")
