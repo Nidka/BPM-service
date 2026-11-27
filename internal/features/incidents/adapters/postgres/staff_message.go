@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/Nidka/BPM-service/internal/core/outbox"
@@ -59,7 +60,12 @@ func (s *store) emitStaffMessage(ctx context.Context, tx pgx.Tx, a domain.Actor,
 	if e != nil {
 		return e
 	}
-	title := truncateRunes("Aviso del equipo: "+domain.StaffMessageLabel(v.Kind), 160)
+	// Quien avisa va en el título («Aviso de Lucía: Falta insumo») para que el jefe sepa a quién responder.
+	var sender string
+	if e := tx.QueryRow(ctx, `SELECT COALESCE(display_name,'') FROM application_users WHERE id=$1`, a.ID).Scan(&sender); e != nil && !errors.Is(e, pgx.ErrNoRows) {
+		return e
+	}
+	title := truncateRunes(staffMessageTitle(sender, domain.StaffMessageLabel(v.Kind)), 160)
 	message := site
 	if v.Text != "" {
 		message = site + " · " + v.Text
@@ -98,4 +104,12 @@ func (s *store) SupervisorContact(ctx context.Context, a domain.Actor, org, loca
 		return domain.SupervisorContact{}, nil
 	}
 	return c, e
+}
+
+// staffMessageTitle arma «Aviso de Lucía: Falta insumo»; sin nombre queda «Aviso del equipo: Falta insumo».
+func staffMessageTitle(sender, label string) string {
+	if name := strings.TrimSpace(sender); name != "" {
+		return "Aviso de " + name + ": " + label
+	}
+	return "Aviso del equipo: " + label
 }
