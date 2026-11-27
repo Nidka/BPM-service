@@ -26,7 +26,7 @@ func TestAvisarAMiJefeYContactoDeWhatsApp(t *testing.T) {
 	var title, message string
 	var authorized, pending bool
 	if e := pool.QueryRow(ctx, `SELECT title,message,alert_recipient_authorized($1,id,recipient_user_id),alert_source_pending($1,id) FROM alerts WHERE alert_type='STAFF_MESSAGE' AND recipient_user_id='chef'`, org).Scan(&title, &message, &authorized, &pending); e != nil ||
-		title != "Aviso del equipo: Falta insumo" || message != "Principal · Falta aceite" || !authorized || !pending {
+		title != "Aviso de Worker: Falta insumo" || message != "Principal · Falta aceite" || !authorized || !pending {
 		t.Fatal(title, message, authorized, pending, e)
 	}
 	if _, e := s.SendStaffMessage(ctx, "outside", org, "staff-key-2", domain.StaffMessage{ID: uid(8, 2), LocationID: site, Kind: "HELP"}); e == nil {
