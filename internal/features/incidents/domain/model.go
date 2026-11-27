@@ -38,7 +38,16 @@ type CatalogVersion struct {
 type Report struct {
 	ID, LocationID, CatalogID, CatalogCode, Description, ClientOperationID string
 	ClientCreatedAt                                                        time.Time
+	// Priority es NORMAL (aviso solo en la bandeja) o URGENT (además push al jefe y al administrador). Vacío = NORMAL.
+	Priority string
 }
+
+// Prioridades del reporte.
+const (
+	PriorityNormal = "NORMAL"
+	PriorityUrgent = "URGENT"
+)
+
 type Command struct {
 	OperationID                                          string
 	RowVersion                                           int

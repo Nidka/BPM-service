@@ -44,6 +44,8 @@ type ReceiptStore interface {
 // error por esquema sin migrar ni por fallos del aviso, para no impedir la asignación.
 type NotificationStore interface {
 	NotifyAssigned(ctx context.Context, actor domain.Actor, org string, v domain.Incident, now time.Time) error
+	// NotifyReported avisa (push + bandeja) al jefe de cocina y al administrador de la sede. Mejor esfuerzo.
+	NotifyReported(ctx context.Context, actor domain.Actor, org string, v domain.Incident, urgent bool, now time.Time) error
 }
 type Store interface {
 	AuthorizationStore

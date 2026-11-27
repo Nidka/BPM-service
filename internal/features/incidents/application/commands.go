@@ -42,7 +42,11 @@ func (s *Service) Report(ctx context.Context, user, org, key string, input domai
 		if e = db.Event(ctx, a, org, out.ID, v.ClientOperationID, "", "OPEN", "", hash, body); e != nil {
 			return out, e
 		}
-		return out, db.Audit(ctx, a, org, "incident.reported", out.ID)
+		if e = db.Audit(ctx, a, org, "incident.reported", out.ID); e != nil {
+			return out, e
+		}
+		// Aviso al jefe de cocina y al administrador. Mejor esfuerzo: sin V23 o ante un fallo no afecta el reporte.
+		return out, db.NotifyReported(ctx, a, org, out, v.Priority == domain.PriorityUrgent, s.now().UTC().Truncate(time.Microsecond))
 	})
 }
 func (s *Service) Act(ctx context.Context, user, org, id, key string, input domain.Command) (domain.Incident, error) {

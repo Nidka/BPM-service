@@ -49,6 +49,12 @@ func TestBuildPushPorTipo(t *testing.T) {
 			"Te asignaron una incidencia", "Revisa la acción correctiva asignada.", "control/incidencias", "INCIDENT", idItem},
 		{"incidencia asignada sin id válido", PushFacts{AlertType: "INCIDENT_ASSIGNED", SourceType: "INCIDENT", SourceID: "no-uuid", SiteName: "Sede Centro", Subject: "Plaga"},
 			"Te asignaron una incidencia: Plaga", "Sede Centro · Revisa la acción correctiva asignada.", "avisos", "INCIDENT", ""},
+		{"problema reportado CHEF", PushFacts{AlertType: "INCIDENT_REPORTED", SourceType: "INCIDENT", SourceID: idItem, LocationID: idSite, SiteName: "Sede Centro", Subject: "Plaga", RecipientRole: "CHEF"},
+			"Nuevo problema reportado: Plaga", "Sede Centro · Revísalo y asigna quién lo corrige.", "control/incidencias", "INCIDENT", idItem},
+		{"problema urgente", PushFacts{AlertType: "INCIDENT_REPORTED", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro", Subject: "Plaga", Priority: "URGENT", RecipientRole: "ADMIN"},
+			"Problema urgente: Plaga", "Sede Centro · Revísalo y asigna quién lo corrige.", "empresa/incidencias", "INCIDENT", idItem},
+		{"problema reportado ADMIN sin sede", PushFacts{AlertType: "INCIDENT_REPORTED", SourceType: "INCIDENT", SourceID: idItem, RecipientRole: "ADMIN"},
+			"Nuevo problema reportado", "Revísalo y asigna quién lo corrige.", "empresa/incidencias", "INCIDENT", idItem},
 		{"tipo desconocido", PushFacts{AlertType: "OTRO_TIPO", SourceType: "INCIDENT", SourceID: idItem, SiteName: "Sede Centro"},
 			GenericPushTitle, GenericPushBody, "avisos", "INCIDENT", idItem},
 	} {

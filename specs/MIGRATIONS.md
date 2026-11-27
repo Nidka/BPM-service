@@ -195,3 +195,11 @@ introducción de primeros pasos) y crea `platform_settings` (una sola fila con `
 al arrancar si falta (`platform settings migration V22 is required`). Rutas: `PUT`/`DELETE /api/v1/me/onboarding`
 (marcar o volver a mostrar la introducción; `GET /me` devuelve `onboardingSeenAt`) y `GET`/`PUT /api/v1/platform/support`
 (lectura para toda persona activa; edición solo `SUPER_ADMIN`).
+
+## Aviso de problema reportado (V23)
+
+`V23__alerts_incident_reported.sql` es aditiva y no cambia tablas: reemplaza `alert_recipient_authorized` y
+`alert_source_pending` (conservando V14 y V21) para reconocer `INCIDENT_REPORTED` (fuente `INCIDENT`) y crea la función
+marcadora `alert_incident_reported_supported()`. Al reportar una incidencia se avisa (bandeja + push) a cada ADMIN y a cada
+CHEF con la sede, sin incluir a quien reportó; el aviso deja de estar pendiente cuando la incidencia sale de `OPEN`.
+**Desplegar el backend antes de esta migración es seguro**: sin la marca no emite el aviso y el reporte sigue igual.

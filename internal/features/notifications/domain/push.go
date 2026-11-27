@@ -29,6 +29,7 @@ const (
 	AlertOrganizationInactive = "ORGANIZATION_INACTIVE"
 	AlertTrainingAssigned     = "TRAINING_ASSIGNED"
 	AlertIncidentAssigned     = "INCIDENT_ASSIGNED"
+	AlertIncidentReported     = "INCIDENT_REPORTED"
 )
 
 // PushFacts son datos de negocio ya resueltos por el adaptador. Nunca incluye datos personales de quien
@@ -48,6 +49,8 @@ type PushFacts struct {
 	// DueAt y Zone formatean el vencimiento (capacitación o plazo de la acción correctiva) en la zona de la sede.
 	DueAt *time.Time
 	Zone  string
+	// Priority es la prioridad del reporte (URGENT/NORMAL) para INCIDENT_REPORTED.
+	Priority string
 	// RecipientRole solo decide la ruta (ADMIN opera desde Empresa); no se muestra.
 	RecipientRole string
 }
@@ -103,6 +106,21 @@ func BuildPush(f PushFacts) PushContent {
 		out.Title = withSuffix("Capacitación asignada", ": ", subject)
 		out.Body = trainingBody(site, f.DueAt, f.Zone)
 		out.Route = "aprender"
+	case AlertIncidentReported:
+		out.Title = withSuffix("Nuevo problema reportado", ": ", subject)
+		if f.Priority == "URGENT" {
+			out.Title = withSuffix("Problema urgente", ": ", subject)
+		}
+		out.Body = "Revísalo y asigna quién lo corrige."
+		if site != "" {
+			out.Body = site + " · Revísalo y asigna quién lo corrige."
+		}
+		if f.SourceType == "INCIDENT" && out.EntityID != "" {
+			out.Route = "control/incidencias"
+			if f.RecipientRole == "ADMIN" {
+				out.Route = "empresa/incidencias"
+			}
+		}
 	case AlertIncidentAssigned:
 		out.Title = withSuffix("Te asignaron una incidencia", ": ", subject)
 		out.Body = incidentBody(site, f.DueAt, f.Zone)

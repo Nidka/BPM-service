@@ -24,12 +24,17 @@ func (p *Provider) Send(ctx context.Context, _ string, v domain.Message) (string
 		// Tipo desconocido o entrega preparada antes de existir el texto específico.
 		title, body = domain.GenericPushTitle, domain.GenericPushBody
 	}
+	priority := "normal"
+	if v.Push.Type == domain.AlertIncidentReported {
+		// Solo los reportes urgentes generan push de este tipo: se entregan con prioridad alta.
+		priority = "high"
+	}
 	id, e := p.client.Send(ctx, &messaging.Message{
 		Token:        v.PushToken,
 		Notification: &messaging.Notification{Title: domain.Truncate(title, domain.PushTitleMax), Body: domain.Truncate(body, domain.PushBodyMax)},
 		Data:         data(v),
 		// La etiqueta reemplaza una notificación repetida del mismo aviso (FCM entrega al menos una vez).
-		Android: &messaging.AndroidConfig{CollapseKey: v.AlertID, Priority: "normal", TTL: &ttl, Notification: &messaging.AndroidNotification{ChannelID: "bpm-alerts", Tag: v.AlertID}},
+		Android: &messaging.AndroidConfig{CollapseKey: v.AlertID, Priority: priority, TTL: &ttl, Notification: &messaging.AndroidNotification{ChannelID: "bpm-alerts", Tag: v.AlertID}},
 	})
 	if messaging.IsRegistrationTokenNotRegistered(e) {
 		return "", application.ErrInvalidToken

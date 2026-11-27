@@ -214,7 +214,7 @@ func (r *Repository) pushContent(ctx context.Context, tx pgx.Tx, org, id string)
 	f := domain.PushFacts{}
 	const uuidRe = `'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'`
 	source := `CASE WHEN a.source_id ~ ` + uuidRe + ` THEN a.source_id::uuid END`
-	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,ic.name,''),COALESCE(pr.category,''),COALESCE(ta.due_at,ca2.due_at)
+	e := tx.QueryRow(ctx, `SELECT a.alert_type,COALESCE(a.source_type,''),COALESCE(a.source_id,''),COALESCE(a.location_id::text,''),COALESCE(l.name,''),COALESCE(l.timezone,''),COALESCE(m.role,''),COALESCE(a.context_snapshot->>'temperatureCelsius',''),COALESCE(a.context_snapshot->'configuration'->>'inactivityDays',''),COALESCE(tpl.name,pr.name,co.title,ic.name,''),COALESCE(pr.category,''),COALESCE(ta.due_at,ca2.due_at),COALESCE(a.context_snapshot->>'priority','')
 FROM alerts a
 LEFT JOIN locations l ON l.organization_id=a.organization_id AND l.id=a.location_id
 LEFT JOIN organization_memberships m ON m.organization_id=a.organization_id AND m.user_id=a.recipient_user_id
@@ -227,7 +227,7 @@ LEFT JOIN training_courses co ON co.organization_id=ta.organization_id AND co.id
 LEFT JOIN incidents inc ON a.source_type='INCIDENT' AND inc.organization_id=a.organization_id AND inc.id=`+source+`
 LEFT JOIN incident_catalog ic ON ic.organization_id=inc.organization_id AND ic.id=inc.catalog_id
 LEFT JOIN corrective_actions ca2 ON a.source_type='INCIDENT' AND ca2.organization_id=a.organization_id AND ca2.incident_id=inc.id AND ca2.id::text=a.context_snapshot->>'actionId'
-WHERE a.organization_id=$1 AND a.id=$2`, org, id).Scan(&f.AlertType, &f.SourceType, &f.SourceID, &f.LocationID, &f.SiteName, &f.Zone, &f.RecipientRole, &f.Temperature, &f.InactivityDays, &f.Subject, &f.Category, &f.DueAt)
+WHERE a.organization_id=$1 AND a.id=$2`, org, id).Scan(&f.AlertType, &f.SourceType, &f.SourceID, &f.LocationID, &f.SiteName, &f.Zone, &f.RecipientRole, &f.Temperature, &f.InactivityDays, &f.Subject, &f.Category, &f.DueAt, &f.Priority)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return domain.BuildPush(domain.PushFacts{}), nil
 	}

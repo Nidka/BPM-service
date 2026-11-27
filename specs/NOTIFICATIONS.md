@@ -71,6 +71,7 @@ antes de este cambio) usa el texto genérico «Tienes un aviso en BPM» / «Abre
 | `ORGANIZATION_INACTIVE` | `Sin actividad reciente en BPM` | `No hay actividad desde hace {N} días. Revisa la operación.` | `empresa` |
 | `TRAINING_ASSIGNED` | `Capacitación asignada: {curso}` | `{sede} · Vence el dd/MM/aaaa. Complétala en la Academia.` | `aprender` |
 | `INCIDENT_ASSIGNED` | `Te asignaron una incidencia: {categoría}` | `{sede} · Plazo dd/MM/aaaa HH:mm` (hora de la sede) | `empresa/incidencias` (ADMIN) o `control/incidencias` (CHEF/WORKER) |
+| `INCIDENT_REPORTED` | `Nuevo problema reportado: {categoría}` | `{sede} · Revísalo y asigna quién lo corrige.` | `empresa/incidencias` (ADMIN) o `control/incidencias` (CHEF) |
 | otro | texto genérico | texto genérico | `avisos` |
 
 Las partes ausentes se omiten (sin sede, sin plazo, sin medición). El mensaje FCM lleva el bloque `notification`

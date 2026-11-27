@@ -47,6 +47,13 @@ func NormalizeReport(v Report, now time.Time) (Report, error) {
 	v.ClientOperationID = strings.ToLower(v.ClientOperationID)
 	v.Description = strings.TrimSpace(v.Description)
 	v.ClientCreatedAt = v.ClientCreatedAt.UTC().Truncate(time.Microsecond)
+	v.Priority = strings.ToUpper(strings.TrimSpace(v.Priority))
+	if v.Priority == "" {
+		v.Priority = PriorityNormal
+	}
+	if v.Priority != PriorityNormal && v.Priority != PriorityUrgent {
+		return v, invalid("priority")
+	}
 	for _, x := range []struct {
 		k  string
 		ok bool
